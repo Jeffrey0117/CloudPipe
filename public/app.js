@@ -6,32 +6,130 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 // 狀態
-let currentType = null; // 'service' | 'app'
-let existingServices = []; // 已存在的服務名稱
-let existingApps = []; // 已存在的 app 名稱
+let currentType = null;
+let existingServices = [];
+let existingApps = [];
+let authToken = localStorage.getItem('cloudpipe_token');
 
-// DOM 元素
-const uploadZone = $('#uploadZone');
-const uploadTitle = $('#uploadTitle');
-const guideText = $('#guideText');
-const nameInput = $('#nameInput');
-const nameLabel = $('#nameLabel');
-const serviceName = $('#serviceName');
-const nameSuffix = $('#nameSuffix');
-const nameHint = $('#nameHint');
-const dropzone = $('#dropzone');
-const fileInput = $('#fileInput');
-const uploadHint = $('#uploadHint');
-const uploadStatus = $('#uploadStatus');
-const statusText = $('#statusText');
-const deployedList = $('#deployedList');
+// DOM 元素 (在 DOMContentLoaded 後賦值)
+let loginScreen, dashboard, passwordInput, loginBtn, loginError, logoutBtn;
+let uploadZone, uploadTitle, guideText, nameInput, nameLabel, serviceName;
+let nameSuffix, nameHint, dropzone, fileInput, uploadHint, uploadStatus;
+let statusText, deployedList;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 取得 DOM 元素
+  loginScreen = $('#loginScreen');
+  dashboard = $('#dashboard');
+  passwordInput = $('#passwordInput');
+  loginBtn = $('#loginBtn');
+  loginError = $('#loginError');
+  logoutBtn = $('#logoutBtn');
+  uploadZone = $('#uploadZone');
+  uploadTitle = $('#uploadTitle');
+  guideText = $('#guideText');
+  nameInput = $('#nameInput');
+  nameLabel = $('#nameLabel');
+  serviceName = $('#serviceName');
+  nameSuffix = $('#nameSuffix');
+  nameHint = $('#nameHint');
+  dropzone = $('#dropzone');
+  fileInput = $('#fileInput');
+  uploadHint = $('#uploadHint');
+  uploadStatus = $('#uploadStatus');
+  statusText = $('#statusText');
+  deployedList = $('#deployedList');
+
+  // 只在 admin 頁面執行
+  if (!loginScreen) return;
+
+  initLogin();
   initCards();
   initUpload();
-  loadDeployed();
+
+  // 檢查登入狀態
+  if (authToken) {
+    verifyToken();
+  }
 });
+
+// ========== 登入相關 ==========
+
+function initLogin() {
+  // Enter 鍵登入
+  passwordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  loginBtn.addEventListener('click', doLogin);
+  logoutBtn.addEventListener('click', doLogout);
+}
+
+async function doLogin() {
+  const password = passwordInput.value.trim();
+  if (!password) return;
+
+  loginError.classList.add('hidden');
+  loginBtn.disabled = true;
+  loginBtn.textContent = '...';
+
+  try {
+    const res = await fetch('/api/_admin/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      authToken = data.token;
+      localStorage.setItem('cloudpipe_token', authToken);
+      showDashboard();
+    } else {
+      loginError.classList.remove('hidden');
+      passwordInput.value = '';
+      passwordInput.focus();
+    }
+  } catch (err) {
+    loginError.textContent = '連線失敗';
+    loginError.classList.remove('hidden');
+  }
+
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Login';
+}
+
+async function verifyToken() {
+  try {
+    const res = await fetch('/api/_admin/verify', {
+      headers: { 'authorization': `Bearer ${authToken}` }
+    });
+
+    if (res.ok) {
+      showDashboard();
+    } else {
+      doLogout();
+    }
+  } catch {
+    doLogout();
+  }
+}
+
+function showDashboard() {
+  loginScreen.classList.add('hidden');
+  dashboard.classList.remove('hidden');
+  loadDeployed();
+}
+
+function doLogout() {
+  authToken = null;
+  localStorage.removeItem('cloudpipe_token');
+  loginScreen.classList.remove('hidden');
+  dashboard.classList.add('hidden');
+  passwordInput.value = '';
+}
 
 // 卡片點擊
 function initCards() {
@@ -176,6 +274,7 @@ async function handleUpload(file) {
 
     const res = await fetch(endpoint, {
       method: 'POST',
+      headers: { 'authorization': `Bearer ${authToken}` },
       body: formData
     });
 
@@ -197,7 +296,9 @@ async function handleUpload(file) {
 // 載入已部署列表
 async function loadDeployed() {
   try {
-    const res = await fetch('/api/_admin/services');
+    const res = await fetch('/api/_admin/services', {
+      headers: { 'authorization': `Bearer ${authToken}` }
+    });
     const data = await res.json();
 
     // 記錄已存在的名稱
@@ -264,7 +365,10 @@ async function deleteItem(type, name) {
       ? `/api/_admin/service/${name}`
       : `/api/_admin/app/${name}`;
     
-    const res = await fetch(endpoint, { method: 'DELETE' });
+    const res = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: { 'authorization': `Bearer ${authToken}` }
+    });
     const data = await res.json();
     
     if (data.success) {

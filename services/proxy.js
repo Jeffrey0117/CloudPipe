@@ -8,14 +8,15 @@ const { URL } = require('url');
 const TARGET = 'https://api-production-1ea7.up.railway.app';
 
 module.exports = {
-  // 匹配 /api/* 路徑
+  // 匹配 /proxy/* 路徑
   match(req) {
-    return req.url.startsWith('/api');
+    return req.url.startsWith('/proxy');
   },
 
-  // 轉發請求（保留 /api 前綴）
+  // 轉發請求（/proxy → /api）
   handle(req, res) {
-    const targetUrl = new URL(req.url, TARGET);
+    const path = req.url.replace(/^\/proxy/, '/api');
+    const targetUrl = new URL(path, TARGET);
 
     console.log(`[proxy] ${req.url} -> ${targetUrl.href}`);
 

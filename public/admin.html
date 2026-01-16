@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudPipe Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    .hidden { display: none !important; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    .login-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #0a0a0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .login-box {
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      width: 100%;
+      max-width: 360px;
+    }
+    .login-box h1 { font-size: 2rem; font-weight: 300; color: #fff; margin-bottom: 0.25rem; }
+    .login-box > p { color: #666; margin-bottom: 2rem; }
+    .login-box input {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 0.875rem 1rem;
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      outline: none;
+    }
+    .login-box input:focus { border-color: #4ade80; }
+    .login-box button {
+      width: 100%;
+      background: #4ade80;
+      border: none;
+      border-radius: 6px;
+      padding: 0.875rem;
+      color: #000;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .login-box button:hover { background: #22c55e; }
+    .login-box .error { color: #f87171; font-size: 0.85rem; margin-top: 1rem; }
+    .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+    header { text-align: center; margin-bottom: 3rem; }
+    header h1 { font-size: 2.5rem; font-weight: 300; color: #fff; margin-bottom: 0.5rem; }
+    .subtitle { color: #666; font-size: 1rem; }
+    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+    .card {
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .card:hover { border-color: #4ade80; transform: translateY(-2px); }
+    .card.active { border-color: #4ade80; background: #1a1a1a; }
+    .card-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .card h2 { font-size: 1.2rem; font-weight: 500; color: #fff; margin-bottom: 0.5rem; }
+    .card p { color: #666; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .card code { background: #252525; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; color: #4ade80; }
+    .upload-zone { background: #151515; border: 1px solid #252525; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+    .upload-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .upload-header span { font-weight: 500; color: #fff; }
+    .close-btn { background: none; border: none; color: #666; font-size: 1.5rem; cursor: pointer; }
+    .close-btn:hover { color: #fff; }
+    .guide { background: #1a2332; border: 1px solid #2a3a4a; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #8ab4f8; }
+    .guide code { background: #2a3a4a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+    .name-input { margin-bottom: 1rem; }
+    .name-input label { display: block; color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .input-preview { display: flex; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+    .input-preview input { flex: 1; background: transparent; border: none; padding: 0.75rem; color: #fff; font-size: 1rem; outline: none; }
+    .input-preview span { padding: 0.75rem; color: #666; background: #1a1a1a; font-size: 0.9rem; }
+    .name-hint { margin-top: 0.5rem; font-size: 0.8rem; color: #666; }
+    .dropzone { border: 2px dashed #333; border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; }
+    .dropzone:hover { border-color: #4ade80; background: rgba(74, 222, 128, 0.05); }
+    .dropzone-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .dropzone p { color: #888; margin-bottom: 0.5rem; }
+    .dropzone .hint { font-size: 0.85rem; color: #555; }
+    .upload-status { text-align: center; padding: 2rem; }
+    .upload-status a { color: #4ade80; }
+    .deployed h3 { color: #888; font-size: 0.9rem; font-weight: 400; margin-bottom: 1rem; text-transform: uppercase; }
+    .deployed-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .deployed-item { display: flex; align-items: center; justify-content: space-between; background: #151515; border: 1px solid #252525; border-radius: 8px; padding: 1rem; }
+    .deployed-item .info { display: flex; align-items: center; gap: 1rem; }
+    .deployed-item .icon { font-size: 1.5rem; }
+    .deployed-item .name { font-weight: 500; color: #fff; }
+    .deployed-item .url { font-size: 0.85rem; color: #4ade80; }
+    .deployed-item .status { display: flex; align-items: center; gap: 0.5rem; color: #4ade80; font-size: 0.85rem; }
+    .deployed-item .status::before { content: ''; width: 8px; height: 8px; background: #4ade80; border-radius: 50%; }
+    .deployed-item button { background: #252525; border: none; color: #888; padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    .deployed-item button:hover { background: #333; color: #fff; }
+    .deployed-item button.delete:hover { background: #5c2626; color: #f87171; }
+    .empty { text-align: center; color: #555; padding: 2rem; }
+    footer { text-align: center; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #252525; }
+    .logout-btn { background: #252525; border: none; color: #888; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    .logout-btn:hover { background: #333; color: #fff; }
+    @media (max-width: 600px) { .cards { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h1>CloudPipe</h1>
+      <p>Admin Login</p>
+      <input type="password" id="passwordInput" placeholder="Password">
+      <button id="loginBtn" onclick="doLogin()">Login</button>
+      <p class="error hidden" id="loginError">密碼錯誤</p>
+    </div>
+  </div>
+
+  <div class="container hidden" id="dashboard">
+    <header>
+      <h1>CloudPipe</h1>
+      <p class="subtitle">Dashboard</p>
+    </header>
+    <main>
+      <section class="cards">
+        <div class="card" onclick="showUpload('service')">
+          <div class="card-icon">📡</div>
+          <h2>API 服務</h2>
+          <p>路徑式部署</p>
+          <code>epi.isnowfriend.com/xxx</code>
+        </div>
+        <div class="card" onclick="showUpload('app')">
+          <div class="card-icon">🌐</div>
+          <h2>專案部署</h2>
+          <p>子域名式</p>
+          <code>xxx.isnowfriend.com</code>
+        </div>
+      </section>
+
+      <section class="upload-zone hidden" id="uploadZone">
+        <div class="upload-header">
+          <span id="uploadTitle">上傳</span>
+          <button class="close-btn" onclick="hideUpload()">&times;</button>
+        </div>
+        <div class="guide"><p id="guideText"></p></div>
+        <div class="name-input">
+          <label id="nameLabel">名稱</label>
+          <div class="input-preview">
+            <input type="text" id="serviceName" placeholder="my-api">
+            <span id="nameSuffix">.isnowfriend.com</span>
+          </div>
+          <p class="name-hint" id="nameHint"></p>
+        </div>
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+          <div class="dropzone-icon">📁</div>
+          <p>拖拽檔案到這裡</p>
+          <p class="hint" id="uploadHint">或點擊選擇檔案</p>
+          <input type="file" id="fileInput" hidden onchange="handleUpload()">
+        </div>
+        <div class="upload-status hidden" id="uploadStatus">
+          <p id="statusText">上傳中...</p>
+        </div>
+      </section>
+
+      <section class="deployed">
+        <h3>已部署</h3>
+        <div class="deployed-list" id="deployedList"><div class="empty">載入中...</div></div>
+      </section>
+    </main>
+    <footer>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </footer>
+  </div>
+
+  <script>
+    let authToken = localStorage.getItem('cloudpipe_token');
+    let currentType = null;
+    let existingNames = [];
+
+    // 頁面載入
+    window.onload = function() {
+      if (authToken) verifyToken();
+    };
+
+    // 登入
+    async function doLogin() {
+      const pwd = document.getElementById('passwordInput').value.trim();
+      if (!pwd) return alert('請輸入密碼');
+
+      try {
+        const res = await fetch('/api/_admin/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          authToken = data.token;
+          localStorage.setItem('cloudpipe_token', authToken);
+          showDashboard();
+        } else {
+          document.getElementById('loginError').classList.remove('hidden');
+        }
+      } catch (e) {
+        alert('連線失敗: ' + e.message);
+      }
+    }
+
+    // Enter 登入
+    document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    // 驗證 token
+    async function verifyToken() {
+      try {
+        const res = await fetch('/api/_admin/verify', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        if (res.ok) showDashboard();
+        else doLogout();
+      } catch { doLogout(); }
+    }
+
+    function showDashboard() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      loadDeployed();
+    }
+
+    function doLogout() {
+      authToken = null;
+      localStorage.removeItem('cloudpipe_token');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+    }
+
+    // 上傳區
+    function showUpload(type) {
+      currentType = type;
+      document.getElementById('uploadZone').classList.remove('hidden');
+      document.getElementById('uploadStatus').classList.add('hidden');
+      document.getElementById('serviceName').value = '';
+
+      if (type === 'service') {
+        document.getElementById('uploadTitle').textContent = '上傳 API 服務';
+        document.getElementById('nameLabel').textContent = 'API 名稱';
+        document.getElementById('nameSuffix').textContent = '';
+        document.getElementById('guideText').innerHTML = '上傳 <code>.js</code> 檔案 → <code>epi.isnowfriend.com/你的名稱</code>';
+        document.getElementById('fileInput').accept = '.js';
+      } else {
+        document.getElementById('uploadTitle').textContent = '部署專案';
+        document.getElementById('nameLabel').textContent = '子域名';
+        document.getElementById('nameSuffix').textContent = '.isnowfriend.com';
+        document.getElementById('guideText').innerHTML = '上傳 <code>.zip</code> → <code>你的名稱.isnowfriend.com</code>';
+        document.getElementById('fileInput').accept = '.zip';
+      }
+    }
+
+    function hideUpload() {
+      document.getElementById('uploadZone').classList.add('hidden');
+    }
+
+    // 上傳檔案
+    async function handleUpload() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return;
+
+      const name = document.getElementById('serviceName').value.trim();
+      if (!name) return alert('請輸入名稱');
+      if (!/^[a-z0-9-]+$/.test(name)) return alert('名稱只能包含小寫字母、數字和連字符');
+
+      document.getElementById('dropzone').style.display = 'none';
+      document.getElementById('uploadStatus').classList.remove('hidden');
+      document.getElementById('statusText').textContent = '上傳中...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', name);
+
+        const endpoint = currentType === 'service' ? '/api/_admin/upload/service' : '/api/_admin/upload/app';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'authorization': 'Bearer ' + authToken },
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('statusText').innerHTML = '部署成功！<br><a href="' + data.url + '" target="_blank">' + data.url + '</a>';
+          loadDeployed();
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        document.getElementById('statusText').textContent = '失敗: ' + e.message;
+      }
+    }
+
+    // 載入已部署
+    async function loadDeployed() {
+      try {
+        const res = await fetch('/api/_admin/services', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        existingNames = [...data.services.map(s => s.name), ...data.apps.map(a => a.name)];
+
+        if (data.services.length === 0 && data.apps.length === 0) {
+          document.getElementById('deployedList').innerHTML = '<div class="empty">尚無部署</div>';
+          return;
+        }
+
+        let html = '';
+        data.services.forEach(s => {
+          html += '<div class="deployed-item"><div class="info"><span class="icon">📡</span><div><div class="name">' + s.name + '</div><div class="url">' + s.url + '</div></div></div><div class="status">運行中</div><button class="delete" onclick="deleteItem(\'service\',\'' + s.name + '\')">刪除</button></div>';
+        });
+        data.apps.forEach(a => {
+          html += '<div class="deployed-item"><div class="info"><span class="icon">🌐</span><div><div class="name">' + a.name + '</div><div class="url">' + a.url + '</div></div></div><div class="status">運行中</div><button class="delete" onclick="deleteItem(\'app\',\'' + a.name + '\')">刪除</button></div>';
+        });
+        document.getElementById('deployedList').innerHTML = html;
+      } catch (e) {
+        document.getElementById('deployedList').innerHTML = '<div class="empty">載入失敗</div>';
+      }
+    }
+
+    // 刪除
+    async function deleteItem(type, name) {
+      if (!confirm('確定刪除 ' + name + '？')) return;
+      const endpoint = type === 'service' ? '/api/_admin/service/' + name : '/api/_admin/app/' + name;
+      await fetch(endpoint, { method: 'DELETE', headers: { 'authorization': 'Bearer ' + authToken } });
+      loadDeployed();
+    }
+  </script>
+</body>
+</html>

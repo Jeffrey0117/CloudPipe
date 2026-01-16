@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const admin = require('./admin');
+const hotloader = require('./hotloader');
 
 // MIME types
 const MIME = {
@@ -39,23 +40,8 @@ module.exports = function(config) {
     fs.mkdirSync(appsDir, { recursive: true });
   }
 
-  // 載入 services/
-  const routes = [];
-  if (fs.existsSync(servicesDir)) {
-    fs.readdirSync(servicesDir)
-      .filter(f => f.endsWith('.js') && !f.startsWith('_'))
-      .forEach(file => {
-        try {
-          const route = require(path.join(servicesDir, file));
-          if (typeof route === 'function' || typeof route === 'object') {
-            routes.push({ name: path.basename(file, '.js'), handler: route });
-            console.log(`[${config.name}] 載入服務: ${file}`);
-          }
-        } catch (err) {
-          console.error(`[${config.name}] 載入失敗: ${file} - ${err.message}`);
-        }
-      });
-  }
+  // 載入 services/（使用 hotloader）
+  hotloader.loadAllServices(servicesDir);
 
   return http.createServer((req, res) => {
     // CORS
@@ -77,7 +63,7 @@ module.exports = function(config) {
 
     // ========== 主域名 (epi.isnowfriend.com) ==========
     if (subdomain === mainSubdomain || hostname === 'localhost') {
-      return handleMainDomain(req, res, { publicDir, routes });
+      return handleMainDomain(req, res, { publicDir });
     }
 
     // ========== 子域名 (xxx.isnowfriend.com) ==========
@@ -85,8 +71,18 @@ module.exports = function(config) {
   });
 
   // 處理主域名
-  function handleMainDomain(req, res, { publicDir, routes }) {
+  function handleMainDomain(req, res, { publicDir }) {
+    const routes = hotloader.getRoutes();
     const urlPath = req.url.split('?')[0];
+
+    // /_admin → admin.html
+    if (urlPath === '/_admin' || urlPath === '/_admin/') {
+      const adminFile = path.join(publicDir, 'admin.html');
+      if (fs.existsSync(adminFile)) {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        return res.end(fs.readFileSync(adminFile));
+      }
+    }
 
     // 靜態檔案 (public/)
     const staticFile = urlPath === '/' ? '/index.html' : urlPath;

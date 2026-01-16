@@ -1,3 +1,6 @@
 node_modules/
 tunnels/*.yml
 *.log
+
+_gemini_output.txt
+data/

@@ -5,16 +5,47 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
+const hotloader = require('./hotloader');
 
 // 目錄路徑
 const ROOT = path.join(__dirname, '..', '..');
 const SERVICES_DIR = path.join(ROOT, 'services');
 const APPS_DIR = path.join(ROOT, 'apps');
+const CONFIG_PATH = path.join(ROOT, 'config.json');
 
 // Cloudflared 路徑
 const CLOUDFLARED = 'C:\\Users\\jeffb\\cloudflared.exe';
 const TUNNEL_ID = 'afd11345-c75a-4d62-aa67-0a389d82ce74';
+
+// 讀取密碼
+function getPassword() {
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    return config.adminPassword || '';
+  } catch {
+    return '';
+  }
+}
+
+// 簡易 token (SHA256 hash of password + secret)
+const TOKEN_SECRET = 'cloudpipe_2024';
+function generateToken(password) {
+  return crypto.createHash('sha256').update(password + TOKEN_SECRET).digest('hex');
+}
+
+function verifyToken(token) {
+  const expectedToken = generateToken(getPassword());
+  return token === expectedToken;
+}
+
+// 驗證 middleware
+function requireAuth(req) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.replace('Bearer ', '');
+  return verifyToken(token);
+}
 
 // 確保 apps 目錄存在
 if (!fs.existsSync(APPS_DIR)) {
@@ -29,6 +60,27 @@ module.exports = {
   handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
+
+    // POST /api/_admin/login - 登入
+    if (req.method === 'POST' && pathname === '/api/_admin/login') {
+      return handleLogin(req, res);
+    }
+
+    // GET /api/_admin/verify - 驗證 token
+    if (req.method === 'GET' && pathname === '/api/_admin/verify') {
+      if (requireAuth(req)) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ valid: true }));
+      }
+      res.writeHead(401, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+
+    // ===== 以下需要驗證 =====
+    if (!requireAuth(req)) {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
 
     // GET /api/_admin/services - 列出所有服務
     if (req.method === 'GET' && pathname === '/api/_admin/services') {
@@ -62,6 +114,30 @@ module.exports = {
     res.end(JSON.stringify({ error: 'Not found' }));
   }
 };
+
+// 登入處理
+function handleLogin(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    try {
+      const { password } = JSON.parse(body);
+      const correctPassword = getPassword();
+
+      if (password === correctPassword) {
+        const token = generateToken(password);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: true, token }));
+      } else {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: '密碼錯誤' }));
+      }
+    } catch (err) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid request' }));
+    }
+  });
+}
 
 // 列出所有服務和專案
 function listServices(req, res) {
@@ -130,6 +206,9 @@ function uploadService(req, res) {
     fs.writeFileSync(destPath, file.data);
     console.log(`[admin] 服務已建立: ${name}`);
 
+    // 熱載入：立即載入新服務
+    hotloader.loadService(destPath);
+
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -197,11 +276,14 @@ function uploadApp(req, res) {
 // 刪除服務
 function deleteService(name, res) {
   const filePath = path.join(SERVICES_DIR, `${name}.js`);
-  
+
   if (!fs.existsSync(filePath)) {
     res.writeHead(404, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ error: '服務不存在' }));
   }
+
+  // 熱卸載：從記憶體移除
+  hotloader.unloadService(name);
 
   fs.unlinkSync(filePath);
 
