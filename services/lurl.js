@@ -207,6 +207,34 @@ async function downloadFile(url, destPath, pageUrl = '', cookies = '') {
   return false;
 }
 
+// 用 ffmpeg 產生影片縮圖
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+
+async function generateVideoThumbnail(videoPath, thumbnailPath) {
+  try {
+    // 確保縮圖目錄存在
+    const dir = path.dirname(thumbnailPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // ffmpeg 擷取第 1 秒的畫面，縮放到 320px 寬
+    const cmd = `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -vf "scale=320:-1" -y "${thumbnailPath}"`;
+    await execAsync(cmd, { timeout: 30000 });
+
+    if (fs.existsSync(thumbnailPath)) {
+      console.log(`[lurl] ✅ 縮圖產生成功: ${thumbnailPath}`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.log(`[lurl] ⚠️ 縮圖產生失敗: ${err.message}`);
+    return false;
+  }
+}
+
 function appendRecord(record) {
   ensureDirs();
   fs.appendFileSync(RECORDS_FILE, JSON.stringify(record) + '\n', 'utf8');
@@ -221,6 +249,18 @@ function updateRecordFileUrl(id, newFileUrl) {
     return r;
   });
   fs.writeFileSync(RECORDS_FILE, updated.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+}
+
+function updateRecordThumbnail(id, thumbnailPath) {
+  const records = readAllRecords();
+  const updated = records.map(r => {
+    if (r.id === id) {
+      return { ...r, thumbnailPath };
+    }
+    return r;
+  });
+  fs.writeFileSync(RECORDS_FILE, updated.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+  console.log(`[lurl] 記錄已更新縮圖: ${id}`);
 }
 
 function readAllRecords() {
@@ -395,6 +435,14 @@ function adminPage() {
             <span id="retryStatus" style="color: #666;">載入中...</span>
           </div>
           <small style="color: #888; margin-top: 5px; display: block;">※ 處理需要一些時間，請在 console 查看進度</small>
+        </div>
+        <div class="form-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+          <label>產生影片縮圖 - 使用 ffmpeg 擷取影片第 1 秒畫面</label>
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+            <button class="btn btn-primary" onclick="generateThumbnails()" id="thumbBtn">🖼️ 產生縮圖</button>
+            <span id="thumbStatus" style="color: #666;">載入中...</span>
+          </div>
+          <small style="color: #888; margin-top: 5px; display: block;">※ 需要安裝 ffmpeg</small>
         </div>
       </div>
     </div>
@@ -604,10 +652,44 @@ function adminPage() {
       }
     }
 
+    async function loadThumbStatus() {
+      // 簡單顯示「就緒」，不需要預先計算
+      document.getElementById('thumbStatus').textContent = '就緒';
+    }
+
+    async function generateThumbnails() {
+      const statusEl = document.getElementById('thumbStatus');
+      const btn = document.getElementById('thumbBtn');
+      btn.disabled = true;
+      statusEl.textContent = '處理中...';
+      try {
+        const res = await fetch('/lurl/api/generate-thumbnails', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.total === 0) {
+            showToast(data.message || '所有影片都已有縮圖');
+            statusEl.textContent = '無需產生';
+          } else {
+            showToast('開始產生 ' + data.total + ' 個縮圖');
+            statusEl.textContent = '背景處理中 (' + data.total + ' 個)';
+          }
+        } else {
+          showToast('產生失敗: ' + (data.error || '未知錯誤'), 'error');
+          statusEl.textContent = '產生失敗';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        showToast('產生失敗: ' + e.message, 'error');
+        statusEl.textContent = '產生失敗';
+        btn.disabled = false;
+      }
+    }
+
     loadStats();
     loadRecords();
     loadVersionConfig();
     loadRetryStatus();
+    loadThumbStatus();
   </script>
 </body>
 </html>`;
@@ -792,9 +874,14 @@ function browsePage() {
 
   <script>
     let allRecords = [];
-    let currentType = 'all';
+    let currentType = localStorage.getItem('lurl_browse_tab') || 'all';
     let searchQuery = '';
     let isLoading = false;
+
+    // 恢復上次的 tab 狀態
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.type === currentType);
+    });
 
     function showSkeleton() {
       document.getElementById('grid').innerHTML = Array(8).fill(0).map(() => \`
@@ -908,6 +995,7 @@ function browsePage() {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentType = tab.dataset.type;
+        localStorage.setItem('lurl_browse_tab', currentType);
         loadRecords(); // 重新從 server 載入
       });
     });
@@ -1187,8 +1275,20 @@ module.exports = {
         console.log(`[lurl] 記錄已存: ${title}`);
 
         // 後端用 cookies 嘗試下載（可能會失敗，但前端會補上傳）
-        downloadFile(fileUrl, path.join(targetDir, filename), pageUrl, cookies || '').then(ok => {
+        const videoFullPath = path.join(targetDir, filename);
+        downloadFile(fileUrl, videoFullPath, pageUrl, cookies || '').then(async (ok) => {
           console.log(`[lurl] 後端備份${ok ? '完成' : '失敗'}: ${filename}${cookies ? ' (有cookie)' : ''}`);
+
+          // 下載成功且是影片且沒有縮圖 → 用 ffmpeg 產生縮圖
+          if (ok && type === 'video' && !thumbnailPath) {
+            const thumbFilename = `${id}.jpg`;
+            const thumbFullPath = path.join(THUMBNAILS_DIR, thumbFilename);
+            const thumbOk = await generateVideoThumbnail(videoFullPath, thumbFullPath);
+            if (thumbOk) {
+              // 更新記錄加入 thumbnailPath
+              updateRecordThumbnail(id, `thumbnails/${thumbFilename}`);
+            }
+          }
         });
 
         res.writeHead(200, corsHeaders());
@@ -1480,6 +1580,74 @@ module.exports = {
         res.end(JSON.stringify({ ok: true, fixed: untitledRecords.length }));
       } catch (err) {
         console.error('[lurl] 修復 untitled 失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // POST /api/generate-thumbnails - 為現有影片產生縮圖（需要 Admin 登入）
+    if (req.method === 'POST' && urlPath === '/api/generate-thumbnails') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '請先登入' }));
+        return;
+      }
+
+      try {
+        const records = readAllRecords();
+        // 找出有影片檔案但沒縮圖的記錄
+        const needThumbnails = records.filter(r => {
+          if (r.type !== 'video') return false;
+          if (r.thumbnailPath && fs.existsSync(path.join(DATA_DIR, r.thumbnailPath))) return false;
+          const videoPath = path.join(DATA_DIR, r.backupPath);
+          return fs.existsSync(videoPath);
+        });
+
+        if (needThumbnails.length === 0) {
+          res.writeHead(200, corsHeaders());
+          res.end(JSON.stringify({ ok: true, total: 0, message: '所有影片都已有縮圖' }));
+          return;
+        }
+
+        console.log(`[lurl] 開始產生 ${needThumbnails.length} 個縮圖`);
+
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({
+          ok: true,
+          total: needThumbnails.length,
+          message: `開始產生 ${needThumbnails.length} 個縮圖...`
+        }));
+
+        // 背景執行
+        (async () => {
+          let successCount = 0;
+          for (let i = 0; i < needThumbnails.length; i++) {
+            const record = needThumbnails[i];
+            console.log(`[lurl] 產生縮圖 ${i + 1}/${needThumbnails.length}: ${record.id}`);
+
+            const videoPath = path.join(DATA_DIR, record.backupPath);
+            const thumbFilename = `${record.id}.jpg`;
+            const thumbPath = path.join(THUMBNAILS_DIR, thumbFilename);
+
+            const ok = await generateVideoThumbnail(videoPath, thumbPath);
+            if (ok) {
+              updateRecordThumbnail(record.id, `thumbnails/${thumbFilename}`);
+              successCount++;
+            }
+
+            // 間隔避免太快
+            if (i < needThumbnails.length - 1) {
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+          console.log(`[lurl] 縮圖產生完成: ${successCount}/${needThumbnails.length}`);
+        })().catch(err => {
+          console.error('[lurl] 縮圖產生錯誤:', err);
+        });
+
+      } catch (err) {
+        console.error('[lurl] 縮圖產生失敗:', err);
         res.writeHead(500, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: err.message }));
       }
