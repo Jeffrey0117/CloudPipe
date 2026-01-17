@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const hotloader = require('./hotloader');
+const deploy = require('./deploy');
 
 // 目錄路徑
 const ROOT = path.join(__dirname, '..', '..');
@@ -54,12 +55,17 @@ if (!fs.existsSync(APPS_DIR)) {
 
 module.exports = {
   match(req) {
-    return req.url.startsWith('/api/_admin');
+    return req.url.startsWith('/api/_admin') || req.url.startsWith('/webhook/');
   },
 
   handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
+
+    // ===== Webhook（不需要驗證，但會驗證 secret）=====
+    if (req.method === 'POST' && pathname.startsWith('/webhook/')) {
+      return handleWebhook(req, res, pathname);
+    }
 
     // POST /api/_admin/login - 登入
     if (req.method === 'POST' && pathname === '/api/_admin/login') {
@@ -81,6 +87,79 @@ module.exports = {
       res.writeHead(401, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Unauthorized' }));
     }
+
+    // ===== 部署 API =====
+
+    // GET /api/_admin/deploy/projects - 列出所有專案
+    if (req.method === 'GET' && pathname === '/api/_admin/deploy/projects') {
+      const projects = deploy.getAllProjects();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ projects }));
+    }
+
+    // POST /api/_admin/deploy/projects - 新增專案
+    if (req.method === 'POST' && pathname === '/api/_admin/deploy/projects') {
+      return handleCreateProject(req, res);
+    }
+
+    // GET /api/_admin/deploy/projects/:id - 專案詳情
+    if (req.method === 'GET' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+$/)) {
+      const id = pathname.split('/').pop();
+      const project = deploy.getProject(id);
+      if (!project) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: '專案不存在' }));
+      }
+      const deployments = deploy.getDeployments(id, 10);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ project, deployments }));
+    }
+
+    // PUT /api/_admin/deploy/projects/:id - 更新專案
+    if (req.method === 'PUT' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+$/)) {
+      const id = pathname.split('/').pop();
+      return handleUpdateProject(req, res, id);
+    }
+
+    // DELETE /api/_admin/deploy/projects/:id - 刪除專案
+    if (req.method === 'DELETE' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+$/)) {
+      const id = pathname.split('/').pop();
+      try {
+        deploy.deleteProject(id);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
+    // POST /api/_admin/deploy/projects/:id/deploy - 手動觸發部署
+    if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/deploy$/)) {
+      const id = pathname.split('/')[5];
+      return handleManualDeploy(req, res, id);
+    }
+
+    // GET /api/_admin/deploy/deployments - 所有部署記錄
+    if (req.method === 'GET' && pathname === '/api/_admin/deploy/deployments') {
+      const deployments = deploy.getDeployments(null, 50);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ deployments }));
+    }
+
+    // GET /api/_admin/deploy/deployments/:id - 部署詳情
+    if (req.method === 'GET' && pathname.match(/^\/api\/_admin\/deploy\/deployments\/[^/]+$/)) {
+      const id = pathname.split('/').pop();
+      const deployment = deploy.getDeployment(id);
+      if (!deployment) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: '部署記錄不存在' }));
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ deployment }));
+    }
+
+    // ===== 原有 API =====
 
     // GET /api/_admin/services - 列出所有服務
     if (req.method === 'GET' && pathname === '/api/_admin/services') {
@@ -354,6 +433,126 @@ function parseMultipart(req, callback) {
       callback(null, fields, files);
     } catch (err) {
       callback(err);
+    }
+  });
+}
+
+// ===== 部署相關處理函數 =====
+
+// 解析 JSON body
+function parseJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+// 新增專案
+async function handleCreateProject(req, res) {
+  try {
+    const data = await parseJsonBody(req);
+    const project = deploy.createProject(data);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ success: true, project }));
+  } catch (err) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// 更新專案
+async function handleUpdateProject(req, res, id) {
+  try {
+    const data = await parseJsonBody(req);
+    const project = deploy.updateProject(id, data);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ success: true, project }));
+  } catch (err) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// 手動觸發部署
+async function handleManualDeploy(req, res, id) {
+  try {
+    console.log(`[deploy] 手動觸發部署: ${id}`);
+
+    // 立即回應，部署在背景執行
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ success: true, message: '部署已觸發' }));
+
+    // 背景執行部署
+    deploy.deploy(id, { triggeredBy: 'manual' }).catch(err => {
+      console.error(`[deploy] 部署失敗: ${err.message}`);
+    });
+  } catch (err) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// GitHub Webhook 處理
+async function handleWebhook(req, res, pathname) {
+  // 從路徑取得專案 ID: /webhook/:projectId
+  const projectId = pathname.replace('/webhook/', '');
+
+  const project = deploy.getProject(projectId);
+  if (!project) {
+    res.writeHead(404, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ error: '專案不存在' }));
+  }
+
+  // 收集 body
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      // 驗證 GitHub signature（如果有設定 secret）
+      if (project.webhookSecret) {
+        const signature = req.headers['x-hub-signature-256'];
+        if (!deploy.verifyGitHubWebhook(body, signature, project.webhookSecret)) {
+          console.log(`[webhook] 驗證失敗: ${projectId}`);
+          res.writeHead(401, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Invalid signature' }));
+        }
+      }
+
+      const payload = JSON.parse(body);
+
+      // 檢查是否為正確的 branch
+      const ref = payload.ref || '';
+      const branch = ref.replace('refs/heads/', '');
+
+      if (branch !== project.branch) {
+        console.log(`[webhook] 忽略非目標 branch: ${branch} (目標: ${project.branch})`);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ignored: true, reason: 'Wrong branch' }));
+      }
+
+      console.log(`[webhook] 收到 push: ${projectId}, branch: ${branch}`);
+
+      // 回應 GitHub
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: '部署已觸發' }));
+
+      // 背景執行部署
+      deploy.deploy(projectId, { triggeredBy: 'webhook' }).catch(err => {
+        console.error(`[webhook] 部署失敗: ${err.message}`);
+      });
+
+    } catch (err) {
+      console.error(`[webhook] 處理失敗: ${err.message}`);
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
     }
   });
 }
