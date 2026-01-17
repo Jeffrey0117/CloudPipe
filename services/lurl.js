@@ -451,6 +451,13 @@ function adminPage() {
             <span id="dupStatus" style="color: #666;"></span>
           </div>
         </div>
+        <div class="form-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+          <label>修復檔案路徑 - 重複的 backupPath 改為唯一，然後重新下載</label>
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+            <button class="btn btn-primary" onclick="repairPaths()" id="repairBtn">🔧 修復路徑</button>
+            <span id="repairStatus" style="color: #666;"></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -688,6 +695,34 @@ function adminPage() {
       } catch (e) {
         showToast('產生失敗: ' + e.message, 'error');
         statusEl.textContent = '產生失敗';
+        btn.disabled = false;
+      }
+    }
+
+    async function repairPaths() {
+      const statusEl = document.getElementById('repairStatus');
+      const btn = document.getElementById('repairBtn');
+      btn.disabled = true;
+      statusEl.textContent = '處理中...';
+      try {
+        const res = await fetch('/lurl/api/repair-paths', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(data.message);
+          statusEl.textContent = data.fixed > 0 ? '已修復 ' + data.fixed + ' 個' : '無需修復';
+          if (data.fixed > 0) {
+            loadStats();
+            loadRecords();
+            loadRetryStatus(); // 更新重試狀態
+          }
+        } else {
+          showToast('修復失敗: ' + (data.error || '未知錯誤'), 'error');
+          statusEl.textContent = '修復失敗';
+        }
+        btn.disabled = false;
+      } catch (e) {
+        showToast('修復失敗: ' + e.message, 'error');
+        statusEl.textContent = '修復失敗';
         btn.disabled = false;
       }
     }
@@ -1675,6 +1710,73 @@ module.exports = {
         res.end(JSON.stringify({ ok: true, removed: toRemove.length }));
       } catch (err) {
         console.error('[lurl] 清理重複失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // POST /api/repair-paths - 修復重複的 backupPath（需要 Admin 登入）
+    if (req.method === 'POST' && urlPath === '/api/repair-paths') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '請先登入' }));
+        return;
+      }
+
+      try {
+        const records = readAllRecords();
+
+        // 找出 backupPath 重複的
+        const pathCounts = {};
+        records.forEach(r => {
+          pathCounts[r.backupPath] = (pathCounts[r.backupPath] || 0) + 1;
+        });
+
+        const duplicatePaths = new Set(
+          Object.entries(pathCounts).filter(([_, count]) => count > 1).map(([p]) => p)
+        );
+
+        if (duplicatePaths.size === 0) {
+          res.writeHead(200, corsHeaders());
+          res.end(JSON.stringify({ ok: true, fixed: 0, message: '沒有重複的檔案路徑' }));
+          return;
+        }
+
+        let fixedCount = 0;
+        const updatedRecords = records.map(r => {
+          if (duplicatePaths.has(r.backupPath)) {
+            // 產生新的唯一檔名
+            const ext = path.extname(r.backupPath);
+            const folder = r.type === 'video' ? 'videos' : 'images';
+            const safeTitle = sanitizeFilename(r.title.replace(/_[a-z0-9]+$/i, '')); // 移除舊的 ID 後綴
+            const newFilename = `${safeTitle}_${r.id}${ext}`;
+            const newBackupPath = `${folder}/${newFilename}`;
+
+            console.log(`[lurl] 修復路徑: ${r.backupPath} → ${newBackupPath}`);
+
+            fixedCount++;
+            return {
+              ...r,
+              backupPath: newBackupPath,
+              fileExists: false, // 標記需要重新下載
+            };
+          }
+          return r;
+        });
+
+        // 寫回檔案
+        fs.writeFileSync(RECORDS_FILE, updatedRecords.map(r => JSON.stringify(r)).join('\n') + '\n');
+
+        console.log(`[lurl] 已修復 ${fixedCount} 個重複路徑`);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({
+          ok: true,
+          fixed: fixedCount,
+          message: `已修復 ${fixedCount} 個路徑，請執行「重試失敗下載」重新抓取`
+        }));
+      } catch (err) {
+        console.error('[lurl] 修復路徑失敗:', err);
         res.writeHead(500, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: err.message }));
       }
