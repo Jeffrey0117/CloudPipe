@@ -959,8 +959,9 @@ function viewPage(record, fileExists) {
     .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; }
     .header nav a:hover { color: white; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .media-container { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; min-height: 200px; display: flex; align-items: center; justify-content: center; }
-    .media-container video, .media-container img { width: 100%; max-height: 70vh; object-fit: contain; display: block; }
+    .media-container { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+    .media-container video { width: 100%; max-height: 70vh; object-fit: contain; display: block; aspect-ratio: 16/9; background: #000; }
+    .media-container img { width: 100%; max-height: 70vh; object-fit: contain; display: block; }
     .media-missing { color: #666; text-align: center; padding: 40px; }
     .media-missing p { margin-bottom: 15px; }
     .info { background: #1a1a1a; border-radius: 12px; padding: 20px; }
