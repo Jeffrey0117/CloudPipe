@@ -444,6 +444,13 @@ function adminPage() {
           </div>
           <small style="color: #888; margin-top: 5px; display: block;">※ 需要安裝 ffmpeg</small>
         </div>
+        <div class="form-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+          <label>清理重複記錄 - 相同 CDN URL 只保留第一筆</label>
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+            <button class="btn btn-primary" onclick="cleanupDuplicates()" id="dupBtn">🗑️ 清理重複</button>
+            <span id="dupStatus" style="color: #666;"></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -681,6 +688,36 @@ function adminPage() {
       } catch (e) {
         showToast('產生失敗: ' + e.message, 'error');
         statusEl.textContent = '產生失敗';
+        btn.disabled = false;
+      }
+    }
+
+    async function cleanupDuplicates() {
+      const statusEl = document.getElementById('dupStatus');
+      const btn = document.getElementById('dupBtn');
+      btn.disabled = true;
+      statusEl.textContent = '處理中...';
+      try {
+        const res = await fetch('/lurl/api/cleanup-duplicates', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.removed === 0) {
+            showToast(data.message || '沒有重複記錄');
+            statusEl.textContent = '無重複';
+          } else {
+            showToast('已清理 ' + data.removed + ' 個重複記錄');
+            statusEl.textContent = '已清理 ' + data.removed + ' 個';
+            loadStats();
+            loadRecords();
+          }
+        } else {
+          showToast('清理失敗: ' + (data.error || '未知錯誤'), 'error');
+          statusEl.textContent = '清理失敗';
+        }
+        btn.disabled = false;
+      } catch (e) {
+        showToast('清理失敗: ' + e.message, 'error');
+        statusEl.textContent = '清理失敗';
         btn.disabled = false;
       }
     }
@@ -1202,9 +1239,9 @@ module.exports = {
           return;
         }
 
-        // 去重：用 pageUrl 判斷（同一頁面不建立重複記錄）
+        // 去重：用 pageUrl 或 fileUrl 判斷
         const existingRecords = readAllRecords();
-        const duplicate = existingRecords.find(r => r.pageUrl === pageUrl);
+        const duplicate = existingRecords.find(r => r.pageUrl === pageUrl || r.fileUrl === fileUrl);
         if (duplicate) {
           // 檢查檔案是否真的存在
           const filePath = path.join(DATA_DIR, duplicate.backupPath);
@@ -1580,6 +1617,64 @@ module.exports = {
         res.end(JSON.stringify({ ok: true, fixed: untitledRecords.length }));
       } catch (err) {
         console.error('[lurl] 修復 untitled 失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // POST /api/cleanup-duplicates - 清理重複記錄（需要 Admin 登入）
+    if (req.method === 'POST' && urlPath === '/api/cleanup-duplicates') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '請先登入' }));
+        return;
+      }
+
+      try {
+        const records = readAllRecords();
+        const seen = new Map(); // fileUrl -> record (保留第一個)
+        const toRemove = [];
+
+        records.forEach(r => {
+          // 優先用 fileUrl 去重，若 fileUrl 相同只保留第一筆
+          if (seen.has(r.fileUrl)) {
+            toRemove.push(r);
+          } else {
+            seen.set(r.fileUrl, r);
+          }
+        });
+
+        if (toRemove.length === 0) {
+          res.writeHead(200, corsHeaders());
+          res.end(JSON.stringify({ ok: true, removed: 0, message: '沒有重複記錄' }));
+          return;
+        }
+
+        // 刪除重複記錄的檔案（如果有）
+        toRemove.forEach(r => {
+          const filePath = path.join(DATA_DIR, r.backupPath);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`[lurl] 刪除重複檔案: ${r.backupPath}`);
+          }
+          if (r.thumbnailPath) {
+            const thumbPath = path.join(DATA_DIR, r.thumbnailPath);
+            if (fs.existsSync(thumbPath)) {
+              fs.unlinkSync(thumbPath);
+            }
+          }
+        });
+
+        // 保留的記錄
+        const keepRecords = Array.from(seen.values());
+        fs.writeFileSync(RECORDS_FILE, keepRecords.map(r => JSON.stringify(r)).join('\n') + '\n');
+
+        console.log(`[lurl] 已清理 ${toRemove.length} 個重複記錄`);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true, removed: toRemove.length }));
+      } catch (err) {
+        console.error('[lurl] 清理重複失敗:', err);
         res.writeHead(500, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: err.message }));
       }
