@@ -465,9 +465,9 @@ function hasRecovered(visitorId, urlId) {
 }
 
 function getRemainingQuota(quota) {
-  // VIP 或白名單用戶 = 無限額度
+  // VIP 或白名單用戶 = 無限額度 (用 -1 代表，因為 Infinity 在 JSON 會變 null)
   if (quota.status === 'vip' || isVipVisitor(quota.visitorId)) {
-    return Infinity;
+    return -1;
   }
   // 被封禁 = 0 額度
   if (quota.status === 'banned') {
@@ -1101,7 +1101,7 @@ function adminPage() {
       const html = allQuotas.map(q => {
         const statusIcon = q.status === 'banned' ? '🔴' : (q.status === 'vip' || q.isVip ? '⭐' : '🟢');
         const statusText = q.status === 'banned' ? '封禁' : (q.status === 'vip' || q.isVip ? 'VIP' : '正常');
-        const remaining = q.remaining === Infinity ? '∞' : q.remaining;
+        const remaining = q.remaining === -1 ? '∞' : q.remaining;
         const lastUsed = q.lastUsed ? new Date(q.lastUsed).toLocaleDateString() : '從未';
 
         return \`<div class="maintenance-item" style="cursor:pointer;" onclick="openQuotaModal('\${q.visitorId}')">
@@ -1130,7 +1130,7 @@ function adminPage() {
       if (!currentEditingQuota) return;
 
       document.getElementById('modalVisitorId').textContent = visitorId;
-      document.getElementById('modalCurrentQuota').textContent = \`已用 \${currentEditingQuota.usedCount} / 總額 \${currentEditingQuota.total} (剩餘 \${currentEditingQuota.remaining === Infinity ? '∞' : currentEditingQuota.remaining})\`;
+      document.getElementById('modalCurrentQuota').textContent = \`已用 \${currentEditingQuota.usedCount} / 總額 \${currentEditingQuota.total} (剩餘 \${currentEditingQuota.remaining === -1 ? '∞' : currentEditingQuota.remaining})\`;
       document.getElementById('modalNote').value = currentEditingQuota.note || '';
 
       // 顯示歷史
@@ -1169,7 +1169,7 @@ function adminPage() {
           // 更新 modal 顯示
           currentEditingQuota = allQuotas.find(q => q.visitorId === currentEditingQuota.visitorId);
           if (currentEditingQuota) {
-            document.getElementById('modalCurrentQuota').textContent = \`已用 \${currentEditingQuota.usedCount} / 總額 \${currentEditingQuota.total} (剩餘 \${currentEditingQuota.remaining === Infinity ? '∞' : currentEditingQuota.remaining})\`;
+            document.getElementById('modalCurrentQuota').textContent = \`已用 \${currentEditingQuota.usedCount} / 總額 \${currentEditingQuota.total} (剩餘 \${currentEditingQuota.remaining === -1 ? '∞' : currentEditingQuota.remaining})\`;
           }
         }
       } catch (e) {
@@ -3365,7 +3365,8 @@ module.exports = {
       const quota = getVisitorQuota(visitorId);
       const remaining = getRemainingQuota(quota);
 
-      if (remaining <= 0) {
+      if (remaining === 0) {
+        // -1 = 無限 (VIP)，0 = 用完或封禁，>0 = 還有額度
         res.writeHead(200, corsHeaders());
         res.end(JSON.stringify({
           ok: false,
