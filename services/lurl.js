@@ -322,6 +322,18 @@ function updateRecordThumbnail(id, thumbnailPath) {
   console.log(`[lurl] 記錄已更新縮圖: ${id}`);
 }
 
+function updateRecordBackupPath(id, backupPath) {
+  const records = readAllRecords();
+  const updated = records.map(r => {
+    if (r.id === id) {
+      return { ...r, backupPath };
+    }
+    return r;
+  });
+  fs.writeFileSync(RECORDS_FILE, updated.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+  console.log(`[lurl] 記錄已更新備份路徑: ${id} -> ${backupPath}`);
+}
+
 function readAllRecords() {
   ensureDirs();
   if (!fs.existsSync(RECORDS_FILE)) return [];
@@ -1019,8 +1031,14 @@ function browsePage() {
     }
     .card-thumb.pending { background: linear-gradient(135deg, #3d2a1a 0%, #1a1a1a 100%); }
     .card-thumb.image { background: linear-gradient(135deg, #2d1a3d 0%, #1a1a2e 100%); }
-    .card-thumb img { width: 100%; height: 100%; object-fit: cover; filter: blur(4px); transition: filter 0.3s; position: absolute; top: 0; left: 0; }
-    .card:hover .card-thumb img { filter: blur(2px); }
+    .card-thumb img {
+      width: 100%; height: 100%; object-fit: cover;
+      filter: blur(20px); opacity: 0;
+      transition: filter 0.4s ease-out, opacity 0.4s ease-out;
+      position: absolute; top: 0; left: 0;
+    }
+    .card-thumb img.loaded { filter: blur(4px); opacity: 1; }
+    .card:hover .card-thumb img.loaded { filter: blur(2px); }
 
     /* Card Info */
     .card-info { padding: 12px; }
@@ -1318,9 +1336,9 @@ function browsePage() {
           <div class="card-thumb \${r.type === 'image' ? 'image' : ''} \${!r.fileExists ? 'pending' : ''}">
             \${r.fileExists
               ? (r.type === 'image'
-                ? \`<img src="/lurl/files/\${r.thumbnailPath || r.backupPath}" loading="lazy" alt="\${getTitle(r.title)}" onerror="this.style.display='none'">\`
+                ? \`<img src="/lurl/files/\${r.thumbnailPath || r.backupPath}" loading="lazy" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.style.display='none'">\`
                 : (r.thumbnailExists && r.thumbnailPath
-                  ? \`<img src="/lurl/files/\${r.thumbnailPath}" loading="lazy" alt="\${getTitle(r.title)}" onerror="this.parentElement.innerHTML='<div class=play-icon></div>'"><div class="play-icon" style="position:absolute;"></div>\`
+                  ? \`<img src="/lurl/files/\${r.thumbnailPath}" loading="lazy" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.parentElement.innerHTML='<div class=play-icon></div>'"><div class="play-icon" style="position:absolute;"></div>\`
                   : '<div class="play-icon"></div>'))
               : '<span style="font-size:24px;color:#666">Pending</span>'}
           </div>
@@ -2412,6 +2430,139 @@ module.exports = {
         ok: true,
         failed: failedRecords.length,
         puppeteerAvailable: !!lurlRetry
+      }));
+      return;
+    }
+
+    // POST /api/optimize - 批次優化圖片（生成縮圖、轉 WebP）
+    if (req.method === 'POST' && urlPath === '/api/optimize') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      try {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
+        const { mode = 'thumbnails' } = body; // thumbnails | webp | both
+
+        const records = readAllRecords();
+        const results = { processed: 0, skipped: 0, failed: 0, details: [] };
+
+        for (const record of records) {
+          // 跳過沒有備份檔案的記錄
+          const sourcePath = path.join(DATA_DIR, record.backupPath);
+          if (!fs.existsSync(sourcePath)) {
+            results.skipped++;
+            continue;
+          }
+
+          // 生成缺少的縮圖
+          if ((mode === 'thumbnails' || mode === 'both') && !record.thumbnailPath) {
+            try {
+              if (record.type === 'image') {
+                const thumbPath = await processImage(sourcePath, record.id);
+                if (thumbPath) {
+                  updateRecordThumbnail(record.id, thumbPath);
+                  results.processed++;
+                  results.details.push({ id: record.id, action: 'thumbnail', status: 'ok' });
+                } else {
+                  results.failed++;
+                }
+              } else if (record.type === 'video') {
+                const thumbFilename = `${record.id}.webp`;
+                const thumbFullPath = path.join(THUMBNAILS_DIR, thumbFilename);
+                const ok = await generateVideoThumbnail(sourcePath, thumbFullPath);
+                if (ok) {
+                  updateRecordThumbnail(record.id, `thumbnails/${thumbFilename}`);
+                  results.processed++;
+                  results.details.push({ id: record.id, action: 'thumbnail', status: 'ok' });
+                } else {
+                  results.failed++;
+                }
+              }
+            } catch (err) {
+              results.failed++;
+              results.details.push({ id: record.id, action: 'thumbnail', status: 'error', error: err.message });
+            }
+          } else if (mode === 'thumbnails' && record.thumbnailPath) {
+            results.skipped++;
+          }
+
+          // 原圖轉 WebP（僅圖片）
+          if ((mode === 'webp' || mode === 'both') && record.type === 'image') {
+            const ext = path.extname(record.backupPath).toLowerCase();
+            if (ext !== '.webp') {
+              try {
+                const webpFilename = record.backupPath.replace(/\.\w+$/, '.webp');
+                const webpPath = path.join(DATA_DIR, webpFilename);
+
+                await sharp(sourcePath)
+                  .webp({ quality: 85 })
+                  .toFile(webpPath);
+
+                // 刪除原檔，更新記錄
+                fs.unlinkSync(sourcePath);
+                updateRecordBackupPath(record.id, webpFilename);
+                results.processed++;
+                results.details.push({ id: record.id, action: 'webp', status: 'ok' });
+              } catch (err) {
+                results.failed++;
+                results.details.push({ id: record.id, action: 'webp', status: 'error', error: err.message });
+              }
+            } else {
+              results.skipped++;
+            }
+          }
+        }
+
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true, ...results }));
+      } catch (err) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // GET /api/optimize/status - 查詢優化狀態（缺少縮圖的數量等）
+    if (req.method === 'GET' && urlPath === '/api/optimize/status') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      const records = readAllRecords();
+      let missingThumbnails = 0;
+      let nonWebpImages = 0;
+      let totalImages = 0;
+      let totalVideos = 0;
+
+      for (const record of records) {
+        const sourcePath = path.join(DATA_DIR, record.backupPath);
+        if (!fs.existsSync(sourcePath)) continue;
+
+        if (record.type === 'image') {
+          totalImages++;
+          if (!record.thumbnailPath) missingThumbnails++;
+          if (!record.backupPath.endsWith('.webp')) nonWebpImages++;
+        } else if (record.type === 'video') {
+          totalVideos++;
+          if (!record.thumbnailPath) missingThumbnails++;
+        }
+      }
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({
+        ok: true,
+        totalImages,
+        totalVideos,
+        missingThumbnails,
+        nonWebpImages,
+        canOptimize: missingThumbnails > 0 || nonWebpImages > 0
       }));
       return;
     }
