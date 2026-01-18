@@ -115,6 +115,9 @@ function loginPage(error = '') {
     .error { color: #f87171; text-align: center; margin-bottom: 15px; font-size: 0.9em; }
     .logo { text-align: center; margin-bottom: 20px; }
     .logo img { height: 60px; }
+    .dev-notice { background: linear-gradient(135deg, #1e3a5f, #1a2744); border: 1px solid #3b82f6; border-radius: 8px; padding: 16px; margin-top: 20px; font-size: 0.85em; line-height: 1.6; }
+    .dev-notice-title { color: #60a5fa; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .dev-notice-text { color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -127,6 +130,13 @@ function loginPage(error = '') {
       <input type="hidden" name="redirect" value="">
       <button type="submit">登入</button>
     </form>
+    <div class="dev-notice">
+      <div class="dev-notice-title">🚧 功能開發中</div>
+      <div class="dev-notice-text">
+        會員系統正在規劃中，目前僅限管理員登入。<br>
+        一般用戶請使用免費的救援功能，敬請期待後續更新！
+      </div>
+    </div>
   </div>
   <script>
     document.querySelector('input[name="redirect"]').value = new URLSearchParams(window.location.search).get('redirect') || '/lurl/browse';
