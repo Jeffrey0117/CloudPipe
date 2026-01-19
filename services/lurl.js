@@ -1614,6 +1614,21 @@ function browsePage() {
     .card.blocked { opacity: 0.5; }
     .card.blocked .card-thumb { filter: grayscale(1); }
 
+    /* Card Tags */
+    .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .card-tags .tag {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      cursor: pointer;
+      background: #2a2a2a;
+      color: #888;
+      border: 1px solid #333;
+      transition: all 0.2s;
+    }
+    .card-tags .tag:hover { background: #333; color: #ccc; border-color: #444; }
+    .card-tags .tag.active { background: #ec4899; color: white; border-color: #ec4899; }
+
     /* ===== RWD 響應式設計 ===== */
 
     /* Tablet (768px - 1023px) */
@@ -1752,6 +1767,33 @@ function browsePage() {
     let totalRecords = 0;
     let totalPages = 1;
     const perPage = 24;
+    const AVAILABLE_TAGS = ['奶子', '屁股', '鮑魚', '全身', '姿勢', '口交'];
+
+    async function toggleTag(recordId, tag) {
+      const record = allRecords.find(r => r.id === recordId);
+      if (!record) return;
+
+      const currentTags = record.tags || [];
+      const newTags = currentTags.includes(tag)
+        ? currentTags.filter(t => t !== tag)
+        : [...currentTags, tag];
+
+      try {
+        const res = await fetch(\`/lurl/api/records/\${recordId}/tags\`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          record.tags = data.tags;
+          renderGrid();
+          showToast(\`標籤: \${newTags.join(', ') || '無'}\`);
+        }
+      } catch (e) {
+        showToast('標籤更新失敗');
+      }
+    }
 
     async function loadRecords() {
       if (isLoading) return;
@@ -1858,6 +1900,9 @@ function browsePage() {
               <button class="btn-like \${r.myVote === 'like' ? 'active' : ''}" onclick="event.stopPropagation();vote('\${r.id}', 'like')" title="讚">👍 \${r.likeCount || 0}</button>
               <button class="btn-dislike \${r.myVote === 'dislike' ? 'active' : ''}" onclick="event.stopPropagation();vote('\${r.id}', 'dislike')" title="倒讚">👎 \${r.dislikeCount || 0}</button>
               <button class="btn-block" onclick="event.stopPropagation();block('\${r.id}', \${!r.blocked})" title="\${r.blocked ? '解除封鎖' : '封鎖'}">\${r.blocked ? '✅' : '🚫'}</button>
+            </div>
+            <div class="card-tags" onclick="event.stopPropagation()">
+              \${AVAILABLE_TAGS.map(tag => \`<span class="tag \${(r.tags || []).includes(tag) ? 'active' : ''}" onclick="toggleTag('\${r.id}', '\${tag}')">\${tag}</span>\`).join('')}
             </div>
           </div>
         </div>
@@ -2033,6 +2078,38 @@ function viewPage(record, fileExists) {
     .status.success { color: #4ade80; }
     .status.error { color: #f87171; }
 
+    /* Tags */
+    .tags-section { display: flex; align-items: center; gap: 10px; margin: 15px 0; flex-wrap: wrap; }
+    .tags-label { color: #666; font-size: 0.9em; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag {
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 0.85em;
+      cursor: pointer;
+      background: #2a2a2a;
+      color: #888;
+      border: 1px solid #333;
+      transition: all 0.2s;
+    }
+    .tag:hover { background: #333; color: #ccc; border-color: #444; }
+    .tag.active { background: #ec4899; color: white; border-color: #ec4899; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #333;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1000;
+    }
+    .toast.show { opacity: 1; }
+
     /* ===== RWD 響應式設計 ===== */
     @media (max-width: 767px) {
       .header { padding: 12px 16px; }
@@ -2103,6 +2180,14 @@ function viewPage(record, fileExists) {
       <div class="info-row"><span>本地檔案：</span>${fileExists ? '✅ 已備份' : '❌ 未備份'}</div>
       <div class="info-row" style="word-break:break-all;"><span>原始頁面：</span><a href="${record.pageUrl}" target="_blank" style="color:#4a9eff;font-size:0.85em;">${record.pageUrl}</a></div>
       <div class="info-row" style="word-break:break-all;"><span>CDN：</span><span style="color:#555;font-size:0.85em;">${record.fileUrl}</span></div>
+      <div class="tags-section">
+        <span class="tags-label">標籤：</span>
+        <div class="tags" id="tags">
+          ${['奶子', '屁股', '鮑魚', '全身', '姿勢', '口交'].map(tag =>
+            `<span class="tag ${(record.tags || []).includes(tag) ? 'active' : ''}" onclick="toggleTag('${tag}')">${tag}</span>`
+          ).join('')}
+        </div>
+      </div>
       <div class="actions">
         ${fileExists ? `<a href="/lurl/files/${record.backupPath}" download class="btn btn-primary">下載</a>` : ''}
         ${record.ref ? `<a href="${record.ref}" target="_blank" class="btn btn-secondary">📖 D卡文章</a>` : ''}
@@ -2111,6 +2196,47 @@ function viewPage(record, fileExists) {
       ${!fileExists ? `<div class="status" style="margin-top:15px;color:#888;font-size:0.85em;">💡 點擊「重新下載」會開啟原始頁面，若已安裝 Tampermonkey 腳本，將自動備份檔案</div>` : ''}
     </div>
   </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    const recordId = '${record.id}';
+    let currentTags = ${JSON.stringify(record.tags || [])};
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    async function toggleTag(tag) {
+      const newTags = currentTags.includes(tag)
+        ? currentTags.filter(t => t !== tag)
+        : [...currentTags, tag];
+
+      try {
+        const res = await fetch('/lurl/api/records/' + recordId + '/tags', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          currentTags = data.tags;
+          // 更新 UI
+          document.querySelectorAll('.tag').forEach(el => {
+            if (currentTags.includes(el.textContent)) {
+              el.classList.add('active');
+            } else {
+              el.classList.remove('active');
+            }
+          });
+          showToast('標籤: ' + (currentTags.join(', ') || '無'));
+        }
+      } catch (e) {
+        showToast('標籤更新失敗');
+      }
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -3725,6 +3851,51 @@ module.exports = {
 
       res.writeHead(200, corsHeaders());
       res.end(JSON.stringify({ ok: true, deleted }));
+      return;
+    }
+
+    // PATCH /api/records/:id/tags (需要登入) - 更新標籤
+    if (req.method === 'PATCH' && urlPath.match(/^\/api\/records\/[^/]+\/tags$/)) {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      const id = urlPath.split('/')[3];
+      const body = await parseBody(req);
+      const { tags } = body;
+
+      if (!Array.isArray(tags)) {
+        res.writeHead(400, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'tags must be an array' }));
+        return;
+      }
+
+      const records = readAllRecords();
+      const record = records.find(r => r.id === id);
+
+      if (!record) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Record not found' }));
+        return;
+      }
+
+      record.tags = tags;
+      fs.writeFileSync(RECORDS_FILE, records.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+
+      console.log(`[lurl] 標籤更新: ${record.title} -> [${tags.join(', ')}]`);
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, tags: record.tags }));
+      return;
+    }
+
+    // GET /api/tags - 取得所有可用標籤
+    if (req.method === 'GET' && urlPath === '/api/tags') {
+      const AVAILABLE_TAGS = ['奶子', '屁股', '鮑魚', '全身', '姿勢', '口交'];
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ tags: AVAILABLE_TAGS }));
       return;
     }
 
