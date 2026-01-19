@@ -526,6 +526,11 @@ function parseQuery(url) {
   return Object.fromEntries(params);
 }
 
+// 從 URL 提取資源 ID（URL 最後一段，去掉 query string，轉小寫）
+function extractUrlId(pageUrl) {
+  return pageUrl.split('/').pop().split('?')[0].toLowerCase();
+}
+
 function corsHeaders(contentType = 'application/json') {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -2338,7 +2343,7 @@ module.exports = {
         const visitorId = req.headers['x-visitor-id'] || '';
 
         switch (a) {
-          // cb = check-backup
+          // cb = check-backup（邏輯同 /api/check-backup）
           case 'cb': {
             const pageUrl = p?.url;
             if (!pageUrl) {
@@ -2347,10 +2352,15 @@ module.exports = {
               return;
             }
 
-            // 用 urlId 查詢
             const urlId = extractUrlId(pageUrl);
             const records = readAllRecords();
-            const record = records.find(r => r.urlId === urlId && r.backupStatus === 'completed');
+
+            // 用 pageUrl 動態提取 ID 比對（相容舊資料）
+            const record = records.find(r => {
+              if (r.blocked) return false;
+              const recordId = extractUrlId(r.pageUrl);
+              return recordId === urlId;
+            });
 
             if (!record) {
               res.writeHead(200, corsHeaders());
@@ -2358,23 +2368,32 @@ module.exports = {
               return;
             }
 
+            // 檢查本地檔案是否存在
+            const localFilePath = path.join(DATA_DIR, record.backupPath);
+            if (!fs.existsSync(localFilePath)) {
+              res.writeHead(200, corsHeaders());
+              res.end(JSON.stringify({ hasBackup: false }));
+              return;
+            }
+
             // 檢查是否已修復過
-            const alreadyRecovered = visitorId ? hasRecoveredBefore(visitorId, urlId) : false;
+            const alreadyRecovered = visitorId ? !!hasRecovered(visitorId, urlId) : false;
             const quota = visitorId ? getVisitorQuota(visitorId) : { usedCount: 0, freeQuota: FREE_QUOTA };
             const remaining = getRemainingQuota(quota);
+            const backupUrl = `/lurl/files/${record.backupPath}`;
 
             res.writeHead(200, corsHeaders());
             res.end(JSON.stringify({
               hasBackup: true,
               alreadyRecovered,
-              backupUrl: record.backupPath,
+              backupUrl,
               record: { type: record.type, title: record.title },
               quota: { remaining, used: quota.usedCount, total: quota.freeQuota + (quota.bonusQuota || 0) }
             }));
             return;
           }
 
-          // rc = recover
+          // rc = recover（邏輯同 /api/recover）
           case 'rc': {
             const pageUrl = p?.url;
             if (!pageUrl || !visitorId) {
@@ -2385,7 +2404,13 @@ module.exports = {
 
             const urlId = extractUrlId(pageUrl);
             const records = readAllRecords();
-            const record = records.find(r => r.urlId === urlId && r.backupStatus === 'completed');
+
+            // 用 pageUrl 動態提取 ID 比對
+            const record = records.find(r => {
+              if (r.blocked) return false;
+              const recordId = extractUrlId(r.pageUrl);
+              return recordId === urlId;
+            });
 
             if (!record) {
               res.writeHead(200, corsHeaders());
@@ -2393,14 +2418,24 @@ module.exports = {
               return;
             }
 
+            // 檢查本地檔案是否存在
+            const localFilePath = path.join(DATA_DIR, record.backupPath);
+            if (!fs.existsSync(localFilePath)) {
+              res.writeHead(200, corsHeaders());
+              res.end(JSON.stringify({ ok: false, error: 'no_backup' }));
+              return;
+            }
+
+            const backupUrl = `/lurl/files/${record.backupPath}`;
+
             // 冪等性檢查
-            const alreadyRecovered = hasRecoveredBefore(visitorId, urlId);
-            if (alreadyRecovered) {
+            const recoveredEntry = hasRecovered(visitorId, urlId);
+            if (recoveredEntry) {
               res.writeHead(200, corsHeaders());
               res.end(JSON.stringify({
                 ok: true,
                 alreadyRecovered: true,
-                backupUrl: record.backupPath,
+                backupUrl,
                 record: { type: record.type, title: record.title },
                 quota: { remaining: getRemainingQuota(getVisitorQuota(visitorId)) }
               }));
@@ -2418,13 +2453,13 @@ module.exports = {
             }
 
             // 扣額度
-            const newQuota = useQuota(visitorId, pageUrl, urlId, record.backupPath);
+            const newQuota = useQuota(visitorId, pageUrl, urlId, backupUrl);
             const newRemaining = getRemainingQuota(newQuota);
 
             res.writeHead(200, corsHeaders());
             res.end(JSON.stringify({
               ok: true,
-              backupUrl: record.backupPath,
+              backupUrl,
               record: { type: record.type, title: record.title },
               quota: { remaining: newRemaining }
             }));
