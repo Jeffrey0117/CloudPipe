@@ -342,7 +342,52 @@
     // 頁面載入
     window.onload = function() {
       if (authToken) verifyToken();
+      initDropzone();
     };
+
+    // 初始化拖曳上傳
+    function initDropzone() {
+      const dropzone = document.getElementById('dropzone');
+      if (!dropzone) return;
+
+      // 阻止整個頁面的預設拖曳行為
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+        document.body.addEventListener(event, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+
+      // Dropzone 樣式回饋
+      dropzone.addEventListener('dragenter', () => {
+        dropzone.style.borderColor = '#4ade80';
+        dropzone.style.background = 'rgba(74, 222, 128, 0.1)';
+      });
+
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = '#333';
+        dropzone.style.background = 'transparent';
+      });
+
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#4ade80';
+        dropzone.style.background = 'rgba(74, 222, 128, 0.1)';
+      });
+
+      // 處理放下檔案
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#333';
+        dropzone.style.background = 'transparent';
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          document.getElementById('fileInput').files = files;
+          handleUpload();
+        }
+      });
+    }
 
     // 登入
     async function doLogin() {
