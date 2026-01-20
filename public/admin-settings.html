@@ -189,9 +189,17 @@
       </div>
     </section>
 
+    <!-- Git 部署專案 -->
+    <section class="deployed">
+      <h3 class="section-title">Git 部署專案</h3>
+      <div class="deployed-list" id="gitProjectsList">
+        <div class="empty">載入中...</div>
+      </div>
+    </section>
+
     <!-- 已部署 -->
     <section class="deployed">
-      <h3 class="section-title">已部署</h3>
+      <h3 class="section-title">已部署（上傳）</h3>
       <div class="deployed-list" id="deployedList">
         <div class="empty">載入中...</div>
       </div>
@@ -215,6 +223,7 @@
       await Promise.all([
         loadLurlStats(),
         loadSystemInfo(),
+        loadGitProjects(),
         loadDeployed()
       ]);
     }
@@ -325,6 +334,73 @@
       const endpoint = type === 'service' ? '/api/_admin/service/' + name : '/api/_admin/app/' + name;
       await fetch(endpoint, { method: 'DELETE', headers: { 'authorization': 'Bearer ' + authToken } });
       loadDeployed();
+    }
+
+    // 載入 Git 部署專案
+    async function loadGitProjects() {
+      try {
+        const res = await fetch('/api/_admin/deploy/projects', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+
+        if (!data.projects || data.projects.length === 0) {
+          document.getElementById('gitProjectsList').innerHTML = '<div class="empty">尚無 Git 部署專案</div>';
+          return;
+        }
+
+        let html = '';
+        data.projects.forEach(p => {
+          const statusClass = p.lastDeployStatus === 'success' ? 'running' : 'failed';
+          const statusText = p.lastDeployStatus === 'success' ? '運行中' : '部署失敗';
+          const statusColor = p.lastDeployStatus === 'success' ? '#4ade80' : '#f87171';
+          const repoShort = p.repoUrl ? p.repoUrl.replace('https://github.com/', '').replace('.git', '') : '-';
+
+          html += `<div class="deployed-item">
+            <div class="info"><span class="icon">🚀</span><div>
+              <div class="name">${p.name || p.id}</div>
+              <div class="url" style="color:#888;">${repoShort} · ${p.branch || 'main'}</div>
+            </div></div>
+            <div class="status" style="color:${statusColor};">${statusText}</div>
+            <div class="actions">
+              <a class="btn" href="https://${p.id}.isnowfriend.com" target="_blank">開啟</a>
+              <button onclick="redeployProject('${p.id}')">重新部署</button>
+              <button class="delete" onclick="deleteGitProject('${p.id}')">刪除</button>
+            </div></div>`;
+        });
+        document.getElementById('gitProjectsList').innerHTML = html;
+      } catch (e) {
+        document.getElementById('gitProjectsList').innerHTML = '<div class="empty">載入失敗</div>';
+      }
+    }
+
+    // 重新部署
+    async function redeployProject(id) {
+      if (!confirm('確定重新部署 ' + id + '？')) return;
+      try {
+        await fetch(`/api/_admin/deploy/projects/${id}/deploy`, {
+          method: 'POST',
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        alert('已觸發重新部署');
+        setTimeout(loadGitProjects, 3000);
+      } catch (e) {
+        alert('觸發失敗');
+      }
+    }
+
+    // 刪除 Git 專案
+    async function deleteGitProject(id) {
+      if (!confirm('確定刪除專案 ' + id + '？')) return;
+      try {
+        await fetch(`/api/_admin/deploy/projects/${id}`, {
+          method: 'DELETE',
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        loadGitProjects();
+      } catch (e) {
+        alert('刪除失敗');
+      }
     }
   </script>
 </body>
