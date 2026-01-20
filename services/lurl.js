@@ -2982,7 +2982,7 @@ module.exports = {
             }
 
             // 取得現有設備資訊
-            const existingQuota = getQuota(visitorId) || {};
+            const existingQuota = getVisitorQuota(visitorId) || {};
             const existingDevice = existingQuota.device || {};
 
             const device = {
