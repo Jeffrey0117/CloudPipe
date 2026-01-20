@@ -577,18 +577,30 @@
         });
         const result = await res.json();
 
-        if (result.error) {
+        // 如果專案已存在，更新配置後重新部署
+        if (result.error && result.error.includes('已存在')) {
+          // 更新專案配置（可能 branch 改了）
+          await fetch(`/api/_admin/deploy/projects/${name}`, {
+            method: 'PUT',
+            headers: {
+              'authorization': 'Bearer ' + authToken,
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({ repoUrl, branch })
+          });
+          showToast('專案已存在，更新配置並重新部署...', 'success');
+        } else if (result.error) {
           showToast(result.error, 'error');
           return;
+        } else {
+          showToast('專案已建立，開始部署...');
         }
 
-        // 立即觸發部署
+        // 觸發部署
         await fetch(`/api/_admin/deploy/projects/${name}/deploy`, {
           method: 'POST',
           headers: { 'authorization': 'Bearer ' + authToken }
         });
-
-        showToast('專案已建立並開始部署');
         document.getElementById('uploadStatus').classList.remove('hidden');
         document.getElementById('statusText').innerHTML = `部署中...<br>完成後可訪問 <a href="https://${name}.isnowfriend.com" target="_blank">${name}.isnowfriend.com</a>`;
       } catch (e) {
