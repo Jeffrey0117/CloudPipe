@@ -73,6 +73,7 @@ const SESSION_SECRET = process.env.LURL_SESSION_SECRET || 'change-me';
 const DATA_DIR = path.join(__dirname, '..', 'data', 'lurl');
 const RECORDS_FILE = path.join(DATA_DIR, 'records.jsonl');
 const QUOTAS_FILE = path.join(DATA_DIR, 'quotas.jsonl');
+const REDEMPTIONS_FILE = path.join(DATA_DIR, 'redemptions.jsonl');
 const VIDEOS_DIR = path.join(DATA_DIR, 'videos');
 const IMAGES_DIR = path.join(DATA_DIR, 'images');
 const THUMBNAILS_DIR = path.join(DATA_DIR, 'thumbnails');
@@ -507,6 +508,104 @@ function getRemainingQuota(quota) {
   return (quota.freeQuota + (quota.bonusQuota || 0)) - quota.usedCount;
 }
 
+// ==================== 序號兌換系統 ====================
+
+function generateRedemptionCode() {
+  // 格式: XXXX-XXXX-XXXX (12位英數字)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去除易混淆字元 I,O,0,1
+  let code = '';
+  for (let i = 0; i < 12; i++) {
+    if (i > 0 && i % 4 === 0) code += '-';
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function readAllRedemptions() {
+  ensureDirs();
+  if (!fs.existsSync(REDEMPTIONS_FILE)) return [];
+  const content = fs.readFileSync(REDEMPTIONS_FILE, 'utf8');
+  return content.trim().split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); }
+    catch { return null; }
+  }).filter(Boolean);
+}
+
+function writeAllRedemptions(redemptions) {
+  fs.writeFileSync(REDEMPTIONS_FILE, redemptions.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+}
+
+function getRedemptionCode(code) {
+  const redemptions = readAllRedemptions();
+  return redemptions.find(r => r.code.toUpperCase() === code.toUpperCase());
+}
+
+function createRedemptionCodes(count, bonus, expiresAt = null, note = '') {
+  const redemptions = readAllRedemptions();
+  const newCodes = [];
+
+  for (let i = 0; i < count; i++) {
+    let code;
+    do {
+      code = generateRedemptionCode();
+    } while (redemptions.find(r => r.code === code)); // 確保不重複
+
+    const redemption = {
+      code,
+      bonus: parseInt(bonus) || 5,
+      expiresAt: expiresAt || null,
+      usedBy: null,
+      usedAt: null,
+      createdAt: new Date().toISOString(),
+      note: note || ''
+    };
+    redemptions.push(redemption);
+    newCodes.push(redemption);
+  }
+
+  writeAllRedemptions(redemptions);
+  return newCodes;
+}
+
+function redeemCode(code, visitorId) {
+  const redemptions = readAllRedemptions();
+  const index = redemptions.findIndex(r => r.code.toUpperCase() === code.toUpperCase());
+
+  if (index === -1) {
+    return { ok: false, error: '無效的兌換碼' };
+  }
+
+  const redemption = redemptions[index];
+
+  // 檢查是否已使用
+  if (redemption.usedBy) {
+    return { ok: false, error: '此兌換碼已被使用' };
+  }
+
+  // 檢查是否過期
+  if (redemption.expiresAt && new Date(redemption.expiresAt) < new Date()) {
+    return { ok: false, error: '此兌換碼已過期' };
+  }
+
+  // 套用額度
+  const quota = getVisitorQuota(visitorId);
+  const newBonus = (quota.bonusQuota || 0) + redemption.bonus;
+  updateQuota(visitorId, { bonusQuota: newBonus });
+
+  // 標記為已使用
+  redemption.usedBy = visitorId;
+  redemption.usedAt = new Date().toISOString();
+  redemptions[index] = redemption;
+  writeAllRedemptions(redemptions);
+
+  return { ok: true, bonus: redemption.bonus, newTotal: newBonus };
+}
+
+function deleteRedemptionCode(code) {
+  const redemptions = readAllRedemptions().filter(r => r.code.toUpperCase() !== code.toUpperCase());
+  writeAllRedemptions(redemptions);
+}
+
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -692,6 +791,7 @@ function adminPage() {
     <div class="main-tabs">
       <button class="main-tab active" data-tab="records">📋 記錄</button>
       <button class="main-tab" data-tab="users">👥 使用者</button>
+      <button class="main-tab" data-tab="redemptions">🎁 兌換碼</button>
       <button class="main-tab" data-tab="version">📦 版本</button>
       <button class="main-tab" data-tab="maintenance">🔧 維護</button>
     </div>
@@ -788,6 +888,71 @@ function adminPage() {
           <button class="btn" style="background:#e0e0e0;" onclick="closeUserModal()">關閉</button>
           <button class="btn btn-primary" onclick="saveUserChanges()">儲存</button>
         </div>
+      </div>
+    </div>
+
+    <!-- 兌換碼 Tab -->
+    <div class="tab-content" id="tab-redemptions">
+      <div class="user-stats" style="margin-bottom:20px;">
+        <div class="user-stat">
+          <div class="value" id="redemptionTotal">-</div>
+          <div class="label">總數</div>
+        </div>
+        <div class="user-stat">
+          <div class="value green" id="redemptionUnused">-</div>
+          <div class="label">未使用</div>
+        </div>
+        <div class="user-stat">
+          <div class="value orange" id="redemptionUsed">-</div>
+          <div class="label">已使用</div>
+        </div>
+        <div class="user-stat">
+          <div class="value red" id="redemptionExpired">-</div>
+          <div class="label">已過期</div>
+        </div>
+      </div>
+
+      <!-- 生成兌換碼 -->
+      <div class="version-panel" style="margin-bottom:20px;">
+        <h2>🎁 生成兌換碼</h2>
+        <div class="version-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>數量</label>
+              <input type="number" id="genCount" value="10" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label>每個額度</label>
+              <input type="number" id="genBonus" value="5" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label>有效期限（留空=無限期）</label>
+              <input type="date" id="genExpiry">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>備註</label>
+            <input type="text" id="genNote" placeholder="例：新年活動、社群回饋">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="generateCodes()">🎲 生成</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 兌換碼列表 -->
+      <div class="version-panel">
+        <h2>📋 兌換碼列表</h2>
+        <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+          <select id="redemptionFilter" onchange="loadRedemptions()" style="padding:8px 12px; border:1px solid #ddd; border-radius:6px;">
+            <option value="all">全部</option>
+            <option value="unused">未使用</option>
+            <option value="used">已使用</option>
+            <option value="expired">已過期</option>
+          </select>
+          <button class="btn btn-sm" style="background:#e0e0e0;" onclick="copyUnusedCodes()">📋 複製未使用</button>
+        </div>
+        <div id="redemptionsList" style="max-height:400px; overflow-y:auto;">載入中...</div>
       </div>
     </div>
 
@@ -911,12 +1076,13 @@ function adminPage() {
 
       // 載入資料
       if (tabName === 'users') loadUsers();
+      if (tabName === 'redemptions') loadRedemptions();
     }
 
     // 根據 URL hash 切換 tab
     function checkHashAndSwitch() {
       const hash = window.location.hash.replace('#', '') || 'records';
-      if (['records', 'users', 'version', 'maintenance'].includes(hash)) {
+      if (['records', 'users', 'redemptions', 'version', 'maintenance'].includes(hash)) {
         switchMainTab(hash);
       }
     }
@@ -1155,6 +1321,154 @@ function adminPage() {
       if (seconds < 3600) return Math.floor(seconds / 60) + '分鐘前';
       if (seconds < 86400) return Math.floor(seconds / 3600) + '小時前';
       return Math.floor(seconds / 86400) + '天前';
+    }
+
+    // ===== 兌換碼管理 =====
+    let allRedemptions = [];
+
+    async function loadRedemptions() {
+      try {
+        const res = await fetch('/lurl/api/redemptions');
+        const data = await res.json();
+        if (data.ok) {
+          allRedemptions = data.redemptions;
+          renderRedemptionStats(data.stats);
+          renderRedemptionsList();
+        }
+      } catch (e) {
+        document.getElementById('redemptionsList').innerHTML = '<div class="empty">載入失敗</div>';
+      }
+    }
+
+    function renderRedemptionStats(stats) {
+      document.getElementById('redemptionTotal').textContent = stats.total;
+      document.getElementById('redemptionUnused').textContent = stats.unused;
+      document.getElementById('redemptionUsed').textContent = stats.used;
+      document.getElementById('redemptionExpired').textContent = stats.expired;
+    }
+
+    function renderRedemptionsList() {
+      const filter = document.getElementById('redemptionFilter').value;
+      let filtered = allRedemptions;
+
+      if (filter === 'unused') {
+        filtered = allRedemptions.filter(r => !r.usedBy && (!r.expiresAt || new Date(r.expiresAt) > new Date()));
+      } else if (filter === 'used') {
+        filtered = allRedemptions.filter(r => r.usedBy);
+      } else if (filter === 'expired') {
+        filtered = allRedemptions.filter(r => r.expiresAt && new Date(r.expiresAt) < new Date() && !r.usedBy);
+      }
+
+      if (filtered.length === 0) {
+        document.getElementById('redemptionsList').innerHTML = '<div class="empty">無兌換碼</div>';
+        return;
+      }
+
+      // 表頭
+      let html = \`<div class="user-item" style="cursor:default; background:#f5f5f5; font-weight:500; font-size:0.85em; color:#666;">
+        <div style="min-width:140px;">兌換碼</div>
+        <div style="min-width:50px; text-align:center;">額度</div>
+        <div style="min-width:70px; text-align:center;">期限</div>
+        <div style="min-width:55px; text-align:center;">狀態</div>
+        <div style="min-width:100px; text-align:center;">兌換者</div>
+        <div style="min-width:90px; text-align:center;">兌換日期</div>
+        <div style="flex:1;">備註</div>
+        <div style="min-width:50px;"></div>
+      </div>\`;
+
+      html += filtered.map(r => {
+        const isUsed = !!r.usedBy;
+        const isExpired = r.expiresAt && new Date(r.expiresAt) < new Date();
+        const statusColor = isUsed ? '#ff9800' : (isExpired ? '#f44336' : '#4caf50');
+        const statusText = isUsed ? '已使用' : (isExpired ? '已過期' : '可使用');
+        const expiryText = r.expiresAt ? new Date(r.expiresAt).toLocaleDateString('zh-TW') : '永久';
+        const usedByShort = r.usedBy ? r.usedBy.substring(0, 8).toUpperCase() : '-';
+        const usedAtText = r.usedAt ? new Date(r.usedAt).toLocaleString('zh-TW') : '-';
+
+        return \`<div class="user-item" style="cursor:default;">
+          <div style="font-family:monospace; font-weight:bold; color:#1976d2; min-width:140px;">\${r.code}</div>
+          <div style="min-width:50px; text-align:center;">+\${r.bonus}</div>
+          <div style="min-width:70px; text-align:center; font-size:0.85em; color:#666;">\${expiryText}</div>
+          <div style="min-width:55px; text-align:center; color:\${statusColor}; font-size:0.85em;">\${statusText}</div>
+          <div style="min-width:100px; text-align:center;">
+            \${r.usedBy
+              ? \`<span style="background:#e3f2fd; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; cursor:pointer; color:#1976d2;" onclick="jumpToUser('\${r.usedBy}')" title="點擊查看用戶 \${r.usedBy}">\${usedByShort}</span>\`
+              : '<span style="color:#999; font-size:0.8em;">-</span>'}
+          </div>
+          <div style="min-width:90px; text-align:center; font-size:0.75em; color:#888;">\${r.usedAt ? new Date(r.usedAt).toLocaleDateString('zh-TW') : '-'}</div>
+          <div style="flex:1; font-size:0.8em; color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">\${r.note || '-'}</div>
+          <div style="min-width:50px; text-align:right;">
+            <button class="btn btn-sm" style="background:#e53935; color:white; padding:4px 8px;" onclick="deleteRedemption('\${r.code}')">刪除</button>
+          </div>
+        </div>\`;
+      }).join('');
+
+      document.getElementById('redemptionsList').innerHTML = html;
+    }
+
+    async function generateCodes() {
+      const count = parseInt(document.getElementById('genCount').value) || 10;
+      const bonus = parseInt(document.getElementById('genBonus').value) || 5;
+      const expiresAt = document.getElementById('genExpiry').value || null;
+      const note = document.getElementById('genNote').value || '';
+
+      try {
+        const res = await fetch('/lurl/api/redemptions/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count, bonus, expiresAt, note })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('已生成 ' + data.codes.length + ' 個兌換碼', 'success');
+          loadRedemptions();
+        } else {
+          showToast(data.error || '生成失敗', 'error');
+        }
+      } catch (e) {
+        showToast('生成失敗：' + e.message, 'error');
+      }
+    }
+
+    async function deleteRedemption(code) {
+      if (!confirm('確定刪除此兌換碼？')) return;
+      try {
+        await fetch('/lurl/api/redemptions/' + encodeURIComponent(code), { method: 'DELETE' });
+        showToast('已刪除', 'success');
+        loadRedemptions();
+      } catch (e) {
+        showToast('刪除失敗', 'error');
+      }
+    }
+
+    function copyUnusedCodes() {
+      const unused = allRedemptions.filter(r => !r.usedBy && (!r.expiresAt || new Date(r.expiresAt) > new Date()));
+      if (unused.length === 0) {
+        showToast('無可用兌換碼', 'error');
+        return;
+      }
+      const codes = unused.map(r => r.code).join('\\n');
+      navigator.clipboard.writeText(codes).then(() => {
+        showToast('已複製 ' + unused.length + ' 個兌換碼', 'success');
+      });
+    }
+
+    // 從兌換碼列表跳轉到用戶
+    async function jumpToUser(visitorId) {
+      // 切換到用戶 tab
+      switchMainTab('users');
+      // 等待用戶列表載入
+      await loadUsers();
+      // 搜尋該用戶
+      const shortCode = visitorId.substring(0, 6).toUpperCase();
+      document.getElementById('userSearchInput').value = shortCode;
+      searchQuery = shortCode;
+      renderUserList();
+      // 如果找到，直接開啟 modal
+      const user = allUsers.find(u => u.visitorId === visitorId);
+      if (user) {
+        openUserModal(visitorId);
+      }
     }
 
     // 設定維護狀態的 helper
@@ -1633,6 +1947,61 @@ function browsePage() {
     }
     .toast.show { opacity: 1; }
 
+    /* Header Actions */
+    .header-actions { display: flex; gap: 8px; margin-left: auto; margin-right: 20px; }
+    .header-actions button {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .header-actions button:hover { background: rgba(255,255,255,0.2); }
+    .mute-btn.muted { background: #c62828; }
+
+    /* Redeem Panel */
+    .redeem-panel {
+      display: none;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 20px;
+      border-bottom: 1px solid #333;
+    }
+    .redeem-panel.show { display: block; }
+    .redeem-content { max-width: 400px; margin: 0 auto; text-align: center; }
+    .redeem-content h3 { color: #fff; margin-bottom: 8px; }
+    .redeem-desc { color: #888; font-size: 0.9em; margin-bottom: 16px; }
+    .redeem-input-group { display: flex; gap: 8px; }
+    .redeem-input-group input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #0f0f0f;
+      color: white;
+      font-size: 1.1em;
+      font-family: monospace;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .redeem-input-group input:focus { border-color: #4ade80; outline: none; }
+    .redeem-input-group button {
+      padding: 12px 24px;
+      background: #4ade80;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .redeem-input-group button:hover { background: #22c55e; }
+    .redeem-status { margin-top: 12px; font-size: 0.9em; min-height: 20px; }
+    .redeem-status.success { color: #4ade80; }
+    .redeem-status.error { color: #f87171; }
+
     /* Card Actions (Rating & Block) */
     .card-actions { display: flex; gap: 6px; margin-top: 8px; }
     .card-actions button {
@@ -1838,10 +2207,26 @@ function browsePage() {
       <img src="/lurl/files/LOGO.png" alt="Lurl" class="logo">
       <h1>影片庫</h1>
     </div>
+    <div class="header-actions">
+      <button id="muteToggle" class="mute-btn" onclick="toggleGlobalMute()" title="靜音模式">🔊</button>
+      <button class="redeem-btn" onclick="toggleRedeemPanel()" title="兌換序號">🎁</button>
+    </div>
     <nav>
       <a href="/lurl/admin">Admin</a>
       <a href="/lurl/browse" class="active">Browse</a>
     </nav>
+  </div>
+  <!-- 序號兌換面板 -->
+  <div class="redeem-panel" id="redeemPanel">
+    <div class="redeem-content">
+      <h3>🎁 兌換額度</h3>
+      <p class="redeem-desc">輸入序號獲得額外備份額度</p>
+      <div class="redeem-input-group">
+        <input type="text" id="redeemCode" placeholder="XXXX-XXXX-XXXX" maxlength="14" autocomplete="off">
+        <button onclick="submitRedeem()">兌換</button>
+      </div>
+      <div id="redeemStatus" class="redeem-status"></div>
+    </div>
   </div>
   <div class="container">
     <div class="search-bar">
@@ -1881,6 +2266,99 @@ function browsePage() {
     let isLoading = false;
     let selectedFilterTags = [];  // 篩選用的標籤
     let expandedFilterTag = null; // 展開的篩選主標籤
+
+    // ===== 訪客 ID =====
+    function getVisitorId() {
+      let id = localStorage.getItem('lurl_visitor_id');
+      if (!id) {
+        id = 'V_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('lurl_visitor_id', id);
+      }
+      return id;
+    }
+
+    // ===== 靜音模式 =====
+    let globalMuted = localStorage.getItem('lurl_muted') === 'true';
+
+    function initMuteState() {
+      const btn = document.getElementById('muteToggle');
+      if (globalMuted) {
+        btn.textContent = '🔇';
+        btn.classList.add('muted');
+      }
+    }
+
+    function toggleGlobalMute() {
+      globalMuted = !globalMuted;
+      localStorage.setItem('lurl_muted', globalMuted);
+      const btn = document.getElementById('muteToggle');
+      btn.textContent = globalMuted ? '🔇' : '🔊';
+      btn.classList.toggle('muted', globalMuted);
+      showToast(globalMuted ? '已開啟靜音模式' : '已關閉靜音模式');
+    }
+
+    // ===== 序號兌換 =====
+    function toggleRedeemPanel() {
+      const panel = document.getElementById('redeemPanel');
+      panel.classList.toggle('show');
+      if (panel.classList.contains('show')) {
+        document.getElementById('redeemCode').focus();
+      }
+    }
+
+    // 自動格式化輸入的序號
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('redeemCode');
+      if (input) {
+        input.addEventListener('input', (e) => {
+          let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+          if (value.length > 4) value = value.slice(0, 4) + '-' + value.slice(4);
+          if (value.length > 9) value = value.slice(0, 9) + '-' + value.slice(9);
+          e.target.value = value.slice(0, 14);
+        });
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') submitRedeem();
+        });
+      }
+      initMuteState();
+    });
+
+    async function submitRedeem() {
+      const input = document.getElementById('redeemCode');
+      const status = document.getElementById('redeemStatus');
+      const code = input.value.trim();
+
+      if (!code) {
+        status.textContent = '請輸入兌換碼';
+        status.className = 'redeem-status error';
+        return;
+      }
+
+      status.textContent = '兌換中...';
+      status.className = 'redeem-status';
+
+      try {
+        const res = await fetch('/lurl/api/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, visitorId: getVisitorId() })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          status.textContent = '✅ 兌換成功！獲得 +' + data.bonus + ' 額度';
+          status.className = 'redeem-status success';
+          input.value = '';
+          showToast('🎉 成功獲得 ' + data.bonus + ' 額度！');
+        } else {
+          status.textContent = '❌ ' + data.error;
+          status.className = 'redeem-status error';
+        }
+      } catch (err) {
+        status.textContent = '❌ 兌換失敗：' + err.message;
+        status.className = 'redeem-status error';
+      }
+    }
 
     // 恢復上次的 tab 狀態
     document.querySelectorAll('.tab').forEach(t => {
@@ -2321,6 +2799,7 @@ function viewPage(record, fileExists) {
   <meta charset="UTF-8">
   <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
   <title>${title} - Lurl</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2333,9 +2812,14 @@ function viewPage(record, fileExists) {
     .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; }
     .header nav a:hover { color: white; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .media-container { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+    .media-container { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
     .media-container video { width: 100%; max-height: 70vh; object-fit: contain; display: block; aspect-ratio: 16/9; background: #000; }
     .media-container img { width: 100%; max-height: 70vh; object-fit: contain; display: block; }
+    /* Plyr Dark Theme */
+    .plyr { --plyr-color-main: #3b82f6; }
+    .plyr--video { border-radius: 12px; }
+    .plyr__controls { background: linear-gradient(transparent, rgba(0,0,0,0.8)); }
+    .plyr__control:hover { background: #3b82f6; }
     .media-missing { color: #666; text-align: center; padding: 40px; }
     .media-missing p { margin-bottom: 15px; }
     .info { background: #1a1a1a; border-radius: 12px; padding: 20px; }
@@ -2463,7 +2947,9 @@ function viewPage(record, fileExists) {
     <div class="media-container">
       ${fileExists
         ? (isVideo
-          ? `<video src="/lurl/files/${record.backupPath}" controls autoplay></video>`
+          ? `<video id="player" playsinline controls>
+              <source src="/lurl/files/${record.backupPath}" type="video/mp4">
+            </video>`
           : `<img src="/lurl/files/${record.backupPath}" alt="${title}">`)
         : `<div class="media-missing">
             <p>⚠️ 檔案尚未下載成功</p>
@@ -2587,6 +3073,33 @@ function viewPage(record, fileExists) {
 
     renderTags();
   </script>
+  ${isVideo && fileExists ? `
+  <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+  <script>
+    // 初始化 Plyr
+    const player = new Plyr('#player', {
+      controls: [
+        'play-large', 'play', 'progress', 'current-time', 'mute',
+        'volume', 'settings', 'pip', 'fullscreen'
+      ],
+      settings: ['speed'],
+      speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+      keyboard: { focused: true, global: true },
+      storage: { enabled: true, key: 'plyr' }
+    });
+
+    // 檢查靜音模式
+    const globalMuted = localStorage.getItem('lurl_muted') === 'true';
+    if (globalMuted) {
+      player.muted = true;
+    }
+
+    // 自動播放
+    player.on('ready', () => {
+      player.play().catch(() => {});
+    });
+  </script>
+  ` : ''}
 </body>
 </html>`;
 }
@@ -3935,6 +4448,94 @@ module.exports = {
 
       const visitorId = decodeURIComponent(urlPath.replace('/api/quotas/', ''));
       deleteQuota(visitorId);
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // ==================== 兌換碼 API ====================
+
+    // POST /api/redeem - 兌換序號（公開 API，不需登入）
+    if (req.method === 'POST' && urlPath === '/api/redeem') {
+      try {
+        const body = await parseBody(req);
+        const code = body.code?.trim();
+        const visitorId = body.visitorId;
+
+        if (!code || !visitorId) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '缺少兌換碼或訪客 ID' }));
+          return;
+        }
+
+        const result = redeemCode(code, visitorId);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // GET /api/redemptions - 取得所有兌換碼（需要管理員權限）
+    if (req.method === 'GET' && urlPath === '/api/redemptions') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      const redemptions = readAllRedemptions();
+      const stats = {
+        total: redemptions.length,
+        used: redemptions.filter(r => r.usedBy).length,
+        unused: redemptions.filter(r => !r.usedBy).length,
+        expired: redemptions.filter(r => r.expiresAt && new Date(r.expiresAt) < new Date() && !r.usedBy).length
+      };
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, redemptions, stats }));
+      return;
+    }
+
+    // POST /api/redemptions/generate - 生成新兌換碼（需要管理員權限）
+    if (req.method === 'POST' && urlPath === '/api/redemptions/generate') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const count = Math.min(parseInt(body.count) || 1, 100); // 最多一次 100 個
+        const bonus = parseInt(body.bonus) || 5;
+        const expiresAt = body.expiresAt || null;
+        const note = body.note || '';
+
+        const codes = createRedemptionCodes(count, bonus, expiresAt, note);
+
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true, codes }));
+      } catch (err) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // DELETE /api/redemptions/:code - 刪除兌換碼（需要管理員權限）
+    if (req.method === 'DELETE' && urlPath.startsWith('/api/redemptions/')) {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+        return;
+      }
+
+      const code = decodeURIComponent(urlPath.replace('/api/redemptions/', ''));
+      deleteRedemptionCode(code);
 
       res.writeHead(200, corsHeaders());
       res.end(JSON.stringify({ ok: true }));
