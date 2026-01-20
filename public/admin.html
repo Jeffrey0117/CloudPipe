@@ -587,8 +587,11 @@
             document.getElementById('statusText').innerHTML = `✅ 部署成功！<br><a href="https://${projectId}.isnowfriend.com" target="_blank">${projectId}.isnowfriend.com</a>`;
             return;
           } else if (status === 'failed') {
-            showToast('部署失敗', 'error');
-            document.getElementById('statusText').innerHTML = `❌ 部署失敗<br>請檢查 console log`;
+            // 取得最新的部署記錄來顯示錯誤訊息
+            const latestDeploy = data.deployments?.[0];
+            const errorMsg = latestDeploy?.error || '未知錯誤';
+            showToast('部署失敗：' + errorMsg, 'error');
+            document.getElementById('statusText').innerHTML = `❌ 部署失敗<br><code style="color:#f87171;font-size:0.85rem;">${errorMsg}</code>`;
             return;
           }
 

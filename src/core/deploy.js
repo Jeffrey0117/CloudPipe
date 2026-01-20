@@ -213,16 +213,49 @@ async function deploy(projectId, options = {}) {
       log(`Build 完成`);
     }
 
+    // 自動偵測入口檔案
+    let entryFile = project.entryFile;
+    const pkgPath = path.join(projectDir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.main) {
+          entryFile = pkg.main;
+          log(`從 package.json 偵測入口: ${entryFile}`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    // Fallback: 檢查常見入口檔案
+    if (!fs.existsSync(path.join(projectDir, entryFile))) {
+      const candidates = ['server.js', 'app.js', 'index.js', 'main.js'];
+      for (const c of candidates) {
+        if (fs.existsSync(path.join(projectDir, c))) {
+          log(`找到入口檔案: ${c}`);
+          entryFile = c;
+          break;
+        }
+      }
+    }
+    // 更新專案配置
+    if (entryFile !== project.entryFile) {
+      updateProject(project.id, { entryFile });
+      project.entryFile = entryFile;
+    }
+
     // PM2 重啟
     if (project.pm2Name) {
+      const entryPath = path.join(projectDir, entryFile);
+      if (!fs.existsSync(entryPath)) {
+        throw new Error(`入口檔案不存在: ${entryFile}`);
+      }
       log(`重啟 PM2: ${project.pm2Name}`);
       try {
         execSync(`pm2 reload ${project.pm2Name}`, { stdio: 'pipe' });
         log(`PM2 重啟完成`);
       } catch (e) {
         log(`PM2 重啟失敗，嘗試啟動...`);
-        // 如果 reload 失敗，嘗試 start
-        const entryPath = path.join(projectDir, project.entryFile);
         execSync(`pm2 start ${entryPath} --name ${project.pm2Name}`, { stdio: 'pipe' });
         log(`PM2 啟動完成`);
       }
