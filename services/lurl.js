@@ -4523,7 +4523,7 @@ module.exports = {
         res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
         return;
       }
-      let records = readAllRecords().reverse(); // 最新的在前
+      let records = readAllRecords(); // SQLite 已按 capturedAt DESC 排序
       const type = query.type;
       const q = query.q;
       const page = parseInt(query.page) || 1;
@@ -4558,7 +4558,7 @@ module.exports = {
         records = records.filter(r => !r.fileExists);
       } else if (type === 'blocked') {
         // 已封鎖的：只顯示 blocked=true (已被上面的 blocked filter 過濾，這裡要重新讀取)
-        records = readAllRecords().reverse()
+        records = readAllRecords()
           .map(r => ({ ...r, fileExists: fs.existsSync(path.join(DATA_DIR, r.backupPath)) }))
           .filter(r => r.blocked);
       } else {
