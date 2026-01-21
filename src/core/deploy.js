@@ -21,6 +21,7 @@ const CLOUDPIPE_ROOT = path.join(__dirname, '../..');
 // Cloudflare Tunnel 設定
 const CLOUDFLARED = 'C:\\Users\\jeffb\\cloudflared.exe';
 const TUNNEL_ID = 'afd11345-c75a-4d62-aa67-0a389d82ce74';
+const CLOUDFLARED_CONFIG = path.join(__dirname, '../../cloudflared.yml');
 
 // Port 分配設定
 const BASE_PORT = 4000;  // 起始 port
@@ -139,6 +140,56 @@ function deleteProject(id) {
 
   writeProjects(filtered);
   return true;
+}
+
+// ==================== Cloudflare Tunnel Ingress ====================
+
+/**
+ * 更新 cloudflared.yml，加入專案的 ingress 規則
+ */
+function updateTunnelIngress(hostname, port) {
+  try {
+    if (!fs.existsSync(CLOUDFLARED_CONFIG)) {
+      console.log(`[deploy] cloudflared.yml 不存在，跳過 ingress 更新`);
+      return false;
+    }
+
+    let content = fs.readFileSync(CLOUDFLARED_CONFIG, 'utf8');
+
+    // 檢查是否已存在此 hostname
+    if (content.includes(`hostname: ${hostname}`)) {
+      console.log(`[deploy] Ingress 已存在: ${hostname}`);
+      return true;
+    }
+
+    // 在 "*.isnowfriend.com" 之前插入新規則
+    const wildcardPattern = /(\s*- hostname: "\*\.isnowfriend\.com")/;
+    const newRule = `  - hostname: ${hostname}\n    service: http://localhost:${port}\n`;
+
+    if (wildcardPattern.test(content)) {
+      content = content.replace(wildcardPattern, newRule + '$1');
+    } else {
+      // 如果沒有通配符規則，在最後一個 service: http_status:404 之前插入
+      const fallbackPattern = /(\s*- service: http_status:404)/;
+      content = content.replace(fallbackPattern, newRule + '$1');
+    }
+
+    fs.writeFileSync(CLOUDFLARED_CONFIG, content);
+    console.log(`[deploy] Ingress 已新增: ${hostname} -> localhost:${port}`);
+
+    // 重啟 tunnel
+    try {
+      execSync('pm2 restart tunnel', { stdio: 'pipe' });
+      console.log(`[deploy] Tunnel 已重啟`);
+    } catch (e) {
+      console.log(`[deploy] Tunnel 重啟失敗: ${e.message}`);
+    }
+
+    return true;
+  } catch (e) {
+    console.error(`[deploy] 更新 ingress 失敗:`, e.message);
+    return false;
+  }
 }
 
 // ==================== Health Check ====================
@@ -395,12 +446,18 @@ async function deploy(projectId, options = {}) {
     }
 
     // 自動建立 DNS (Cloudflare Tunnel)
+    const hostname = `${project.id}.isnowfriend.com`;
     try {
-      const hostname = `${project.id}.isnowfriend.com`;
       execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore' });
       log(`DNS 已建立: ${hostname}`);
     } catch (e) {
-      log(`DNS 建立失敗: ${e.message}`);
+      log(`DNS 建立失敗（可能已存在）: ${e.message}`);
+    }
+
+    // 更新 Tunnel Ingress 規則
+    if (project.port) {
+      log(`更新 Tunnel Ingress: ${hostname} -> localhost:${project.port}`);
+      updateTunnelIngress(hostname, project.port);
     }
 
     // 更新部署狀態

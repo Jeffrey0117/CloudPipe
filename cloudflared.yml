@@ -4,6 +4,10 @@ credentials-file: C:\Users\jeffb\.cloudflared\afd11345-c75a-4d62-aa67-0a389d82ce
 ingress:
   - hostname: epi.isnowfriend.com
     service: http://localhost:8787
+  - hostname: workr.isnowfriend.com
+    service: http://localhost:4002
+  - hostname: myspeedtest.isnowfriend.com
+    service: http://localhost:4001
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787
   - service: http_status:404
