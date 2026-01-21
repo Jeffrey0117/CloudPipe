@@ -1480,10 +1480,14 @@ function adminPage() {
         return;
       }
 
-      // 根據搜尋過濾
+      // 根據搜尋過濾（搜尋隨機部分或完整 visitorId）
       let filtered = allUsers;
       if (searchQuery) {
-        filtered = allUsers.filter(u => u.visitorId.toUpperCase().startsWith(searchQuery));
+        filtered = allUsers.filter(u => {
+          const parts = u.visitorId.split('_');
+          const randomPart = (parts[2] || parts[1] || u.visitorId).toUpperCase();
+          return randomPart.startsWith(searchQuery) || u.visitorId.toUpperCase().includes(searchQuery);
+        });
       }
 
       if (filtered.length === 0) {
@@ -1497,8 +1501,9 @@ function adminPage() {
         const remainingColor = u.remaining === -1 ? 'color:#ff9800' : (u.remaining <= 0 ? 'color:#f44336' : 'color:#4caf50');
         const lastSeen = u.device?.lastSeen ? timeAgo(u.device.lastSeen) : '-';
         const network = u.device?.network?.type?.toUpperCase() || '-';
-        // 顯示序號（前6位大寫）方便核對
-        const shortCode = u.visitorId.substring(0, 6).toUpperCase();
+        // 顯示序號（使用隨機部分前6位）避免時間戳碰撞
+        const parts = u.visitorId.split('_');
+        const shortCode = (parts[2] || parts[1] || u.visitorId).substring(0, 6).toUpperCase();
 
         return \`<div class="user-item" onclick="openUserModal('\${u.visitorId}')">
           <div class="user-status-icon">\${statusIcon}</div>
@@ -1818,8 +1823,9 @@ function adminPage() {
       switchMainTab('users');
       // 等待用戶列表載入
       await loadUsers();
-      // 搜尋該用戶
-      const shortCode = visitorId.substring(0, 6).toUpperCase();
+      // 搜尋該用戶（使用隨機部分）
+      const parts = visitorId.split('_');
+      const shortCode = (parts[2] || parts[1] || visitorId).substring(0, 6).toUpperCase();
       document.getElementById('userSearchInput').value = shortCode;
       searchQuery = shortCode;
       renderUserList();
