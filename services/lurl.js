@@ -6119,14 +6119,14 @@ function viewPage(record, fileExists) {
     <nav>
       <a href="/lurl/">首頁</a>
       <a href="/lurl/browse">瀏覽</a>
-      <a href="/lurl/pricing">方案</a>
+      <a href="/lurl/admin">管理</a>
     </nav>
     <div class="header-right">
       <button class="theme-toggle" onclick="toggleTheme()" title="切換主題">🌙</button>
     </div>
   </div>
   <div class="container">
-    <a href="javascript:history.back()" class="back-link">← 返回影片庫</a>
+    <a href="javascript:history.back()" class="back-link">← 返回</a>
     <div class="media-container">
       ${fileExists
         ? (isVideo
