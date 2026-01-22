@@ -2404,6 +2404,925 @@ self.addEventListener('message', async (event) => {
 `;
 }
 
+// ==================== Landing Page ====================
+
+function landingPage() {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lurl - 那些消失的，我們都記得</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: white;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    .header {
+      background: #1a1a2e;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header .logo-title { display: flex; align-items: center; gap: 10px; }
+    .header .logo { height: 36px; width: auto; }
+    .header h1 { font-size: 1.3em; }
+    .header nav { display: flex; gap: 20px; }
+    .header nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 0.95em;
+      transition: color 0.2s;
+    }
+    .header nav a:hover { color: white; }
+    .header .login-btn {
+      background: #3b82f6;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.9em;
+      transition: background 0.2s;
+    }
+    .header .login-btn:hover { background: #2563eb; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 20px;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0f0f0f 100%);
+    }
+    .hero-emoji { font-size: 64px; margin-bottom: 20px; }
+    .hero h2 {
+      font-size: 2.5em;
+      font-weight: 700;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .subtitle {
+      font-size: 1.3em;
+      color: #888;
+      margin-bottom: 40px;
+    }
+    .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: #4ade80;
+      color: #000;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover { background: #22c55e; transform: translateY(-2px); }
+    .btn-secondary {
+      background: #333;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 1.1em;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: #444; }
+
+    /* How it works */
+    .section { padding: 60px 20px; max-width: 1000px; margin: 0 auto; }
+    .section-title {
+      font-size: 1.8em;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+    }
+    .step {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+    }
+    .step-number {
+      width: 48px;
+      height: 48px;
+      background: #3b82f6;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+      font-weight: 700;
+      margin: 0 auto 16px;
+    }
+    .step h3 { font-size: 1.3em; margin-bottom: 8px; }
+    .step p { color: #888; font-size: 0.95em; }
+
+    /* Why section */
+    .why {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 40px;
+      margin-top: 40px;
+    }
+    .why h3 { font-size: 1.4em; margin-bottom: 20px; }
+    .why ul {
+      list-style: none;
+      color: #aaa;
+      font-size: 1.05em;
+    }
+    .why li {
+      margin-bottom: 12px;
+      padding-left: 28px;
+      position: relative;
+    }
+    .why li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: #4ade80;
+      font-size: 1.5em;
+      line-height: 1;
+    }
+
+    /* Pricing Preview */
+    .pricing-preview {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .pricing-preview h3 { font-size: 1.8em; margin-bottom: 12px; }
+    .pricing-preview .hint { color: #888; margin-bottom: 40px; }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+      max-width: 900px;
+      margin: 0 auto 30px;
+    }
+    .pricing-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid #333;
+    }
+    .pricing-card.featured {
+      border-color: #4ade80;
+      background: rgba(74,222,128,0.1);
+    }
+    .pricing-card h4 { font-size: 1.1em; margin-bottom: 8px; }
+    .pricing-card .price {
+      font-size: 1.8em;
+      font-weight: 700;
+      color: #4ade80;
+      margin-bottom: 8px;
+    }
+    .pricing-card .desc { color: #888; font-size: 0.9em; }
+    .pricing-cta {
+      color: #3b82f6;
+      text-decoration: none;
+      font-size: 1.1em;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pricing-cta:hover { text-decoration: underline; }
+
+    /* Footer */
+    .footer {
+      background: #1a1a2e;
+      padding: 30px 20px;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+    .footer-links { margin-bottom: 16px; }
+    .footer-links a {
+      color: #888;
+      text-decoration: none;
+      margin: 0 12px;
+    }
+    .footer-links a:hover { color: white; }
+    .footer-support { margin-bottom: 12px; }
+
+    @media (max-width: 640px) {
+      .hero h2 { font-size: 1.8em; }
+      .hero .subtitle { font-size: 1.1em; }
+      .hero-cta { flex-direction: column; align-items: center; }
+      .btn-primary, .btn-secondary { width: 100%; max-width: 280px; text-align: center; }
+      .header nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="logo-title">
+      <img src="/lurl/files/LOGO.png" alt="Lurl" class="logo">
+    </div>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/pricing">方案</a>
+      <a href="/lurl/guide">教學</a>
+    </nav>
+    <a href="/lurl/login" class="login-btn">登入</a>
+  </header>
+
+  <section class="hero">
+    <div class="hero-emoji">🎬</div>
+    <h2>那些消失的，我們都記得</h2>
+    <p class="subtitle">片段的影片，帶給你永遠的愉悅</p>
+    <div class="hero-cta">
+      <a href="/lurl/download" class="btn-primary">安裝腳本 - 免費</a>
+      <a href="/lurl/browse" class="btn-secondary">看看有啥</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>裝</h3>
+        <p>裝腳本，30 秒搞定</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>逛</h3>
+        <p>正常瀏覽，該看啥看啥</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>存</h3>
+        <p>自動備份，永久保存</p>
+      </div>
+    </div>
+
+    <div class="why">
+      <h3>💡 為什麼需要這個？</h3>
+      <ul>
+        <li>Dcard 圖片 7 天過期，PTT 更快</li>
+        <li>那些精彩的，錯過就沒了</li>
+        <li>我們幫你存著，想看隨時看</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="pricing-preview">
+    <h3>📦 方案預覽</h3>
+    <p class="hint">不確定？先用免費的，夠用再說</p>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <h4>免費仔</h4>
+        <div class="price">$0</div>
+        <p class="desc">夠你試試</p>
+      </div>
+      <div class="pricing-card">
+        <h4>額度包</h4>
+        <div class="price">$199<small>/月</small></div>
+        <p class="desc">存更多</p>
+      </div>
+      <div class="pricing-card">
+        <h4>會員</h4>
+        <div class="price">$599<small>/月</small></div>
+        <p class="desc">每天新鮮</p>
+      </div>
+      <div class="pricing-card featured">
+        <h4>老司機 ⭐</h4>
+        <div class="price">$899<small>/月</small></div>
+        <p class="desc">全都要</p>
+      </div>
+    </div>
+    <a href="/lurl/pricing" class="pricing-cta">看完整方案 →</a>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-support">支援：Dcard (MyPTT) • Lurl</div>
+    <div class="footer-links">
+      <a href="/lurl/feedback">意見回饋</a>
+      <a href="/lurl/guide">使用教學</a>
+      <a href="/lurl/pricing">方案</a>
+    </div>
+    <div>© 2026 Lurl</div>
+  </footer>
+</body>
+</html>`;
+}
+
+// ==================== Download Page ====================
+
+function downloadPage() {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>下載腳本 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header .logo-title { display: flex; align-items: center; gap: 10px; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: white; }
+    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #2563eb; }
+    .container { max-width: 800px; margin: 0 auto; padding: 60px 20px; }
+    .page-header { text-align: center; margin-bottom: 50px; }
+    .page-header h2 { font-size: 2em; margin-bottom: 8px; }
+    .page-header .version { color: #888; }
+    .card { background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 24px; }
+    .card.warning { background: linear-gradient(135deg, #3d2a1a 0%, #1a1a1a 100%); border: 1px solid #f59e0b; }
+    .card h3 { margin-bottom: 12px; font-size: 1.2em; }
+    .card p { color: #aaa; margin-bottom: 16px; }
+    .card a { color: #3b82f6; }
+    .install-btn { display: block; width: 100%; padding: 20px; background: #4ade80; color: #000; border: none; border-radius: 12px; font-size: 1.3em; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
+    .install-btn:hover { background: #22c55e; transform: translateY(-2px); }
+    .install-btn span { font-size: 0.8em; font-weight: 400; opacity: 0.8; display: block; margin-top: 4px; }
+    .manual-link { text-align: center; color: #888; margin-top: 16px; }
+    .manual-link a { color: #3b82f6; }
+    .support-list { list-style: none; }
+    .support-list li { padding: 12px 0; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 12px; }
+    .support-list li:last-child { border-bottom: none; }
+    .support-list .status { color: #4ade80; }
+    .support-list .pending { color: #888; }
+    .changelog { color: #aaa; font-size: 0.95em; }
+    .changelog li { margin-bottom: 8px; }
+    .footer { background: #1a1a2e; padding: 30px 20px; text-align: center; color: #666; font-size: 0.9em; margin-top: 60px; }
+    .footer-links { margin-bottom: 16px; }
+    .footer-links a { color: #888; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: white; }
+    @media (max-width: 640px) { .header nav { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/" class="logo-title"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/pricing">方案</a>
+      <a href="/lurl/guide">教學</a>
+    </nav>
+    <a href="/lurl/login" class="login-btn">登入</a>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>📥 下載腳本</h2>
+      <p class="version">版本 v1.2.0 | 最後更新 2026-01-22</p>
+    </div>
+
+    <div class="card warning">
+      <h3>⚠️ 還沒裝 Tampermonkey？</h3>
+      <p>這是一個瀏覽器擴充套件，讓腳本能跑。先裝這個再來。</p>
+      <p>
+        <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank">Chrome 安裝</a> ｜
+        <a href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank">Firefox 安裝</a> ｜
+        <a href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank">Edge 安裝</a>
+      </p>
+    </div>
+
+    <div class="card">
+      <a href="https://greasyfork.org/scripts/your-script" target="_blank" class="install-btn">
+        🚀 一鍵安裝腳本
+        <span>from GreasyFork（推薦）</span>
+      </a>
+      <p class="manual-link">或者 <a href="#">下載 .user.js 檔案</a> 手動安裝</p>
+    </div>
+
+    <div class="card">
+      <h3>✅ 支援網站</h3>
+      <ul class="support-list">
+        <li><span class="status">●</span> Dcard (透過 MyPTT)</li>
+        <li><span class="status">●</span> Lurl 原生支援</li>
+        <li><span class="pending">○</span> 更多開發中...</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>📝 更新日誌</h3>
+      <ul class="changelog">
+        <li><strong>v1.2.0</strong> - 新增會員登入功能</li>
+        <li><strong>v1.1.0</strong> - 支援 HLS 串流備份</li>
+        <li><strong>v1.0.0</strong> - 首次發布</li>
+      </ul>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/lurl/feedback">意見回饋</a>
+      <a href="/lurl/guide">使用教學</a>
+      <a href="/lurl/pricing">方案</a>
+    </div>
+    <div>© 2026 Lurl</div>
+  </footer>
+</body>
+</html>`;
+}
+
+// ==================== Pricing Page ====================
+
+function pricingPage() {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>方案價格 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header .logo-title { display: flex; align-items: center; gap: 10px; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: white; }
+    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #2563eb; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 60px 20px; }
+    .page-header { text-align: center; margin-bottom: 50px; }
+    .page-header h2 { font-size: 2em; margin-bottom: 12px; }
+    .page-header p { color: #888; font-size: 1.1em; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 60px; }
+    .plan { background: #1a1a1a; border-radius: 16px; padding: 30px; text-align: center; border: 2px solid transparent; transition: all 0.2s; }
+    .plan:hover { border-color: #333; }
+    .plan.featured { border-color: #4ade80; background: linear-gradient(135deg, #1a2e1a 0%, #1a1a1a 100%); }
+    .plan-name { font-size: 1.3em; font-weight: 600; margin-bottom: 8px; }
+    .plan-price { font-size: 2.5em; font-weight: 700; color: #4ade80; margin-bottom: 8px; }
+    .plan-price small { font-size: 0.4em; color: #888; }
+    .plan-quota { color: #888; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333; }
+    .plan-features { list-style: none; text-align: left; margin-bottom: 24px; font-size: 0.95em; }
+    .plan-features li { padding: 8px 0; color: #aaa; }
+    .plan-features li::before { content: '✓'; color: #4ade80; margin-right: 8px; }
+    .plan-btn { display: block; width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
+    .plan-btn:hover { background: #444; }
+    .plan.featured .plan-btn { background: #4ade80; color: #000; }
+    .plan.featured .plan-btn:hover { background: #22c55e; }
+    .enterprise { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 40px; margin-bottom: 60px; }
+    .enterprise h3 { font-size: 1.5em; margin-bottom: 12px; }
+    .enterprise .price { color: #4ade80; font-size: 1.8em; font-weight: 700; margin-bottom: 16px; }
+    .enterprise ul { list-style: none; color: #aaa; margin-bottom: 24px; }
+    .enterprise li { padding: 8px 0; }
+    .enterprise li::before { content: '•'; color: #3b82f6; margin-right: 8px; }
+    .enterprise .target { color: #888; font-size: 0.95em; margin-bottom: 24px; }
+    .enterprise .contact-btn { display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; }
+    .enterprise .contact-btn:hover { background: #2563eb; }
+    .faq { background: #1a1a1a; border-radius: 16px; padding: 40px; }
+    .faq h3 { font-size: 1.5em; margin-bottom: 24px; }
+    .faq-item { margin-bottom: 24px; }
+    .faq-item:last-child { margin-bottom: 0; }
+    .faq-q { font-weight: 600; margin-bottom: 8px; }
+    .faq-a { color: #aaa; }
+    .footer { background: #1a1a2e; padding: 30px 20px; text-align: center; color: #666; font-size: 0.9em; margin-top: 60px; }
+    .footer-links { margin-bottom: 16px; }
+    .footer-links a { color: #888; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: white; }
+    @media (max-width: 640px) { .header nav { display: none; } .plan-price { font-size: 2em; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/" class="logo-title"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/pricing" class="active">方案</a>
+      <a href="/lurl/guide">教學</a>
+    </nav>
+    <a href="/lurl/login" class="login-btn">登入</a>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>💰 選一個適合你的</h2>
+      <p>不確定？先用免費的，夠用再說</p>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="plan">
+        <div class="plan-name">免費仔</div>
+        <div class="plan-price">$0</div>
+        <div class="plan-quota">3 點/月</div>
+        <ul class="plan-features">
+          <li>預覽內容</li>
+          <li>使用腳本備份</li>
+          <li>額度恢復過期資源</li>
+        </ul>
+        <a href="/lurl/download" class="plan-btn">開始用</a>
+      </div>
+
+      <div class="plan">
+        <div class="plan-name">額度包</div>
+        <div class="plan-price">$199<small>/月</small></div>
+        <div class="plan-quota">20 點/月</div>
+        <ul class="plan-features">
+          <li>預覽內容</li>
+          <li>更多額度</li>
+          <li>不需註冊帳號</li>
+        </ul>
+        <a href="#" class="plan-btn">訂閱</a>
+      </div>
+
+      <div class="plan">
+        <div class="plan-name">會員</div>
+        <div class="plan-price">$599<small>/月</small></div>
+        <div class="plan-quota">30 點/月</div>
+        <ul class="plan-features">
+          <li>24h 內資源完整存取</li>
+          <li>觀看歷史</li>
+          <li>下載記錄</li>
+          <li>個人資料</li>
+        </ul>
+        <a href="#" class="plan-btn">訂閱</a>
+      </div>
+
+      <div class="plan featured">
+        <div class="plan-name">老司機 ⭐</div>
+        <div class="plan-price">$899<small>/月</small></div>
+        <div class="plan-quota">無限</div>
+        <ul class="plan-features">
+          <li>全資料庫完整存取</li>
+          <li>收藏/相簿</li>
+          <li>隱藏內容</li>
+          <li>標籤訂閱</li>
+          <li>批量下載</li>
+          <li>優先處理</li>
+        </ul>
+        <a href="#" class="plan-btn">訂閱</a>
+      </div>
+    </div>
+
+    <div class="enterprise">
+      <h3>🔧 超級大會員 - 自己架一個</h3>
+      <div class="price">$6,999 一次性買斷</div>
+      <ul>
+        <li>完整源碼，想改就改</li>
+        <li>自己的資料庫，完全私有</li>
+        <li>含部署協助 + 1 個月技術支援</li>
+      </ul>
+      <p class="target">適合：工作室、重度收藏家、技術宅</p>
+      <a href="/lurl/feedback" class="contact-btn">聯繫購買</a>
+    </div>
+
+    <div class="faq">
+      <h3>❓ 常見問題</h3>
+      <div class="faq-item">
+        <div class="faq-q">Q: 額度是什麼？</div>
+        <div class="faq-a">A: 恢復過期資源用的。原始連結掛了，用額度從備份看。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Q: 會員跟額度包差在哪？</div>
+        <div class="faq-a">A: 會員可以直接看 24 小時內的新內容，不用額度。額度包只能恢復過期的。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Q: 老司機是不是最划算？</div>
+        <div class="faq-a">A: 如果你每天都要看，是的。全資料庫隨便看。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Q: 可以退費嗎？</div>
+        <div class="faq-a">A: 訂閱後 7 天內未使用可全額退費。</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/lurl/feedback">意見回饋</a>
+      <a href="/lurl/guide">使用教學</a>
+    </div>
+    <div>© 2026 Lurl</div>
+  </footer>
+</body>
+</html>`;
+}
+
+// ==================== Guide Page ====================
+
+function guidePage() {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用教學 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header .logo-title { display: flex; align-items: center; gap: 10px; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: white; }
+    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #2563eb; }
+    .container { max-width: 800px; margin: 0 auto; padding: 60px 20px; }
+    .page-header { text-align: center; margin-bottom: 50px; }
+    .page-header h2 { font-size: 2em; margin-bottom: 8px; }
+    .step-section { background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 24px; }
+    .step-section h3 { font-size: 1.3em; margin-bottom: 16px; color: #4ade80; }
+    .step-section p { color: #aaa; margin-bottom: 16px; }
+    .step-section a { color: #3b82f6; }
+    .browser-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .browser-links a { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: #333; border-radius: 8px; color: white; text-decoration: none; font-size: 0.95em; }
+    .browser-links a:hover { background: #444; }
+    .demo-box { background: #252525; border-radius: 12px; padding: 40px; text-align: center; color: #888; margin: 20px 0; }
+    .highlight-box { background: linear-gradient(135deg, #1a2e1a 0%, #1a1a1a 100%); border: 1px solid #4ade80; border-radius: 12px; padding: 20px; margin: 20px 0; }
+    .highlight-box h4 { color: #4ade80; margin-bottom: 12px; }
+    .highlight-box ul { list-style: none; color: #aaa; }
+    .highlight-box li { padding: 8px 0; }
+    .highlight-box li::before { content: '•'; color: #4ade80; margin-right: 8px; }
+    .trouble { background: #1a1a1a; border-radius: 16px; padding: 30px; }
+    .trouble h3 { margin-bottom: 20px; }
+    .trouble-item { padding: 12px 0; border-bottom: 1px solid #333; }
+    .trouble-item:last-child { border-bottom: none; }
+    .trouble-q { color: #aaa; margin-bottom: 4px; }
+    .trouble-a { color: #888; font-size: 0.95em; }
+    .trouble-a a { color: #3b82f6; }
+    .footer { background: #1a1a2e; padding: 30px 20px; text-align: center; color: #666; font-size: 0.9em; margin-top: 60px; }
+    .footer-links { margin-bottom: 16px; }
+    .footer-links a { color: #888; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: white; }
+    @media (max-width: 640px) { .header nav { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/" class="logo-title"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/pricing">方案</a>
+      <a href="/lurl/guide" class="active">教學</a>
+    </nav>
+    <a href="/lurl/login" class="login-btn">登入</a>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>📖 三分鐘上手</h2>
+    </div>
+
+    <section class="step-section">
+      <h3>Step 1：安裝 Tampermonkey</h3>
+      <p>這是一個瀏覽器擴充套件，讓腳本能跑。</p>
+      <div class="browser-links">
+        <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank">🌐 Chrome 安裝</a>
+        <a href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank">🦊 Firefox 安裝</a>
+        <a href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank">📘 Edge 安裝</a>
+      </div>
+      <div class="demo-box">[安裝截圖 GIF]</div>
+    </section>
+
+    <section class="step-section">
+      <h3>Step 2：安裝 Lurl 腳本</h3>
+      <p><a href="https://greasyfork.org/scripts/your-script" target="_blank">一鍵安裝 from GreasyFork</a></p>
+      <p>點進去 → 點安裝 → 完成，就這樣。</p>
+    </section>
+
+    <section class="step-section">
+      <h3>Step 3：正常使用</h3>
+      <p>去 Dcard 或 PTT 逛，看到圖片/影片會自動備份。</p>
+      <p>右下角會有提示，備份完會跳通知。</p>
+      <div class="demo-box">[使用示意 GIF]</div>
+    </section>
+
+    <div class="highlight-box">
+      <h4>🚀 進階功能</h4>
+      <ul>
+        <li><strong>手動備份</strong>：點腳本按鈕強制備份當前頁面</li>
+        <li><strong>查看額度</strong>：腳本面板顯示剩餘額度</li>
+        <li><strong>會員登入</strong>：在腳本面板登入，解鎖更多功能</li>
+      </ul>
+    </div>
+
+    <div class="trouble">
+      <h3>🔧 遇到問題？</h3>
+      <div class="trouble-item">
+        <div class="trouble-q">腳本沒反應</div>
+        <div class="trouble-a">→ 重新整理頁面試試</div>
+      </div>
+      <div class="trouble-item">
+        <div class="trouble-q">備份失敗</div>
+        <div class="trouble-a">→ 可能原始連結已經掛了</div>
+      </div>
+      <div class="trouble-item">
+        <div class="trouble-q">其他問題</div>
+        <div class="trouble-a">→ <a href="/lurl/feedback">回報問題</a></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/lurl/feedback">意見回饋</a>
+      <a href="/lurl/pricing">方案</a>
+    </div>
+    <div>© 2026 Lurl</div>
+  </footer>
+</body>
+</html>`;
+}
+
+// ==================== Feedback Page ====================
+
+function feedbackPage() {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>意見回饋 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header .logo-title { display: flex; align-items: center; gap: 10px; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: white; }
+    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #2563eb; }
+    .container { max-width: 600px; margin: 0 auto; padding: 60px 20px; }
+    .page-header { text-align: center; margin-bottom: 40px; }
+    .page-header h2 { font-size: 2em; margin-bottom: 8px; }
+    .page-header p { color: #888; }
+    .form-card { background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 24px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+    .form-group select, .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #0f0f0f;
+      color: white;
+      font-size: 1em;
+      font-family: inherit;
+    }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: #3b82f6; outline: none; }
+    .form-group textarea { min-height: 150px; resize: vertical; }
+    .form-group .hint { color: #666; font-size: 0.85em; margin-top: 4px; }
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: #4ade80;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .submit-btn:hover { background: #22c55e; }
+    .submit-btn:disabled { background: #333; color: #888; cursor: not-allowed; }
+    .other-channels { background: #1a1a1a; border-radius: 16px; padding: 30px; }
+    .other-channels h3 { margin-bottom: 16px; }
+    .other-channels ul { list-style: none; color: #aaa; }
+    .other-channels li { padding: 8px 0; }
+    .other-channels li::before { content: '•'; color: #3b82f6; margin-right: 8px; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #4ade80; color: #000; padding: 16px 24px; border-radius: 8px; font-weight: 500; opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 1000; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: #ef4444; color: white; }
+    .footer { background: #1a1a2e; padding: 30px 20px; text-align: center; color: #666; font-size: 0.9em; margin-top: 60px; }
+    .footer-links { margin-bottom: 16px; }
+    .footer-links a { color: #888; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: white; }
+    @media (max-width: 640px) { .header nav { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/" class="logo-title"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/pricing">方案</a>
+      <a href="/lurl/guide">教學</a>
+    </nav>
+    <a href="/lurl/login" class="login-btn">登入</a>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>💬 說點什麼</h2>
+      <p>Bug、建議、抱怨、誇獎都可以</p>
+    </div>
+
+    <form class="form-card" id="feedbackForm">
+      <div class="form-group">
+        <label for="type">類型</label>
+        <select id="type" name="type" required>
+          <option value="">選擇類型</option>
+          <option value="bug">Bug 回報</option>
+          <option value="feature">功能建議</option>
+          <option value="payment">付費問題</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="message">內容</label>
+        <textarea id="message" name="message" placeholder="描述你遇到的問題或建議..." required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="contact">聯絡方式（選填）</label>
+        <input type="text" id="contact" name="contact" placeholder="Email 或 Discord">
+        <p class="hint">留下聯絡方式，方便我們回覆</p>
+      </div>
+
+      <button type="submit" class="submit-btn">送出</button>
+    </form>
+
+    <div class="other-channels">
+      <h3>📢 其他管道</h3>
+      <ul>
+        <li>GreasyFork 腳本頁留言</li>
+        <li>Discord: 開發中...</li>
+      </ul>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/lurl/guide">使用教學</a>
+      <a href="/lurl/pricing">方案</a>
+    </div>
+    <div>© 2026 Lurl</div>
+  </footer>
+
+  <script>
+    const form = document.getElementById('feedbackForm');
+    const toast = document.getElementById('toast');
+
+    function showToast(message, isError = false) {
+      toast.textContent = message;
+      toast.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => toast.className = 'toast', 3000);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('.submit-btn');
+      btn.disabled = true;
+      btn.textContent = '送出中...';
+
+      try {
+        const data = {
+          type: form.type.value,
+          message: form.message.value,
+          contact: form.contact.value,
+          timestamp: new Date().toISOString()
+        };
+
+        const res = await fetch('/lurl/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          showToast('感謝你的回饋！');
+          form.reset();
+        } else {
+          throw new Error('送出失敗');
+        }
+      } catch (err) {
+        showToast('送出失敗，請稍後再試', true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '送出';
+      }
+    });
+  </script>
+</body>
+</html>`;
+}
+
 function browsePage() {
   return `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -3988,6 +4907,38 @@ module.exports = {
       return;
     }
 
+    // ==================== 公開頁面 ====================
+
+    // GET / - Landing 首頁
+    if (req.method === 'GET' && urlPath === '/') {
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), landingPage());
+      return;
+    }
+
+    // GET /download - 腳本下載
+    if (req.method === 'GET' && urlPath === '/download') {
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), downloadPage());
+      return;
+    }
+
+    // GET /pricing - 價格方案
+    if (req.method === 'GET' && urlPath === '/pricing') {
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), pricingPage());
+      return;
+    }
+
+    // GET /guide - 使用教學
+    if (req.method === 'GET' && urlPath === '/guide') {
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), guidePage());
+      return;
+    }
+
+    // GET /feedback - 意見回饋
+    if (req.method === 'GET' && urlPath === '/feedback') {
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), feedbackPage());
+      return;
+    }
+
     // ==================== Phase 1 ====================
 
     // GET /health
@@ -5287,6 +6238,47 @@ module.exports = {
 
       res.writeHead(200, corsHeaders());
       res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // ==================== 回饋 API ====================
+
+    // POST /api/feedback - 提交回饋（公開 API）
+    if (req.method === 'POST' && urlPath === '/api/feedback') {
+      try {
+        const body = await parseBody(req);
+        const { type, message, contact, timestamp } = body;
+
+        if (!type || !message) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '缺少必要欄位' }));
+          return;
+        }
+
+        // 儲存回饋到檔案
+        const feedbackDir = path.join(DATA_DIR, 'feedback');
+        if (!fs.existsSync(feedbackDir)) {
+          fs.mkdirSync(feedbackDir, { recursive: true });
+        }
+
+        const feedbackFile = path.join(feedbackDir, 'feedback.jsonl');
+        const feedbackEntry = JSON.stringify({
+          id: Date.now().toString(36),
+          type,
+          message,
+          contact: contact || '',
+          timestamp: timestamp || new Date().toISOString(),
+          ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+        }) + '\n';
+
+        fs.appendFileSync(feedbackFile, feedbackEntry);
+
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
       return;
     }
 
