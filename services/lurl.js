@@ -1478,6 +1478,15 @@ function adminPage() {
             <div class="maintenance-status" id="repairStatus">就緒</div>
             <button class="btn btn-primary btn-sm" onclick="repairPaths()" id="repairBtn">執行</button>
           </div>
+          <div class="maintenance-item">
+            <div class="maintenance-icon">🎬</div>
+            <div class="maintenance-info">
+              <div class="maintenance-label">清理 HLS 原檔</div>
+              <div class="maintenance-desc">刪除已轉 HLS 的原始影片，釋放空間</div>
+            </div>
+            <div class="maintenance-status" id="hlsCleanupStatus">就緒</div>
+            <button class="btn btn-primary btn-sm" onclick="cleanupHlsOriginals()" id="hlsCleanupBtn">執行</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2290,6 +2299,33 @@ function adminPage() {
       } catch (e) {
         showToast('清理失敗: ' + e.message, 'error');
         setStatus('dupStatus', '清理失敗', 'error');
+        btn.disabled = false;
+      }
+    }
+
+    async function cleanupHlsOriginals() {
+      const btn = document.getElementById('hlsCleanupBtn');
+      btn.disabled = true;
+      setStatus('hlsCleanupStatus', '處理中...', 'processing');
+      try {
+        const res = await fetch('/lurl/api/cleanup-hls-originals', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.deleted === 0) {
+            showToast('沒有可清理的 HLS 原檔');
+            setStatus('hlsCleanupStatus', '無需清理', 'success');
+          } else {
+            showToast('已清理 ' + data.deleted + ' 個檔案，釋放 ' + data.freedMB + ' MB');
+            setStatus('hlsCleanupStatus', '釋放 ' + data.freedMB + ' MB', 'success');
+          }
+        } else {
+          showToast('清理失敗: ' + (data.error || '未知錯誤'), 'error');
+          setStatus('hlsCleanupStatus', '清理失敗', 'error');
+        }
+        btn.disabled = false;
+      } catch (e) {
+        showToast('清理失敗: ' + e.message, 'error');
+        setStatus('hlsCleanupStatus', '清理失敗', 'error');
         btn.disabled = false;
       }
     }
@@ -7837,6 +7873,58 @@ module.exports = {
         res.end(JSON.stringify({ ok: true, removed: toRemove.length }));
       } catch (err) {
         console.error('[lurl] 清理重複失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    // POST /api/cleanup-hls-originals - 清理已轉 HLS 的原始影片檔（需要 Admin 登入）
+    if (req.method === 'POST' && urlPath === '/api/cleanup-hls-originals') {
+      if (!isAdminAuthenticated(req)) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '請先登入' }));
+        return;
+      }
+
+      try {
+        const records = readAllRecords();
+        const hlsRecords = records.filter(r => r.hlsReady === true);
+
+        let deleted = 0;
+        let freedBytes = 0;
+        const deletedFiles = [];
+
+        hlsRecords.forEach(r => {
+          if (r.backupPath) {
+            const videoPath = path.join(DATA_DIR, r.backupPath);
+            if (fs.existsSync(videoPath)) {
+              try {
+                const stat = fs.statSync(videoPath);
+                freedBytes += stat.size;
+                fs.unlinkSync(videoPath);
+                deleted++;
+                deletedFiles.push(r.backupPath);
+                console.log(`[lurl] 清理 HLS 原始檔: ${r.backupPath}`);
+              } catch (e) {
+                console.error(`[lurl] 刪除失敗: ${r.backupPath}`, e.message);
+              }
+            }
+          }
+        });
+
+        const freedMB = (freedBytes / 1024 / 1024).toFixed(2);
+        console.log(`[lurl] 已清理 ${deleted} 個 HLS 原始檔，釋放 ${freedMB} MB`);
+
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({
+          ok: true,
+          deleted,
+          freedMB: parseFloat(freedMB),
+          totalHlsRecords: hlsRecords.length
+        }));
+      } catch (err) {
+        console.error('[lurl] 清理 HLS 原始檔失敗:', err);
         res.writeHead(500, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: err.message }));
       }
