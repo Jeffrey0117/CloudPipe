@@ -2542,55 +2542,55 @@ function landingPage() {
   <title>Lurl - 影片備份服務</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
-    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; min-height: 100vh; line-height: 1.6; }
+    .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .header .logo-title { display: flex; align-items: center; gap: 10px; }
     .header .logo { height: 36px; width: auto; }
     .header nav { display: flex; gap: 20px; }
-    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
-    .header nav a:hover { color: white; }
-    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
-    .header .login-btn:hover { background: #2563eb; }
+    .header nav a { color: #64748b; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover { color: #5BB4D4; }
+    .header .login-btn { background: #5BB4D4; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #4AABCC; }
 
-    .hero { text-align: center; padding: 100px 20px 80px; }
-    .hero h2 { font-size: 2.2em; font-weight: 600; margin-bottom: 16px; color: #fff; }
-    .hero .subtitle { font-size: 1.1em; color: #888; margin-bottom: 40px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .hero { text-align: center; padding: 100px 20px 80px; background: linear-gradient(180deg, #e8f4f8 0%, #f8fafc 100%); }
+    .hero h2 { font-size: 2.2em; font-weight: 600; margin-bottom: 16px; color: #1f2937; }
+    .hero .subtitle { font-size: 1.1em; color: #64748b; margin-bottom: 40px; max-width: 500px; margin-left: auto; margin-right: auto; }
     .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .btn-primary { background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-size: 1em; font-weight: 500; text-decoration: none; transition: all 0.2s; }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-secondary { background: #252525; color: #ccc; padding: 12px 24px; border-radius: 8px; font-size: 1em; text-decoration: none; transition: all 0.2s; }
-    .btn-secondary:hover { background: #333; color: white; }
+    .btn-primary { background: #5BB4D4; color: white; padding: 12px 24px; border-radius: 8px; font-size: 1em; font-weight: 500; text-decoration: none; transition: all 0.2s; }
+    .btn-primary:hover { background: #4AABCC; }
+    .btn-secondary { background: white; color: #5BB4D4; padding: 12px 24px; border-radius: 8px; font-size: 1em; text-decoration: none; transition: all 0.2s; border: 1px solid #d1e9f0; }
+    .btn-secondary:hover { background: #e8f4f8; }
 
     .section { padding: 60px 20px; max-width: 900px; margin: 0 auto; }
-    .section-title { font-size: 1.3em; font-weight: 600; margin-bottom: 30px; color: #ccc; }
+    .section-title { font-size: 1.3em; font-weight: 600; margin-bottom: 30px; color: #374151; }
     .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
-    .step { background: #1a1a1a; border-radius: 12px; padding: 24px; }
-    .step-number { width: 36px; height: 36px; background: #252525; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1em; font-weight: 600; margin-bottom: 16px; color: #3b82f6; }
-    .step h3 { font-size: 1em; font-weight: 500; margin-bottom: 8px; }
-    .step p { color: #666; font-size: 0.9em; }
+    .step { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .step-number { width: 36px; height: 36px; background: #e8f4f8; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1em; font-weight: 600; margin-bottom: 16px; color: #5BB4D4; }
+    .step h3 { font-size: 1em; font-weight: 500; margin-bottom: 8px; color: #374151; }
+    .step p { color: #64748b; font-size: 0.9em; }
 
-    .features { background: #1a1a1a; border-radius: 12px; padding: 30px; margin-top: 30px; }
-    .features h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 20px; color: #ccc; }
-    .features ul { list-style: none; color: #888; }
+    .features { background: white; border-radius: 12px; padding: 30px; margin-top: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .features h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 20px; color: #374151; }
+    .features ul { list-style: none; color: #64748b; }
     .features li { margin-bottom: 10px; padding-left: 20px; position: relative; font-size: 0.95em; }
-    .features li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; }
+    .features li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: #5BB4D4; border-radius: 50%; }
 
-    .pricing-section { padding: 60px 20px; background: #111; }
+    .pricing-section { padding: 60px 20px; background: #f0f9fc; }
     .pricing-section .section-title { text-align: center; margin-bottom: 40px; }
     .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; max-width: 900px; margin: 0 auto 30px; }
-    .pricing-card { background: #1a1a1a; border-radius: 12px; padding: 24px; border: 1px solid #252525; }
-    .pricing-card.featured { border-color: #3b82f6; }
-    .pricing-card h4 { font-size: 1em; font-weight: 500; margin-bottom: 8px; color: #ccc; }
-    .pricing-card .price { font-size: 1.5em; font-weight: 600; color: #fff; margin-bottom: 4px; }
-    .pricing-card .price small { font-size: 0.5em; color: #666; }
-    .pricing-card .desc { color: #666; font-size: 0.85em; }
-    .pricing-cta { display: block; text-align: center; color: #3b82f6; text-decoration: none; font-size: 0.95em; margin-top: 20px; }
+    .pricing-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; }
+    .pricing-card.featured { border-color: #5BB4D4; box-shadow: 0 0 0 1px #5BB4D4; }
+    .pricing-card h4 { font-size: 1em; font-weight: 500; margin-bottom: 8px; color: #374151; }
+    .pricing-card .price { font-size: 1.5em; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+    .pricing-card .price small { font-size: 0.5em; color: #94a3b8; }
+    .pricing-card .desc { color: #64748b; font-size: 0.85em; }
+    .pricing-cta { display: block; text-align: center; color: #5BB4D4; text-decoration: none; font-size: 0.95em; margin-top: 20px; }
     .pricing-cta:hover { text-decoration: underline; }
 
-    .footer { background: #1a1a2e; padding: 24px 20px; text-align: center; color: #555; font-size: 0.85em; }
+    .footer { background: white; padding: 24px 20px; text-align: center; color: #94a3b8; font-size: 0.85em; border-top: 1px solid #e2e8f0; }
     .footer-links { margin-bottom: 12px; }
-    .footer-links a { color: #666; text-decoration: none; margin: 0 12px; }
-    .footer-links a:hover { color: #aaa; }
+    .footer-links a { color: #64748b; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: #5BB4D4; }
 
     @media (max-width: 640px) {
       .hero h2 { font-size: 1.6em; }
@@ -2701,41 +2701,41 @@ function downloadPage() {
   <title>下載腳本 - Lurl</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
-    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; min-height: 100vh; line-height: 1.6; }
+    .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .header .logo-title { display: flex; align-items: center; gap: 10px; }
     .header .logo { height: 36px; width: auto; }
     .header nav { display: flex; gap: 20px; }
-    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
-    .header nav a:hover, .header nav a.active { color: white; }
-    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
-    .header .login-btn:hover { background: #2563eb; }
+    .header nav a { color: #64748b; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: #5BB4D4; }
+    .header .login-btn { background: #5BB4D4; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #4AABCC; }
     .container { max-width: 600px; margin: 0 auto; padding: 60px 20px; }
     .page-header { margin-bottom: 40px; }
-    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; }
-    .page-header .version { color: #666; font-size: 0.9em; }
-    .card { background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .card.notice { border: 1px solid #333; }
-    .card h3 { margin-bottom: 12px; font-size: 1em; font-weight: 500; color: #ccc; }
-    .card p { color: #888; font-size: 0.9em; margin-bottom: 12px; }
-    .card a { color: #3b82f6; text-decoration: none; }
+    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+    .page-header .version { color: #94a3b8; font-size: 0.9em; }
+    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .card.notice { border: 1px solid #d1e9f0; background: #f0f9fc; }
+    .card h3 { margin-bottom: 12px; font-size: 1em; font-weight: 500; color: #374151; }
+    .card p { color: #64748b; font-size: 0.9em; margin-bottom: 12px; }
+    .card a { color: #5BB4D4; text-decoration: none; }
     .card a:hover { text-decoration: underline; }
-    .install-btn { display: block; width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 500; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
-    .install-btn:hover { background: #2563eb; }
+    .install-btn { display: block; width: 100%; padding: 14px; background: #5BB4D4; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 500; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
+    .install-btn:hover { background: #4AABCC; }
     .install-btn span { font-size: 0.85em; font-weight: 400; opacity: 0.8; display: block; margin-top: 4px; }
-    .manual-link { text-align: center; color: #666; margin-top: 12px; font-size: 0.9em; }
+    .manual-link { text-align: center; color: #94a3b8; margin-top: 12px; font-size: 0.9em; }
     .support-list { list-style: none; }
-    .support-list li { padding: 10px 0; border-bottom: 1px solid #252525; display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: #aaa; }
+    .support-list li { padding: 10px 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: #64748b; }
     .support-list li:last-child { border-bottom: none; }
-    .support-list .status { width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; }
-    .support-list .pending { background: #444; }
-    .changelog { color: #888; font-size: 0.9em; list-style: none; }
+    .support-list .status { width: 8px; height: 8px; background: #5BB4D4; border-radius: 50%; }
+    .support-list .pending { background: #cbd5e1; }
+    .changelog { color: #64748b; font-size: 0.9em; list-style: none; }
     .changelog li { margin-bottom: 8px; }
-    .changelog strong { color: #aaa; }
-    .footer { background: #1a1a2e; padding: 24px 20px; text-align: center; color: #555; font-size: 0.85em; margin-top: 60px; }
+    .changelog strong { color: #374151; }
+    .footer { background: white; padding: 24px 20px; text-align: center; color: #94a3b8; font-size: 0.85em; margin-top: 60px; border-top: 1px solid #e2e8f0; }
     .footer-links { margin-bottom: 12px; }
-    .footer-links a { color: #666; text-decoration: none; margin: 0 12px; }
-    .footer-links a:hover { color: #aaa; }
+    .footer-links a { color: #64748b; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: #5BB4D4; }
     @media (max-width: 640px) { .header nav { display: none; } }
   </style>
 </head>
@@ -2817,52 +2817,52 @@ function pricingPage() {
   <title>方案 - Lurl</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
-    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; min-height: 100vh; line-height: 1.6; }
+    .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .header .logo-title { display: flex; align-items: center; gap: 10px; }
     .header .logo { height: 36px; width: auto; }
     .header nav { display: flex; gap: 20px; }
-    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
-    .header nav a:hover, .header nav a.active { color: white; }
-    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
-    .header .login-btn:hover { background: #2563eb; }
+    .header nav a { color: #64748b; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: #5BB4D4; }
+    .header .login-btn { background: #5BB4D4; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #4AABCC; }
     .container { max-width: 900px; margin: 0 auto; padding: 60px 20px; }
     .page-header { margin-bottom: 40px; }
-    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; }
-    .page-header p { color: #666; font-size: 0.9em; }
+    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+    .page-header p { color: #64748b; font-size: 0.9em; }
     .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
-    .plan { background: #1a1a1a; border-radius: 12px; padding: 24px; border: 1px solid #252525; }
-    .plan.featured { border-color: #3b82f6; }
-    .plan-name { font-size: 1em; font-weight: 500; margin-bottom: 8px; color: #ccc; }
-    .plan-price { font-size: 1.8em; font-weight: 600; color: #fff; margin-bottom: 4px; }
-    .plan-price small { font-size: 0.5em; color: #666; }
-    .plan-quota { color: #666; font-size: 0.85em; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #252525; }
+    .plan { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .plan.featured { border-color: #5BB4D4; box-shadow: 0 0 0 1px #5BB4D4; }
+    .plan-name { font-size: 1em; font-weight: 500; margin-bottom: 8px; color: #374151; }
+    .plan-price { font-size: 1.8em; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+    .plan-price small { font-size: 0.5em; color: #94a3b8; }
+    .plan-quota { color: #64748b; font-size: 0.85em; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
     .plan-features { list-style: none; margin-bottom: 20px; font-size: 0.9em; }
-    .plan-features li { padding: 6px 0; color: #888; padding-left: 16px; position: relative; }
-    .plan-features li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; }
-    .plan-btn { display: block; width: 100%; padding: 10px; background: #252525; color: #ccc; border: none; border-radius: 8px; font-size: 0.9em; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
-    .plan-btn:hover { background: #333; color: white; }
-    .plan.featured .plan-btn { background: #3b82f6; color: white; }
-    .plan.featured .plan-btn:hover { background: #2563eb; }
-    .enterprise { background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 40px; border: 1px solid #252525; }
-    .enterprise h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 8px; color: #ccc; }
-    .enterprise .price { color: #fff; font-size: 1.3em; font-weight: 600; margin-bottom: 16px; }
-    .enterprise ul { list-style: none; color: #888; margin-bottom: 16px; font-size: 0.9em; }
+    .plan-features li { padding: 6px 0; color: #64748b; padding-left: 16px; position: relative; }
+    .plan-features li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #5BB4D4; border-radius: 50%; }
+    .plan-btn { display: block; width: 100%; padding: 10px; background: #f1f5f9; color: #64748b; border: none; border-radius: 8px; font-size: 0.9em; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s; }
+    .plan-btn:hover { background: #e2e8f0; color: #374151; }
+    .plan.featured .plan-btn { background: #5BB4D4; color: white; }
+    .plan.featured .plan-btn:hover { background: #4AABCC; }
+    .enterprise { background: white; border-radius: 12px; padding: 24px; margin-bottom: 40px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .enterprise h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 8px; color: #374151; }
+    .enterprise .price { color: #1f2937; font-size: 1.3em; font-weight: 600; margin-bottom: 16px; }
+    .enterprise ul { list-style: none; color: #64748b; margin-bottom: 16px; font-size: 0.9em; }
     .enterprise li { padding: 6px 0; padding-left: 16px; position: relative; }
-    .enterprise li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; }
-    .enterprise .target { color: #666; font-size: 0.85em; margin-bottom: 16px; }
-    .enterprise .contact-btn { display: inline-block; padding: 10px 20px; background: #252525; color: #ccc; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
-    .enterprise .contact-btn:hover { background: #333; color: white; }
-    .faq { background: #1a1a1a; border-radius: 12px; padding: 24px; }
-    .faq h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 20px; color: #ccc; }
+    .enterprise li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #5BB4D4; border-radius: 50%; }
+    .enterprise .target { color: #94a3b8; font-size: 0.85em; margin-bottom: 16px; }
+    .enterprise .contact-btn { display: inline-block; padding: 10px 20px; background: #f1f5f9; color: #64748b; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+    .enterprise .contact-btn:hover { background: #e2e8f0; color: #374151; }
+    .faq { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .faq h3 { font-size: 1.1em; font-weight: 500; margin-bottom: 20px; color: #374151; }
     .faq-item { margin-bottom: 16px; }
     .faq-item:last-child { margin-bottom: 0; }
-    .faq-q { font-weight: 500; margin-bottom: 4px; font-size: 0.95em; }
-    .faq-a { color: #888; font-size: 0.9em; }
-    .footer { background: #1a1a2e; padding: 24px 20px; text-align: center; color: #555; font-size: 0.85em; margin-top: 60px; }
+    .faq-q { font-weight: 500; margin-bottom: 4px; font-size: 0.95em; color: #374151; }
+    .faq-a { color: #64748b; font-size: 0.9em; }
+    .footer { background: white; padding: 24px 20px; text-align: center; color: #94a3b8; font-size: 0.85em; margin-top: 60px; border-top: 1px solid #e2e8f0; }
     .footer-links { margin-bottom: 12px; }
-    .footer-links a { color: #666; text-decoration: none; margin: 0 12px; }
-    .footer-links a:hover { color: #aaa; }
+    .footer-links a { color: #64748b; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: #5BB4D4; }
     @media (max-width: 640px) { .header nav { display: none; } .plan-price { font-size: 1.5em; } }
   </style>
 </head>
@@ -2986,43 +2986,43 @@ function guidePage() {
   <title>使用教學 - Lurl</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
-    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; min-height: 100vh; line-height: 1.6; }
+    .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .header .logo-title { display: flex; align-items: center; gap: 10px; }
     .header .logo { height: 36px; width: auto; }
     .header nav { display: flex; gap: 20px; }
-    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
-    .header nav a:hover, .header nav a.active { color: white; }
-    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
-    .header .login-btn:hover { background: #2563eb; }
+    .header nav a { color: #64748b; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: #5BB4D4; }
+    .header .login-btn { background: #5BB4D4; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #4AABCC; }
     .container { max-width: 600px; margin: 0 auto; padding: 60px 20px; }
     .page-header { margin-bottom: 40px; }
-    .page-header h2 { font-size: 1.5em; font-weight: 600; }
-    .step-section { background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .step-section h3 { font-size: 1em; font-weight: 500; margin-bottom: 12px; color: #ccc; }
-    .step-section p { color: #888; font-size: 0.9em; margin-bottom: 12px; }
-    .step-section a { color: #3b82f6; text-decoration: none; }
+    .page-header h2 { font-size: 1.5em; font-weight: 600; color: #1f2937; }
+    .step-section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .step-section h3 { font-size: 1em; font-weight: 500; margin-bottom: 12px; color: #374151; }
+    .step-section p { color: #64748b; font-size: 0.9em; margin-bottom: 12px; }
+    .step-section a { color: #5BB4D4; text-decoration: none; }
     .step-section a:hover { text-decoration: underline; }
     .browser-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    .browser-links a { padding: 8px 12px; background: #252525; border-radius: 6px; color: #ccc; text-decoration: none; font-size: 0.85em; }
-    .browser-links a:hover { background: #333; color: white; }
-    .features { background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .features h3 { font-size: 1em; font-weight: 500; margin-bottom: 16px; color: #ccc; }
-    .features ul { list-style: none; color: #888; font-size: 0.9em; }
+    .browser-links a { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; color: #64748b; text-decoration: none; font-size: 0.85em; }
+    .browser-links a:hover { background: #e2e8f0; color: #374151; }
+    .features { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .features h3 { font-size: 1em; font-weight: 500; margin-bottom: 16px; color: #374151; }
+    .features ul { list-style: none; color: #64748b; font-size: 0.9em; }
     .features li { padding: 6px 0; padding-left: 16px; position: relative; }
-    .features li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; }
-    .trouble { background: #1a1a1a; border-radius: 12px; padding: 24px; }
-    .trouble h3 { font-size: 1em; font-weight: 500; margin-bottom: 16px; color: #ccc; }
-    .trouble-item { padding: 10px 0; border-bottom: 1px solid #252525; }
+    .features li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #5BB4D4; border-radius: 50%; }
+    .trouble { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .trouble h3 { font-size: 1em; font-weight: 500; margin-bottom: 16px; color: #374151; }
+    .trouble-item { padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
     .trouble-item:last-child { border-bottom: none; }
-    .trouble-q { color: #aaa; font-size: 0.9em; margin-bottom: 4px; }
-    .trouble-a { color: #666; font-size: 0.85em; }
-    .trouble-a a { color: #3b82f6; text-decoration: none; }
+    .trouble-q { color: #374151; font-size: 0.9em; margin-bottom: 4px; }
+    .trouble-a { color: #64748b; font-size: 0.85em; }
+    .trouble-a a { color: #5BB4D4; text-decoration: none; }
     .trouble-a a:hover { text-decoration: underline; }
-    .footer { background: #1a1a2e; padding: 24px 20px; text-align: center; color: #555; font-size: 0.85em; margin-top: 60px; }
+    .footer { background: white; padding: 24px 20px; text-align: center; color: #94a3b8; font-size: 0.85em; margin-top: 60px; border-top: 1px solid #e2e8f0; }
     .footer-links { margin-bottom: 12px; }
-    .footer-links a { color: #666; text-decoration: none; margin: 0 12px; }
-    .footer-links a:hover { color: #aaa; }
+    .footer-links a { color: #64748b; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: #5BB4D4; }
     @media (max-width: 640px) { .header nav { display: none; } }
   </style>
 </head>
@@ -3113,39 +3113,39 @@ function feedbackPage() {
   <title>意見回饋 - Lurl</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; line-height: 1.6; }
-    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; min-height: 100vh; line-height: 1.6; }
+    .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .header .logo-title { display: flex; align-items: center; gap: 10px; }
     .header .logo { height: 36px; width: auto; }
     .header nav { display: flex; gap: 20px; }
-    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
-    .header nav a:hover, .header nav a.active { color: white; }
-    .header .login-btn { background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
-    .header .login-btn:hover { background: #2563eb; }
+    .header nav a { color: #64748b; text-decoration: none; font-size: 0.95em; transition: color 0.2s; }
+    .header nav a:hover, .header nav a.active { color: #5BB4D4; }
+    .header .login-btn { background: #5BB4D4; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9em; }
+    .header .login-btn:hover { background: #4AABCC; }
     .container { max-width: 500px; margin: 0 auto; padding: 60px 20px; }
     .page-header { margin-bottom: 30px; }
-    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; }
-    .page-header p { color: #666; font-size: 0.9em; }
-    .form-card { background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    .page-header h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+    .page-header p { color: #64748b; font-size: 0.9em; }
+    .form-card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
     .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; margin-bottom: 8px; font-size: 0.9em; color: #ccc; }
+    .form-group label { display: block; margin-bottom: 8px; font-size: 0.9em; color: #374151; }
     .form-group select, .form-group input, .form-group textarea {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #333;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      background: #0f0f0f;
-      color: white;
+      background: #f8fafc;
+      color: #1f2937;
       font-size: 0.9em;
       font-family: inherit;
     }
-    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: #3b82f6; outline: none; }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: #5BB4D4; outline: none; background: white; }
     .form-group textarea { min-height: 120px; resize: vertical; }
-    .form-group .hint { color: #555; font-size: 0.8em; margin-top: 4px; }
+    .form-group .hint { color: #94a3b8; font-size: 0.8em; margin-top: 4px; }
     .submit-btn {
       width: 100%;
       padding: 12px;
-      background: #3b82f6;
+      background: #5BB4D4;
       color: white;
       border: none;
       border-radius: 8px;
@@ -3154,20 +3154,20 @@ function feedbackPage() {
       cursor: pointer;
       transition: all 0.2s;
     }
-    .submit-btn:hover { background: #2563eb; }
-    .submit-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
-    .other-channels { background: #1a1a1a; border-radius: 12px; padding: 24px; }
-    .other-channels h3 { font-size: 1em; font-weight: 500; margin-bottom: 12px; color: #ccc; }
-    .other-channels ul { list-style: none; color: #888; font-size: 0.9em; }
+    .submit-btn:hover { background: #4AABCC; }
+    .submit-btn:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+    .other-channels { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .other-channels h3 { font-size: 1em; font-weight: 500; margin-bottom: 12px; color: #374151; }
+    .other-channels ul { list-style: none; color: #64748b; font-size: 0.9em; }
     .other-channels li { padding: 6px 0; padding-left: 16px; position: relative; }
-    .other-channels li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; }
-    .toast { position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; padding: 12px 20px; border-radius: 8px; font-size: 0.9em; opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 1000; }
+    .other-channels li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: #5BB4D4; border-radius: 50%; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #5BB4D4; color: white; padding: 12px 20px; border-radius: 8px; font-size: 0.9em; opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 1000; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.error { background: #ef4444; }
-    .footer { background: #1a1a2e; padding: 24px 20px; text-align: center; color: #555; font-size: 0.85em; margin-top: 60px; }
+    .footer { background: white; padding: 24px 20px; text-align: center; color: #94a3b8; font-size: 0.85em; margin-top: 60px; border-top: 1px solid #e2e8f0; }
     .footer-links { margin-bottom: 12px; }
-    .footer-links a { color: #666; text-decoration: none; margin: 0 12px; }
-    .footer-links a:hover { color: #aaa; }
+    .footer-links a { color: #64748b; text-decoration: none; margin: 0 12px; }
+    .footer-links a:hover { color: #5BB4D4; }
     @media (max-width: 640px) { .header nav { display: none; } }
   </style>
 </head>
