@@ -4259,6 +4259,447 @@ function memberProfilePage(user) {
 </html>`;
 }
 
+// ==================== Member Collections Page ====================
+
+function memberCollectionsPage(user) {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的收藏 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; align-items: center; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; }
+    .header nav a:hover { color: white; }
+    .header nav a.active { color: white; }
+    .header .user-info { display: flex; align-items: center; gap: 12px; }
+    .header .user-info .nickname { color: #4ade80; font-weight: 500; }
+    .header .logout-btn { color: #888; font-size: 0.85em; cursor: pointer; }
+    .header .logout-btn:hover { color: #ef4444; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
+    .page-header h2 { font-size: 1.8em; }
+    .page-header p { color: #888; margin-top: 5px; }
+    .create-btn { background: #4ade80; color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .create-btn:hover { background: #22c55e; }
+    .collections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .collection-card { background: #1a1a1a; border-radius: 12px; overflow: hidden; transition: transform 0.2s; cursor: pointer; }
+    .collection-card:hover { transform: translateY(-4px); }
+    .collection-cover { height: 160px; background: linear-gradient(135deg, #1a2e1a, #1a1a2e); display: flex; align-items: center; justify-content: center; position: relative; }
+    .collection-cover .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 100%; height: 100%; }
+    .collection-cover .preview-grid img { width: 100%; height: 80px; object-fit: cover; }
+    .collection-cover .icon { font-size: 3em; opacity: 0.3; }
+    .collection-info { padding: 16px; }
+    .collection-info h3 { margin-bottom: 8px; font-size: 1.1em; }
+    .collection-info .meta { display: flex; justify-content: space-between; color: #888; font-size: 0.85em; }
+    .collection-info .private-badge { color: #888; font-size: 0.8em; }
+    .collection-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .collection-actions button { flex: 1; background: transparent; border: 1px solid #444; color: #888; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+    .collection-actions button:hover { border-color: #666; color: white; }
+    .collection-actions button.delete:hover { border-color: #ef4444; color: #ef4444; }
+    .empty-state { text-align: center; padding: 80px 20px; color: #666; }
+    .empty-state h3 { font-size: 1.5em; margin-bottom: 12px; color: #888; }
+    .empty-state p { margin-bottom: 24px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: #1a1a1a; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; }
+    .modal-content h3 { margin-bottom: 20px; }
+    .modal-content input { width: 100%; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 12px; color: white; margin-bottom: 16px; }
+    .modal-content input:focus { outline: none; border-color: #4ade80; }
+    .modal-content .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; color: #888; }
+    .modal-content .checkbox-group input { width: auto; margin: 0; }
+    .modal-actions { display: flex; gap: 12px; }
+    .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+    .modal-actions .cancel { background: transparent; border: 1px solid #444; color: #888; }
+    .modal-actions .confirm { background: #4ade80; border: none; color: #000; }
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .premium-badge { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/member/collections" class="active">收藏</a>
+      <a href="/lurl/member/history">歷史</a>
+      <a href="/lurl/member/quota">額度</a>
+      <a href="/lurl/member/profile">個人</a>
+      <div class="user-info">
+        <span class="nickname">${user.nickname || user.email.split('@')[0]}</span>
+        <span class="logout-btn" onclick="logout()">登出</span>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <h2>⭐ 我的收藏 ${user.tier !== 'premium' ? '<span class="premium-badge">老司機專屬</span>' : ''}</h2>
+        <p id="collectionCount">載入中...</p>
+      </div>
+      <button class="create-btn" onclick="showCreateModal()">+ 新增收藏夾</button>
+    </div>
+
+    ${user.tier !== 'premium' ? `
+    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 24px; margin-bottom: 30px; text-align: center;">
+      <h3 style="margin-bottom: 12px;">🔒 收藏功能為老司機專屬</h3>
+      <p style="color: #888; margin-bottom: 16px;">升級到老司機會員即可解鎖收藏功能，永久保存你喜歡的內容</p>
+      <a href="/lurl/pricing" style="display: inline-block; background: #f59e0b; color: #000; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">查看方案</a>
+    </div>
+    ` : ''}
+
+    <div id="collectionsGrid" class="collections-grid">
+      <div class="loading">載入中...</div>
+    </div>
+  </main>
+
+  <!-- Create/Edit Modal -->
+  <div id="modal" class="modal" onclick="if(event.target === this) closeModal()">
+    <div class="modal-content">
+      <h3 id="modalTitle">新增收藏夾</h3>
+      <input type="text" id="collectionName" placeholder="收藏夾名稱" maxlength="30">
+      <div class="checkbox-group">
+        <input type="checkbox" id="isPrivate" checked>
+        <label for="isPrivate">設為私人（只有自己看得到）</label>
+      </div>
+      <div class="modal-actions">
+        <button class="cancel" onclick="closeModal()">取消</button>
+        <button class="confirm" id="modalConfirm" onclick="saveCollection()">建立</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const isPremium = ${user.tier === 'premium'};
+    let collections = [];
+    let editingId = null;
+
+    async function loadCollections() {
+      if (!isPremium) {
+        document.getElementById('collectionsGrid').innerHTML = '';
+        document.getElementById('collectionCount').textContent = '升級解鎖收藏功能';
+        return;
+      }
+
+      try {
+        const res = await fetch('/lurl/api/collections');
+        const data = await res.json();
+
+        if (!data.ok) {
+          document.getElementById('collectionsGrid').innerHTML = '<div class="empty-state"><h3>載入失敗</h3></div>';
+          return;
+        }
+
+        collections = data.collections;
+        document.getElementById('collectionCount').textContent = '共 ' + collections.length + ' 個收藏夾';
+
+        if (collections.length === 0) {
+          document.getElementById('collectionsGrid').innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><h3>還沒有收藏夾</h3><p>建立一個收藏夾來保存你喜歡的內容</p></div>';
+          return;
+        }
+
+        const html = collections.map(c => {
+          const date = new Date(c.createdAt).toLocaleDateString('zh-TW');
+          return '<div class="collection-card" onclick="viewCollection(\\'' + c.id + '\\')">' +
+            '<div class="collection-cover"><span class="icon">📁</span></div>' +
+            '<div class="collection-info">' +
+              '<h3>' + c.name + (c.isPrivate ? ' <span class="private-badge">🔒</span>' : '') + '</h3>' +
+              '<div class="meta">' +
+                '<span>' + (c.itemCount || 0) + ' 個項目</span>' +
+                '<span>' + date + '</span>' +
+              '</div>' +
+              '<div class="collection-actions" onclick="event.stopPropagation()">' +
+                '<button onclick="editCollection(\\'' + c.id + '\\', \\'' + c.name.replace(/'/g, "\\\\'") + '\\', ' + c.isPrivate + ')">編輯</button>' +
+                '<button class="delete" onclick="deleteCollection(\\'' + c.id + '\\')">刪除</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        document.getElementById('collectionsGrid').innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('collectionsGrid').innerHTML = '<div class="empty-state"><h3>載入失敗</h3></div>';
+      }
+    }
+
+    function viewCollection(id) {
+      window.location.href = '/lurl/member/collections/' + id;
+    }
+
+    function showCreateModal() {
+      if (!isPremium) {
+        alert('收藏功能為老司機專屬，請先升級');
+        return;
+      }
+      editingId = null;
+      document.getElementById('modalTitle').textContent = '新增收藏夾';
+      document.getElementById('collectionName').value = '';
+      document.getElementById('isPrivate').checked = true;
+      document.getElementById('modalConfirm').textContent = '建立';
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function editCollection(id, name, isPrivate) {
+      editingId = id;
+      document.getElementById('modalTitle').textContent = '編輯收藏夾';
+      document.getElementById('collectionName').value = name;
+      document.getElementById('isPrivate').checked = isPrivate;
+      document.getElementById('modalConfirm').textContent = '儲存';
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+      editingId = null;
+    }
+
+    async function saveCollection() {
+      const name = document.getElementById('collectionName').value.trim();
+      const isPrivate = document.getElementById('isPrivate').checked;
+
+      if (!name) {
+        alert('請輸入收藏夾名稱');
+        return;
+      }
+
+      try {
+        const url = editingId ? '/lurl/api/collections/' + editingId : '/lurl/api/collections';
+        const method = editingId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, isPrivate })
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          closeModal();
+          loadCollections();
+        } else {
+          alert(data.error || '操作失敗');
+        }
+      } catch (err) {
+        alert('操作失敗');
+      }
+    }
+
+    async function deleteCollection(id) {
+      if (!confirm('確定要刪除這個收藏夾？收藏的內容不會被刪除。')) return;
+
+      try {
+        const res = await fetch('/lurl/api/collections/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.ok) {
+          loadCollections();
+        } else {
+          alert(data.error || '刪除失敗');
+        }
+      } catch (err) {
+        alert('刪除失敗');
+      }
+    }
+
+    async function logout() {
+      await fetch('/lurl/api/auth/logout', { method: 'POST' });
+      window.location.href = '/lurl/';
+    }
+
+    loadCollections();
+  </script>
+</body>
+</html>`;
+}
+
+// ==================== Collection Detail Page ====================
+
+function collectionDetailPage(user, collection) {
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/lurl/files/LOGO.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${collection.name} - 我的收藏 - Lurl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: white; min-height: 100vh; }
+    .header { background: #1a1a2e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .header .logo { height: 36px; width: auto; }
+    .header nav { display: flex; gap: 20px; align-items: center; }
+    .header nav a { color: #aaa; text-decoration: none; font-size: 0.95em; }
+    .header nav a:hover { color: white; }
+    .header nav a.active { color: white; }
+    .header .user-info { display: flex; align-items: center; gap: 12px; }
+    .header .user-info .nickname { color: #4ade80; font-weight: 500; }
+    .header .logout-btn { color: #888; font-size: 0.85em; cursor: pointer; }
+    .header .logout-btn:hover { color: #ef4444; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+    .back-link { display: inline-block; margin-bottom: 20px; color: #888; text-decoration: none; }
+    .back-link:hover { color: white; }
+    .page-header { margin-bottom: 30px; }
+    .page-header h2 { font-size: 1.8em; display: flex; align-items: center; gap: 12px; }
+    .page-header .private-badge { color: #888; font-size: 0.5em; }
+    .page-header p { color: #888; margin-top: 8px; }
+    .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .item-card { background: #1a1a1a; border-radius: 12px; overflow: hidden; transition: transform 0.2s; }
+    .item-card:hover { transform: translateY(-4px); }
+    .item-card a { text-decoration: none; color: inherit; }
+    .item-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #333; }
+    .item-info { padding: 12px; }
+    .item-info h4 { font-size: 0.95em; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .item-info .meta { display: flex; justify-content: space-between; color: #888; font-size: 0.8em; }
+    .item-remove { background: transparent; border: 1px solid #444; color: #888; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em; margin-top: 8px; width: 100%; }
+    .item-remove:hover { border-color: #ef4444; color: #ef4444; }
+    .empty-state { text-align: center; padding: 80px 20px; color: #666; grid-column: 1/-1; }
+    .empty-state h3 { font-size: 1.5em; margin-bottom: 12px; color: #888; }
+    .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 30px; }
+    .pagination button { background: #1a1a1a; border: none; color: white; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+    .pagination button:hover { background: #333; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loading { text-align: center; padding: 40px; color: #888; grid-column: 1/-1; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/lurl/"><img src="/lurl/files/LOGO.png" alt="Lurl" class="logo"></a>
+    <nav>
+      <a href="/lurl/browse">瀏覽</a>
+      <a href="/lurl/member/collections" class="active">收藏</a>
+      <a href="/lurl/member/history">歷史</a>
+      <a href="/lurl/member/quota">額度</a>
+      <a href="/lurl/member/profile">個人</a>
+      <div class="user-info">
+        <span class="nickname">${user.nickname || user.email.split('@')[0]}</span>
+        <span class="logout-btn" onclick="logout()">登出</span>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <a href="/lurl/member/collections" class="back-link">← 返回收藏列表</a>
+
+    <div class="page-header">
+      <h2>📁 ${collection.name} ${collection.isPrivate ? '<span class="private-badge">🔒 私人</span>' : ''}</h2>
+      <p id="itemCount">載入中...</p>
+    </div>
+
+    <div id="itemsGrid" class="items-grid">
+      <div class="loading">載入中...</div>
+    </div>
+
+    <div class="pagination" id="pagination" style="display:none;">
+      <button id="prevBtn" onclick="loadPage(currentPage - 1)">上一頁</button>
+      <span id="pageInfo" style="padding: 10px 16px; color: #888;"></span>
+      <button id="nextBtn" onclick="loadPage(currentPage + 1)">下一頁</button>
+    </div>
+  </main>
+
+  <script>
+    const collectionId = '${collection.id}';
+    let currentPage = 1;
+    const pageSize = 20;
+    let totalCount = 0;
+
+    async function loadItems(page = 1) {
+      currentPage = page;
+      const offset = (page - 1) * pageSize;
+
+      try {
+        const res = await fetch('/lurl/api/collections/' + collectionId + '/items?limit=' + pageSize + '&offset=' + offset);
+        const data = await res.json();
+
+        if (!data.ok) {
+          document.getElementById('itemsGrid').innerHTML = '<div class="empty-state"><h3>載入失敗</h3></div>';
+          return;
+        }
+
+        totalCount = data.total;
+        document.getElementById('itemCount').textContent = '共 ' + totalCount + ' 個項目';
+
+        if (data.items.length === 0) {
+          document.getElementById('itemsGrid').innerHTML = '<div class="empty-state"><h3>收藏夾是空的</h3><p>瀏覽內容時點擊收藏按鈕來加入</p></div>';
+          document.getElementById('pagination').style.display = 'none';
+          return;
+        }
+
+        const html = data.items.map(item => {
+          const date = new Date(item.addedAt).toLocaleDateString('zh-TW');
+          const thumb = item.thumbnailPath ? '/lurl/files/' + item.thumbnailPath : '/lurl/files/placeholder.png';
+          return '<div class="item-card">' +
+            '<a href="/lurl/view/' + item.recordId + '">' +
+              '<img src="' + thumb + '" alt="" class="item-thumb" onerror="this.src=\\'/lurl/files/placeholder.png\\'">' +
+              '<div class="item-info">' +
+                '<h4>' + (item.title || '無標題') + '</h4>' +
+                '<div class="meta">' +
+                  '<span>' + (item.type || 'video') + '</span>' +
+                  '<span>' + date + '</span>' +
+                '</div>' +
+              '</div>' +
+            '</a>' +
+            '<div style="padding: 0 12px 12px;">' +
+              '<button class="item-remove" onclick="removeItem(\\'' + item.recordId + '\\')">移除</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        document.getElementById('itemsGrid').innerHTML = html;
+
+        // Update pagination
+        const totalPages = Math.ceil(totalCount / pageSize);
+        if (totalPages > 1) {
+          document.getElementById('pagination').style.display = 'flex';
+          document.getElementById('pageInfo').textContent = page + ' / ' + totalPages;
+          document.getElementById('prevBtn').disabled = page <= 1;
+          document.getElementById('nextBtn').disabled = page >= totalPages;
+        } else {
+          document.getElementById('pagination').style.display = 'none';
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('itemsGrid').innerHTML = '<div class="empty-state"><h3>載入失敗</h3></div>';
+      }
+    }
+
+    function loadPage(page) {
+      loadItems(page);
+    }
+
+    async function removeItem(recordId) {
+      if (!confirm('確定要從收藏夾移除？')) return;
+
+      try {
+        const res = await fetch('/lurl/api/collections/' + collectionId + '/items/' + recordId, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.ok) {
+          loadItems(currentPage);
+        } else {
+          alert(data.error || '移除失敗');
+        }
+      } catch (err) {
+        alert('移除失敗');
+      }
+    }
+
+    async function logout() {
+      await fetch('/lurl/api/auth/logout', { method: 'POST' });
+      window.location.href = '/lurl/';
+    }
+
+    loadItems(1);
+  </script>
+</body>
+</html>`;
+}
+
 function browsePage() {
   return `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -6364,6 +6805,399 @@ module.exports = {
         console.error('[account] 刪除失敗:', err);
         res.writeHead(500, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '刪除失敗' }));
+      }
+      return;
+    }
+
+    // ==================== Collections ====================
+
+    // GET /member/collections - 收藏列表頁面
+    if (req.method === 'GET' && urlPath === '/member/collections') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(302, { 'Location': '/lurl/member/login?redirect=/lurl/member/collections' });
+        res.end();
+        return;
+      }
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), memberCollectionsPage(user));
+      return;
+    }
+
+    // GET /member/collections/:id - 收藏夾詳情頁面
+    if (req.method === 'GET' && urlPath.startsWith('/member/collections/') && !urlPath.includes('/api/')) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(302, { 'Location': '/lurl/member/login?redirect=/lurl' + urlPath });
+        res.end();
+        return;
+      }
+
+      const collectionId = urlPath.replace('/member/collections/', '');
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders('text/html; charset=utf-8'));
+        res.end('<h1>收藏夾不存在</h1>');
+        return;
+      }
+
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), collectionDetailPage(user, collection));
+      return;
+    }
+
+    // GET /api/collections - 取得收藏夾列表
+    if (req.method === 'GET' && urlPath === '/api/collections') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      if (user.tier !== 'premium') {
+        res.writeHead(403, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
+        return;
+      }
+
+      const collections = lurlDb.getCollections(user.id);
+      // 為每個收藏夾加入項目數量
+      const collectionsWithCount = collections.map(c => ({
+        ...c,
+        itemCount: lurlDb.getCollectionItemCount(c.id)
+      }));
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, collections: collectionsWithCount }));
+      return;
+    }
+
+    // POST /api/collections - 建立收藏夾
+    if (req.method === 'POST' && urlPath === '/api/collections') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      if (user.tier !== 'premium') {
+        res.writeHead(403, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const { name, isPrivate } = body;
+
+        if (!name || name.length > 30) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '收藏夾名稱無效' }));
+          return;
+        }
+
+        const collection = lurlDb.createCollection(user.id, name, isPrivate !== false);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true, collection }));
+      } catch (err) {
+        console.error('[collections] 建立失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '建立失敗' }));
+      }
+      return;
+    }
+
+    // PUT /api/collections/:id - 更新收藏夾
+    if (req.method === 'PUT' && urlPath.startsWith('/api/collections/') && !urlPath.includes('/items')) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const collectionId = urlPath.replace('/api/collections/', '');
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏夾不存在' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const { name, isPrivate } = body;
+
+        lurlDb.updateCollection(collectionId, { name, isPrivate });
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        console.error('[collections] 更新失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '更新失敗' }));
+      }
+      return;
+    }
+
+    // DELETE /api/collections/:id - 刪除收藏夾
+    if (req.method === 'DELETE' && urlPath.startsWith('/api/collections/') && !urlPath.includes('/items')) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const collectionId = urlPath.replace('/api/collections/', '');
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏夾不存在' }));
+        return;
+      }
+
+      lurlDb.deleteCollection(collectionId);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // GET /api/collections/:id/items - 取得收藏夾項目
+    if (req.method === 'GET' && urlPath.match(/^\/api\/collections\/[^/]+\/items$/)) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const collectionId = urlPath.split('/')[3];
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏夾不存在' }));
+        return;
+      }
+
+      const limit = parseInt(query.limit) || 20;
+      const offset = parseInt(query.offset) || 0;
+      const items = lurlDb.getCollectionItems(collectionId, limit, offset);
+      const total = lurlDb.getCollectionItemCount(collectionId);
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, items, total }));
+      return;
+    }
+
+    // POST /api/collections/:id/items - 加入收藏
+    if (req.method === 'POST' && urlPath.match(/^\/api\/collections\/[^/]+\/items$/)) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      if (user.tier !== 'premium') {
+        res.writeHead(403, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
+        return;
+      }
+
+      const collectionId = urlPath.split('/')[3];
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏夾不存在' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const { recordId } = body;
+
+        if (!recordId) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '缺少 recordId' }));
+          return;
+        }
+
+        const result = lurlDb.addToCollection(collectionId, recordId);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true, added: !!result }));
+      } catch (err) {
+        console.error('[collections] 加入失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '加入失敗' }));
+      }
+      return;
+    }
+
+    // DELETE /api/collections/:id/items/:recordId - 從收藏夾移除
+    if (req.method === 'DELETE' && urlPath.match(/^\/api\/collections\/[^/]+\/items\/[^/]+$/)) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const parts = urlPath.split('/');
+      const collectionId = parts[3];
+      const recordId = parts[5];
+      const collection = lurlDb.getCollection(collectionId);
+
+      if (!collection || collection.userId !== user.id) {
+        res.writeHead(404, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '收藏夾不存在' }));
+        return;
+      }
+
+      lurlDb.removeFromCollection(collectionId, recordId);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // ==================== Hidden Records ====================
+
+    // POST /api/hide/:recordId - 隱藏內容
+    if (req.method === 'POST' && urlPath.startsWith('/api/hide/')) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      if (user.tier !== 'premium') {
+        res.writeHead(403, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '隱藏功能為老司機專屬' }));
+        return;
+      }
+
+      const recordId = urlPath.replace('/api/hide/', '');
+      lurlDb.hideRecord(user.id, recordId);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // DELETE /api/hide/:recordId - 取消隱藏
+    if (req.method === 'DELETE' && urlPath.startsWith('/api/hide/')) {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const recordId = urlPath.replace('/api/hide/', '');
+      lurlDb.unhideRecord(user.id, recordId);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // GET /api/hidden - 取得隱藏列表
+    if (req.method === 'GET' && urlPath === '/api/hidden') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const hiddenIds = lurlDb.getHiddenRecords(user.id);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, hidden: hiddenIds }));
+      return;
+    }
+
+    // ==================== Tag Subscriptions ====================
+
+    // GET /api/tags/subscribed - 取得已訂閱標籤
+    if (req.method === 'GET' && urlPath === '/api/tags/subscribed') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      const tags = lurlDb.getSubscribedTags(user.id);
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ ok: true, tags }));
+      return;
+    }
+
+    // POST /api/tags/subscribe - 訂閱標籤
+    if (req.method === 'POST' && urlPath === '/api/tags/subscribe') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      if (user.tier !== 'premium') {
+        res.writeHead(403, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '標籤訂閱為老司機專屬' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const { tag } = body;
+
+        if (!tag) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '缺少 tag' }));
+          return;
+        }
+
+        lurlDb.subscribeTag(user.id, tag);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        console.error('[tags] 訂閱失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '訂閱失敗' }));
+      }
+      return;
+    }
+
+    // DELETE /api/tags/subscribe - 取消訂閱標籤
+    if (req.method === 'DELETE' && urlPath === '/api/tags/subscribe') {
+      const user = getMemberFromRequest(req);
+      if (!user) {
+        res.writeHead(401, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '未登入' }));
+        return;
+      }
+
+      try {
+        const body = await parseBody(req);
+        const { tag } = body;
+
+        if (!tag) {
+          res.writeHead(400, corsHeaders());
+          res.end(JSON.stringify({ ok: false, error: '缺少 tag' }));
+          return;
+        }
+
+        lurlDb.unsubscribeTag(user.id, tag);
+        res.writeHead(200, corsHeaders());
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        console.error('[tags] 取消訂閱失敗:', err);
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ ok: false, error: '取消訂閱失敗' }));
       }
       return;
     }

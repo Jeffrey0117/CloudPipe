@@ -111,6 +111,48 @@ function createTables() {
     )
   `);
 
+  // Collections 表（收藏夾）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collections (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT DEFAULT '預設收藏',
+      isPrivate INTEGER DEFAULT 1,
+      createdAt TEXT
+    )
+  `);
+
+  // Collection Items 表（收藏項目）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collection_items (
+      id TEXT PRIMARY KEY,
+      collectionId TEXT NOT NULL,
+      recordId TEXT NOT NULL,
+      addedAt TEXT,
+      UNIQUE(collectionId, recordId)
+    )
+  `);
+
+  // Hidden Records 表（隱藏內容）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS hidden_records (
+      userId TEXT NOT NULL,
+      recordId TEXT NOT NULL,
+      hiddenAt TEXT,
+      PRIMARY KEY(userId, recordId)
+    )
+  `);
+
+  // Tag Subscriptions 表（標籤訂閱）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tag_subscriptions (
+      userId TEXT NOT NULL,
+      tag TEXT NOT NULL,
+      subscribedAt TEXT,
+      PRIMARY KEY(userId, tag)
+    )
+  `);
+
   // 建立索引
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_records_type ON records(type);
@@ -122,6 +164,11 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_users_tier ON users(tier);
     CREATE INDEX IF NOT EXISTS idx_watch_history_userId ON watch_history(userId);
     CREATE INDEX IF NOT EXISTS idx_watch_history_watchedAt ON watch_history(watchedAt);
+    CREATE INDEX IF NOT EXISTS idx_collections_userId ON collections(userId);
+    CREATE INDEX IF NOT EXISTS idx_collection_items_collectionId ON collection_items(collectionId);
+    CREATE INDEX IF NOT EXISTS idx_collection_items_recordId ON collection_items(recordId);
+    CREATE INDEX IF NOT EXISTS idx_hidden_records_userId ON hidden_records(userId);
+    CREATE INDEX IF NOT EXISTS idx_tag_subscriptions_userId ON tag_subscriptions(userId);
   `);
 }
 
@@ -491,6 +538,159 @@ function clearWatchHistory(userId) {
   db.prepare('DELETE FROM watch_history WHERE userId = ?').run(userId);
 }
 
+// ==================== Collections CRUD ====================
+
+function getCollections(userId) {
+  return db.prepare('SELECT * FROM collections WHERE userId = ? ORDER BY createdAt DESC').all(userId);
+}
+
+function getCollection(id) {
+  return db.prepare('SELECT * FROM collections WHERE id = ?').get(id);
+}
+
+function createCollection(userId, name = '預設收藏', isPrivate = true) {
+  const id = require('crypto').randomUUID();
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO collections (id, userId, name, isPrivate, createdAt)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, userId, name, isPrivate ? 1 : 0, now);
+  return { id, userId, name, isPrivate, createdAt: now };
+}
+
+function updateCollection(id, updates) {
+  const collection = getCollection(id);
+  if (!collection) return null;
+
+  const merged = { ...collection, ...updates };
+  db.prepare(`
+    UPDATE collections SET name = ?, isPrivate = ? WHERE id = ?
+  `).run(merged.name, merged.isPrivate ? 1 : 0, id);
+  return merged;
+}
+
+function deleteCollection(id) {
+  // 先刪除收藏項目
+  db.prepare('DELETE FROM collection_items WHERE collectionId = ?').run(id);
+  // 再刪除收藏夾
+  db.prepare('DELETE FROM collections WHERE id = ?').run(id);
+}
+
+function getCollectionItems(collectionId, limit = 50, offset = 0) {
+  return db.prepare(`
+    SELECT ci.*, r.title, r.type, r.thumbnailPath, r.pageUrl
+    FROM collection_items ci
+    LEFT JOIN records r ON ci.recordId = r.id
+    WHERE ci.collectionId = ?
+    ORDER BY ci.addedAt DESC
+    LIMIT ? OFFSET ?
+  `).all(collectionId, limit, offset);
+}
+
+function getCollectionItemCount(collectionId) {
+  const result = db.prepare('SELECT COUNT(*) as count FROM collection_items WHERE collectionId = ?').get(collectionId);
+  return result.count;
+}
+
+function addToCollection(collectionId, recordId) {
+  const id = `${collectionId}_${recordId}`;
+  const now = new Date().toISOString();
+  try {
+    db.prepare(`
+      INSERT INTO collection_items (id, collectionId, recordId, addedAt)
+      VALUES (?, ?, ?, ?)
+    `).run(id, collectionId, recordId, now);
+    return { id, collectionId, recordId, addedAt: now };
+  } catch (err) {
+    // UNIQUE constraint violation - already exists
+    return null;
+  }
+}
+
+function removeFromCollection(collectionId, recordId) {
+  db.prepare('DELETE FROM collection_items WHERE collectionId = ? AND recordId = ?').run(collectionId, recordId);
+}
+
+function isInCollection(collectionId, recordId) {
+  const item = db.prepare('SELECT 1 FROM collection_items WHERE collectionId = ? AND recordId = ?').get(collectionId, recordId);
+  return !!item;
+}
+
+function getRecordCollections(userId, recordId) {
+  return db.prepare(`
+    SELECT c.*,
+      CASE WHEN ci.recordId IS NOT NULL THEN 1 ELSE 0 END as hasRecord
+    FROM collections c
+    LEFT JOIN collection_items ci ON c.id = ci.collectionId AND ci.recordId = ?
+    WHERE c.userId = ?
+    ORDER BY c.createdAt DESC
+  `).all(recordId, userId);
+}
+
+// ==================== Hidden Records CRUD ====================
+
+function getHiddenRecords(userId) {
+  return db.prepare('SELECT recordId FROM hidden_records WHERE userId = ?').all(userId).map(r => r.recordId);
+}
+
+function hideRecord(userId, recordId) {
+  const now = new Date().toISOString();
+  try {
+    db.prepare(`
+      INSERT INTO hidden_records (userId, recordId, hiddenAt)
+      VALUES (?, ?, ?)
+    `).run(userId, recordId, now);
+    return true;
+  } catch (err) {
+    return false; // Already hidden
+  }
+}
+
+function unhideRecord(userId, recordId) {
+  db.prepare('DELETE FROM hidden_records WHERE userId = ? AND recordId = ?').run(userId, recordId);
+}
+
+function isRecordHidden(userId, recordId) {
+  const item = db.prepare('SELECT 1 FROM hidden_records WHERE userId = ? AND recordId = ?').get(userId, recordId);
+  return !!item;
+}
+
+function clearHiddenRecords(userId) {
+  db.prepare('DELETE FROM hidden_records WHERE userId = ?').run(userId);
+}
+
+// ==================== Tag Subscriptions CRUD ====================
+
+function getSubscribedTags(userId) {
+  return db.prepare('SELECT tag, subscribedAt FROM tag_subscriptions WHERE userId = ? ORDER BY subscribedAt DESC').all(userId);
+}
+
+function subscribeTag(userId, tag) {
+  const now = new Date().toISOString();
+  try {
+    db.prepare(`
+      INSERT INTO tag_subscriptions (userId, tag, subscribedAt)
+      VALUES (?, ?, ?)
+    `).run(userId, tag, now);
+    return true;
+  } catch (err) {
+    return false; // Already subscribed
+  }
+}
+
+function unsubscribeTag(userId, tag) {
+  db.prepare('DELETE FROM tag_subscriptions WHERE userId = ? AND tag = ?').run(userId, tag);
+}
+
+function isTagSubscribed(userId, tag) {
+  const item = db.prepare('SELECT 1 FROM tag_subscriptions WHERE userId = ? AND tag = ?').get(userId, tag);
+  return !!item;
+}
+
+function clearTagSubscriptions(userId) {
+  db.prepare('DELETE FROM tag_subscriptions WHERE userId = ?').run(userId);
+}
+
 // ==================== 關閉資料庫 ====================
 
 function close() {
@@ -535,5 +735,29 @@ module.exports = {
   getWatchHistoryItem,
   upsertWatchHistory,
   deleteWatchHistoryItem,
-  clearWatchHistory
+  clearWatchHistory,
+  // Collections
+  getCollections,
+  getCollection,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  getCollectionItems,
+  getCollectionItemCount,
+  addToCollection,
+  removeFromCollection,
+  isInCollection,
+  getRecordCollections,
+  // Hidden Records
+  getHiddenRecords,
+  hideRecord,
+  unhideRecord,
+  isRecordHidden,
+  clearHiddenRecords,
+  // Tag Subscriptions
+  getSubscribedTags,
+  subscribeTag,
+  unsubscribeTag,
+  isTagSubscribed,
+  clearTagSubscriptions
 };
