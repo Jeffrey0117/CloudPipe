@@ -421,6 +421,16 @@ async function processHLSTranscode(recordId) {
     // 更新記錄
     updateRecord(recordId, { hlsReady: true, hlsPath: `hls/${recordId}/master.m3u8` });
 
+    // 刪除原始檔案（HLS 轉檔成功後不再需要）
+    if (fs.existsSync(inputPath)) {
+      try {
+        fs.unlinkSync(inputPath);
+        console.log(`[HLS] 已刪除原始檔: ${path.basename(inputPath)}`);
+      } catch (e) {
+        console.error(`[HLS] 刪除原始檔失敗:`, e.message);
+      }
+    }
+
     console.log(`[HLS] ${recordId} 處理完成`);
     broadcastLog({ type: 'hls_complete', recordId, title: record.title });
 
