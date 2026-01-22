@@ -2254,19 +2254,17 @@ const CACHE_NAME = 'lurl-hls-v1';
 const MAX_CACHE_SIZE = 300 * 1024 * 1024; // 300MB
 const CACHE_URLS_KEY = 'lurl-cache-urls';
 
-// 緩存策略
+// 緩存策略 - 只緩存 HLS 片段，縮圖直接走網路（小且快）
 const CACHE_RULES = {
-  thumbnail: { maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 天
   m3u8: { maxAge: 60 * 60 * 1000 }, // 1 小時
   segment: { maxAge: 24 * 60 * 60 * 1000 } // 24 小時
 };
 
-// 取得 URL 類型
+// 取得 URL 類型 - 只緩存 HLS 相關檔案
 function getUrlType(url) {
-  if (url.includes('/thumbnails/') || url.endsWith('.webp') || url.endsWith('.jpg')) return 'thumbnail';
   if (url.endsWith('.m3u8')) return 'm3u8';
   if (url.endsWith('.ts')) return 'segment';
-  return null;
+  return null; // 縮圖、圖片不緩存
 }
 
 // LRU 緩存管理
@@ -3250,9 +3248,9 @@ function browsePage() {
           <div class="card-thumb \${r.type === 'image' ? 'image' : ''} \${!r.fileExists ? 'pending' : ''}">
             \${r.fileExists
               ? (r.type === 'image'
-                ? \`<img src="/lurl/files/\${r.thumbnailPath || r.backupPath}" loading="lazy" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.style.display='none'">\`
+                ? \`<img src="/lurl/files/\${r.thumbnailPath || r.backupPath}" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.style.display='none'">\`
                 : (r.thumbnailExists && r.thumbnailPath
-                  ? \`<img src="/lurl/files/\${r.thumbnailPath}" loading="lazy" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.parentElement.innerHTML='<div class=play-icon></div>'"><div class="play-icon" style="position:absolute;"></div>\`
+                  ? \`<img src="/lurl/files/\${r.thumbnailPath}" alt="\${getTitle(r.title)}" onload="this.classList.add('loaded')" onerror="this.parentElement.innerHTML='<div class=play-icon></div>'"><div class="play-icon" style="position:absolute;"></div>\`
                   : '<div class="play-icon"></div>'))
               : '<span style="font-size:24px;color:#666">Pending</span>'}
           </div>

@@ -179,7 +179,7 @@ function updateTunnelIngress(hostname, port) {
 
     // 重啟 tunnel
     try {
-      execSync('pm2 restart tunnel', { stdio: 'pipe' });
+      execSync('pm2 restart tunnel', { stdio: 'pipe', windowsHide: true });
       console.log(`[deploy] Tunnel 已重啟`);
     } catch (e) {
       console.log(`[deploy] Tunnel 重啟失敗: ${e.message}`);
@@ -295,10 +295,11 @@ async function deploy(projectId, options = {}) {
         }
         execSync(`git clone ${project.repoUrl} ${path.basename(projectDir)}`, {
           cwd: parentDir,
-          stdio: 'pipe'
+          stdio: 'pipe',
+          windowsHide: true
         });
         // 自動偵測實際使用的 branch 並更新配置
-        const actualBranch = execSync('git branch --show-current', { cwd: projectDir }).toString().trim();
+        const actualBranch = execSync('git branch --show-current', { cwd: projectDir, windowsHide: true }).toString().trim();
         if (actualBranch && actualBranch !== project.branch) {
           log(`偵測到預設 branch: ${actualBranch}（原設定: ${project.branch}）`);
           updateProject(project.id, { branch: actualBranch });
@@ -314,14 +315,14 @@ async function deploy(projectId, options = {}) {
     // Git 部署
     if (project.deployMethod === 'github' || project.deployMethod === 'git-url') {
       log(`執行 git fetch...`);
-      execSync(`git fetch origin ${project.branch}`, { cwd: projectDir, stdio: 'pipe' });
+      execSync(`git fetch origin ${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
 
       log(`執行 git reset --hard...`);
-      execSync(`git reset --hard origin/${project.branch}`, { cwd: projectDir, stdio: 'pipe' });
+      execSync(`git reset --hard origin/${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
 
       // 取得 commit 資訊
-      const commitHash = execSync('git rev-parse --short HEAD', { cwd: projectDir }).toString().trim();
-      const commitMessage = execSync('git log -1 --pretty=%B', { cwd: projectDir }).toString().trim();
+      const commitHash = execSync('git rev-parse --short HEAD', { cwd: projectDir, windowsHide: true }).toString().trim();
+      const commitMessage = execSync('git log -1 --pretty=%B', { cwd: projectDir, windowsHide: true }).toString().trim();
 
       deployment.commit = commitHash;
       deployment.commitMessage = commitMessage;
@@ -356,7 +357,7 @@ async function deploy(projectId, options = {}) {
           log(`node_modules 不存在，執行安裝...`);
         }
         log(`執行 npm install...`);
-        execSync('npm install', { cwd: projectDir, stdio: 'pipe' });
+        execSync('npm install', { cwd: projectDir, stdio: 'pipe', windowsHide: true });
         // 儲存 hash
         fs.writeFileSync(hashFile, currentHash);
         log(`依賴安裝完成`);
@@ -366,7 +367,7 @@ async function deploy(projectId, options = {}) {
     // 執行 build command
     if (project.buildCommand) {
       log(`執行 build: ${project.buildCommand}`);
-      execSync(project.buildCommand, { cwd: projectDir, stdio: 'pipe' });
+      execSync(project.buildCommand, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
       log(`Build 完成`);
     }
 
@@ -413,13 +414,13 @@ async function deploy(projectId, options = {}) {
 
       try {
         // 嘗試重啟（如果已存在）
-        execSync(`pm2 reload ${project.pm2Name}`, { stdio: 'pipe' });
+        execSync(`pm2 reload ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
         log(`PM2 重啟完成`);
       } catch (e) {
         log(`PM2 重啟失敗，嘗試啟動...`);
         // 先刪除舊的（如果有）
         try {
-          execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe' });
+          execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
         } catch (delErr) {
           // 忽略刪除錯誤
         }
@@ -429,7 +430,8 @@ async function deploy(projectId, options = {}) {
         execSync(`pm2 start "${entryPath}" --name ${project.pm2Name}`, {
           stdio: 'pipe',
           cwd: projectDir,
-          env: spawnEnv
+          env: spawnEnv,
+          windowsHide: true
         });
         log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
       }
@@ -448,7 +450,7 @@ async function deploy(projectId, options = {}) {
     // 自動建立 DNS (Cloudflare Tunnel)
     const hostname = `${project.id}.isnowfriend.com`;
     try {
-      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore' });
+      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore', windowsHide: true });
       log(`DNS 已建立: ${hostname}`);
     } catch (e) {
       log(`DNS 建立失敗（可能已存在）: ${e.message}`);
@@ -488,10 +490,16 @@ async function deploy(projectId, options = {}) {
   }
 
   // 更新專案最後部署時間
-  updateProject(projectId, {
+  const projectUpdate = {
     lastDeployAt: deployment.finishedAt,
-    lastDeployStatus: deployment.status
-  });
+    lastDeployStatus: deployment.status,
+    lastDeployCommit: deployment.commit // 嘗試部署的 commit
+  };
+  // 只有成功才更新 runningCommit
+  if (deployment.status === 'success') {
+    projectUpdate.runningCommit = deployment.commit;
+  }
+  updateProject(projectId, projectUpdate);
 
   return deployment;
 }
@@ -570,7 +578,8 @@ async function setupGitHubWebhook(projectId, webhookUrl) {
       {
         input: webhookConfig,
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
       }
     );
 
@@ -610,7 +619,7 @@ async function removeGitHubWebhook(projectId) {
   try {
     execSync(
       `gh api repos/${owner}/${repo}/hooks/${project.webhookId} --method DELETE`,
-      { stdio: 'pipe' }
+      { stdio: 'pipe', windowsHide: true }
     );
     console.log(`[deploy] Webhook 已刪除: ID ${project.webhookId}`);
     updateProject(projectId, { webhookId: null });
@@ -638,7 +647,7 @@ function listGitHubWebhooks(projectId) {
   try {
     const result = execSync(
       `gh api repos/${owner}/${repo}/hooks`,
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
     );
     return JSON.parse(result);
   } catch (error) {
@@ -656,7 +665,7 @@ function getGitHubLatestCommit(owner, repo, branch) {
   try {
     const result = execSync(
       `gh api repos/${owner}/${repo}/commits/${branch} --jq ".sha"`,
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
     );
     return result.trim().substring(0, 7);
   } catch (e) {
@@ -686,7 +695,7 @@ async function checkProjectForUpdates(project) {
   let localCommit = null;
   try {
     if (fs.existsSync(projectDir)) {
-      localCommit = execSync('git rev-parse --short HEAD', { cwd: projectDir, encoding: 'utf8' }).trim();
+      localCommit = execSync('git rev-parse --short HEAD', { cwd: projectDir, encoding: 'utf8', windowsHide: true }).trim();
     }
   } catch (e) {}
 

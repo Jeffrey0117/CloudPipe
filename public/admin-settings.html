@@ -86,6 +86,7 @@
     }
     .service-status.running { background: #14532d; color: #4ade80; }
     .service-status.failed { background: #5c2626; color: #f87171; }
+    .service-status.warning { background: #713f12; color: #fbbf24; }
 
     /* System Info Section */
     .system-info { margin-bottom: 2.5rem; }
@@ -302,10 +303,9 @@
       return d + ' 天 ' + h + ' 時';
     }
 
-    // 載入已部署
+    // 載入已部署（Git 專案 + 上傳的 apps/services）
     async function loadDeployed() {
       try {
-        // 同時取得 services/apps 和 Git 專案
         const [servicesRes, projectsRes] = await Promise.all([
           fetch('/api/_admin/services', { headers: { 'authorization': 'Bearer ' + authToken } }),
           fetch('/api/_admin/deploy/projects', { headers: { 'authorization': 'Bearer ' + authToken } })
@@ -320,17 +320,28 @@
         }
 
         let html = '';
-        // Git 專案
+        // Git 專案（含操作按鈕）
         gitProjects.forEach(p => {
           const isSuccess = p.lastDeployStatus === 'success';
-          const statusClass = isSuccess ? '' : 'style="color:#f87171;"';
-          const statusText = isSuccess ? '運行中' : '部署失敗';
+          const runningCommit = p.runningCommit || null;
           const lastDeploy = p.lastDeployAt ? new Date(p.lastDeployAt).toLocaleString('zh-TW') : '-';
+
+          let statusHtml = '';
+          if (isSuccess && runningCommit) {
+            statusHtml = `<span style="color:#4ade80;">✓ ${runningCommit}</span>`;
+          } else if (!isSuccess && runningCommit) {
+            statusHtml = `<span style="color:#f87171;">✗ 失敗</span> <span style="color:#888;font-size:0.85em;">運行中: ${runningCommit}</span>`;
+          } else if (!isSuccess) {
+            statusHtml = `<span style="color:#f87171;">✗ 部署失敗</span>`;
+          } else {
+            statusHtml = `<span style="color:#4ade80;">運行中</span>`;
+          }
+
           html += `<div class="deployed-item">
             <div class="info"><span class="icon">🚀</span><div>
               <div class="name"><a href="https://${p.id}.isnowfriend.com" target="_blank" style="color:#fff;text-decoration:none;">${p.name || p.id}</a>${p.port ? ` <span style="color:#8ab4f8;font-size:0.8em;">:${p.port}</span>` : ''}</div>
               <div class="url">Git 部署 · ${lastDeploy}</div></div></div>
-            <div class="status" ${statusClass}>${statusText}</div>
+            <div class="status">${statusHtml}</div>
             <div class="actions">
               <button onclick="viewLogs('${p.pm2Name || p.id}')">Log</button>
               <a class="btn" href="https://${p.id}.isnowfriend.com" target="_blank">開啟</a>
@@ -392,9 +403,20 @@
         const grid = document.getElementById('servicesGrid');
         projectsData.forEach(p => {
           const isSuccess = p.lastDeployStatus === 'success';
-          const statusClass = isSuccess ? 'running' : 'failed';
-          const statusText = isSuccess ? '運行中' : '部署失敗';
-          const lastDeploy = p.lastDeployAt ? new Date(p.lastDeployAt).toLocaleString('zh-TW') : '-';
+          const runningCommit = p.runningCommit || null;
+          const statusClass = isSuccess ? 'running' : (runningCommit ? 'warning' : 'failed');
+
+          // Vercel 風格狀態顯示
+          let statusText = '';
+          if (isSuccess && runningCommit) {
+            statusText = `✓ ${runningCommit}`;
+          } else if (!isSuccess && runningCommit) {
+            statusText = `⚠ ${runningCommit}`;
+          } else if (!isSuccess) {
+            statusText = '部署失敗';
+          } else {
+            statusText = '運行中';
+          }
 
           const card = document.createElement('div');
           card.className = 'service-card';
@@ -404,7 +426,6 @@
             <div class="service-info">
               <div class="service-name">${p.name || p.id}${p.port ? ` <span style="color:#8ab4f8;font-size:0.8em;">:${p.port}</span>` : ''}</div>
               <div class="service-desc">Git 自動部署專案</div>
-              <div class="service-stats" ${isSuccess ? '' : 'style="color:#f87171;"'}>最後部署: ${lastDeploy}</div>
             </div>
             <div class="service-status ${statusClass}">${statusText}</div>
           `;

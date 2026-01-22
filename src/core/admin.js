@@ -357,7 +357,7 @@ function uploadApp(req, res) {
 
     // 解壓 zip
     try {
-      execSync(`tar -xf "${zipPath}" -C "${appDir}"`, { stdio: 'ignore' });
+      execSync(`tar -xf "${zipPath}" -C "${appDir}"`, { stdio: 'ignore', windowsHide: true });
       fs.unlinkSync(zipPath); // 刪除 zip
     } catch (e) {
       console.error('[admin] 解壓失敗:', e.message);
@@ -366,7 +366,7 @@ function uploadApp(req, res) {
     // 自動建立 DNS CNAME
     try {
       const hostname = `${name}.isnowfriend.com`;
-      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore' });
+      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore', windowsHide: true });
       console.log(`[admin] DNS 已建立: ${hostname}`);
     } catch (e) {
       console.error('[admin] DNS 建立失敗:', e.message);
