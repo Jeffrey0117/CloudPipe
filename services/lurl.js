@@ -5671,40 +5671,54 @@ function browsePage() {
         html += \`<span class="filter-group" style="position:relative;">\`;
 
         if (hasSubTags) {
-          html += \`<span class="filter-tag \${isMainActive || hasActiveSubTags ? 'active' : ''}" onclick="toggleFilterPopover('\${mainTag}')">\${mainTag} ▾</span>\`;
+          html += \`<span class="filter-tag \${isMainActive || hasActiveSubTags ? 'active' : ''}" data-action="popover" data-tag="\${mainTag}">\${mainTag} ▾</span>\`;
 
           if (isExpanded) {
-            html += \`<div class="filter-popover" onclick="event.stopPropagation()">\`;
-            html += \`<span class="filter-sub \${isMainActive ? 'active' : ''}" onclick="toggleFilterTag('\${mainTag}')">全部</span>\`;
+            html += \`<div class="filter-popover">\`;
+            html += \`<span class="filter-sub \${isMainActive ? 'active' : ''}" data-action="toggle" data-tag="\${mainTag}">全部</span>\`;
             html += subTags.map(sub => {
               const fullTag = mainTag + ':' + sub;
               const isSubActive = selectedFilterTags.includes(fullTag);
-              return \`<span class="filter-sub \${isSubActive ? 'active' : ''}" onclick="toggleFilterTag('\${fullTag}')">\${sub}</span>\`;
+              return \`<span class="filter-sub \${isSubActive ? 'active' : ''}" data-action="toggle" data-tag="\${fullTag}">\${sub}</span>\`;
             }).join('');
             html += \`</div>\`;
           }
         } else {
-          html += \`<span class="filter-tag \${isMainActive ? 'active' : ''}" onclick="toggleFilterTag('\${mainTag}')">\${mainTag}</span>\`;
+          html += \`<span class="filter-tag \${isMainActive ? 'active' : ''}" data-action="toggle" data-tag="\${mainTag}">\${mainTag}</span>\`;
         }
 
         html += \`</span>\`;
       });
 
       if (selectedFilterTags.length > 0) {
-        html += \`<button class="clear-filter" onclick="clearFilterTags()">✕ 清除</button>\`;
+        html += \`<button class="clear-filter" data-action="clear">✕ 清除</button>\`;
       }
 
       document.getElementById('tagFilter').innerHTML = html;
     }
 
-    function toggleFilterPopover(mainTag) {
-      expandedFilterTag = (expandedFilterTag === mainTag) ? null : mainTag;
-      renderTagFilter();
-    }
+    // 篩選事件委派
+    document.getElementById('tagFilter').addEventListener('click', (e) => {
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+
+      e.stopPropagation();
+      const action = target.dataset.action;
+      const tag = target.dataset.tag;
+
+      if (action === 'popover' && tag) {
+        expandedFilterTag = (expandedFilterTag === tag) ? null : tag;
+        renderTagFilter();
+      } else if (action === 'toggle' && tag) {
+        toggleFilterTag(tag);
+      } else if (action === 'clear') {
+        clearFilterTags();
+      }
+    });
 
     // 點擊外部關閉篩選 popover
     document.addEventListener('click', (e) => {
-      if (expandedFilterTag && !e.target.closest('.filter-group')) {
+      if (expandedFilterTag && !e.target.closest('.filter-group') && !e.target.closest('#tagFilter')) {
         expandedFilterTag = null;
         renderTagFilter();
       }
@@ -6167,10 +6181,11 @@ function browsePage() {
 </html>`;
 }
 
-function viewPage(record, fileExists) {
+function viewPage(record, fileExists, user = null) {
   const getTitle = (t) => (!t || t === 'untitled' || t === 'undefined') ? '未命名' : t;
   const title = getTitle(record.title);
   const isVideo = record.type === 'video';
+  const canFavorite = user && (user.tier === 'premium' || user.tier === 'admin');
 
   return `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -6303,6 +6318,69 @@ function viewPage(record, fileExists) {
     }
     .tag-popover .tag.sub.active { background: var(--accent-pink); border-color: var(--accent-pink); }
 
+    /* Favorite Menu */
+    .favorite-wrapper { display: inline-block; }
+    .favorite-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-width: 220px;
+      box-shadow: 0 8px 24px var(--shadow);
+      z-index: 1000;
+    }
+    .favorite-menu-header {
+      font-size: 0.9em;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .favorite-menu-list { max-height: 200px; overflow-y: auto; }
+    .favorite-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .favorite-menu-item:hover { background: var(--bg-button); }
+    .favorite-menu-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-pink);
+    }
+    .favorite-menu-item span { flex: 1; font-size: 0.9em; }
+    .favorite-menu-add {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      background: transparent;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: all 0.2s;
+    }
+    .favorite-menu-add:hover {
+      border-color: var(--accent-pink);
+      color: var(--accent-pink);
+    }
+    .favorite-locked {
+      text-align: center;
+      padding: 20px 10px;
+      color: var(--text-muted);
+      font-size: 0.85em;
+    }
+    .favorite-locked a { color: var(--accent-pink); }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -6405,6 +6483,16 @@ function viewPage(record, fileExists) {
       <div class="actions">
         ${fileExists ? `<a href="/lurl/files/${record.backupPath}" download class="btn btn-primary">下載</a>` : ''}
         ${record.ref ? `<a href="${record.ref}" target="_blank" class="btn btn-secondary">📖 D卡文章</a>` : ''}
+        <div class="favorite-wrapper" style="position:relative;">
+          <button class="btn btn-secondary" id="favoriteBtn" onclick="toggleFavoriteMenu()">
+            <span id="favIcon">${canFavorite ? '⭐' : '🔒'}</span> 收藏
+          </button>
+          <div class="favorite-menu" id="favoriteMenu" style="display:none;">
+            <div class="favorite-menu-header">收藏到...</div>
+            <div class="favorite-menu-list" id="favoriteList">載入中...</div>
+            <button class="favorite-menu-add" onclick="createNewCollection()">+ 新增收藏夾</button>
+          </div>
+        </div>
         ${!fileExists ? `<a href="${record.pageUrl}" target="_blank" class="btn btn-warning">🔄 重新下載（需安裝腳本）</a>` : ''}
       </div>
       ${!fileExists ? `<div class="status" style="margin-top:15px;color:#888;font-size:0.85em;">💡 點擊「重新下載」會開啟原始頁面，若已安裝 Tampermonkey 腳本，將自動備份檔案</div>` : ''}
@@ -6525,6 +6613,125 @@ function viewPage(record, fileExists) {
     }
 
     renderTags();
+
+    // ===== 收藏功能 =====
+    const canFavorite = ${canFavorite};
+    const isLoggedIn = ${!!user};
+    let favoriteMenuOpen = false;
+    let collections = [];
+
+    async function toggleFavoriteMenu() {
+      const menu = document.getElementById('favoriteMenu');
+      const list = document.getElementById('favoriteList');
+
+      if (!isLoggedIn) {
+        window.location.href = '/lurl/login?redirect=/lurl/view/' + recordId;
+        return;
+      }
+
+      if (!canFavorite) {
+        list.innerHTML = '<div class="favorite-locked">🔒 升級為老司機即可使用收藏功能<br><a href="/lurl/member/upgrade">立即升級</a></div>';
+        document.querySelector('.favorite-menu-add').style.display = 'none';
+        menu.style.display = favoriteMenuOpen ? 'none' : 'block';
+        favoriteMenuOpen = !favoriteMenuOpen;
+        return;
+      }
+
+      if (favoriteMenuOpen) {
+        menu.style.display = 'none';
+        favoriteMenuOpen = false;
+        return;
+      }
+
+      menu.style.display = 'block';
+      favoriteMenuOpen = true;
+      list.innerHTML = '載入中...';
+
+      try {
+        const res = await fetch('/lurl/api/collections?recordId=' + recordId);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error);
+
+        collections = data.collections;
+        renderCollectionList();
+      } catch (e) {
+        list.innerHTML = '<div style="color:#f87171;padding:10px;">載入失敗</div>';
+      }
+    }
+
+    function renderCollectionList() {
+      const list = document.getElementById('favoriteList');
+      if (collections.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);padding:10px;text-align:center;">還沒有收藏夾<br>點擊下方新增</div>';
+        return;
+      }
+
+      list.innerHTML = collections.map(c =>
+        '<label class="favorite-menu-item">' +
+          '<input type="checkbox" ' + (c.hasRecord ? 'checked' : '') + ' onchange="toggleCollection(\\'' + c.id + '\\', this.checked)">' +
+          '<span>' + c.name + '</span>' +
+        '</label>'
+      ).join('');
+    }
+
+    async function toggleCollection(collectionId, checked) {
+      try {
+        if (checked) {
+          await fetch('/lurl/api/collections/' + collectionId + '/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recordId })
+          });
+          showToast('已加入收藏');
+        } else {
+          await fetch('/lurl/api/collections/' + collectionId + '/items/' + recordId, {
+            method: 'DELETE'
+          });
+          showToast('已移除收藏');
+        }
+        // 更新本地狀態
+        const col = collections.find(c => c.id === collectionId);
+        if (col) col.hasRecord = checked;
+        updateFavoriteIcon();
+      } catch (e) {
+        showToast('操作失敗');
+      }
+    }
+
+    function updateFavoriteIcon() {
+      const icon = document.getElementById('favIcon');
+      const hasAny = collections.some(c => c.hasRecord);
+      icon.textContent = hasAny ? '⭐' : '☆';
+    }
+
+    async function createNewCollection() {
+      const name = prompt('輸入收藏夾名稱：');
+      if (!name) return;
+
+      try {
+        const res = await fetch('/lurl/api/collections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          collections.unshift({ ...data.collection, hasRecord: false });
+          renderCollectionList();
+          showToast('收藏夾已建立');
+        }
+      } catch (e) {
+        showToast('建立失敗');
+      }
+    }
+
+    // 點擊外部關閉選單
+    document.addEventListener('click', (e) => {
+      if (favoriteMenuOpen && !e.target.closest('.favorite-wrapper')) {
+        document.getElementById('favoriteMenu').style.display = 'none';
+        favoriteMenuOpen = false;
+      }
+    });
   </script>
   ${isVideo && fileExists ? `
   <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
@@ -6568,32 +6775,30 @@ function viewPage(record, fileExists) {
         return;
       }
 
-      // 策略：快速啟動 + HLS 背景載入 + 無縫切換
+      // 策略：預覽片段秒開 + HLS 背景載入 + 無縫切換
       if (hlsReady && Hls.isSupported()) {
-        // 1. 快速啟動：有 preview 用 preview，否則直接等 HLS（MP4 可能已刪除）
+        // 1. 如果有預覽片段，先用預覽片段秒開
         if (previewUrl) {
           video.src = previewUrl;
-          console.log('[Player] 預覽片段快速啟動');
-        } else {
-          console.log('[Player] 無預覽，等待 HLS...');
+          currentPlayer = new Plyr(video, plyrOptions);
+          setupPlayer(currentPlayer);
+          console.log('[Player] 預覽片段秒開');
         }
-        currentPlayer = new Plyr(video, plyrOptions);
-        setupPlayer(currentPlayer);
+        // 沒有預覽片段，等 HLS 載入後再初始化（舊影片的情況）
+        else {
+          console.log('[Player] 無預覽片段，等待 HLS 載入...');
+        }
 
         // 2. 背景載入 HLS
         hls = new Hls({
-          // 緩衝設定 - 最小化等待時間
           maxBufferLength: 5,
           maxMaxBufferLength: 15,
-          maxBufferSize: 30 * 1000 * 1000, // 30MB
+          maxBufferSize: 30 * 1000 * 1000,
           maxBufferHole: 0.5,
-          // 快速啟動 - 從低畫質開始
           startLevel: 0,
-          abrEwmaDefaultEstimate: 500000, // 預設 500kbps，避免選太高畫質
-          // 性能優化
+          abrEwmaDefaultEstimate: 500000,
           enableWorker: true,
           startFragPrefetch: true,
-          // 已播放部分不保留太多
           backBufferLength: 30
         });
         hls.loadSource(hlsUrl);
@@ -6619,32 +6824,42 @@ function viewPage(record, fileExists) {
             }
           };
 
-          // 無縫切換到 HLS（保留播放狀態）
-          const currentTime = video.currentTime;
-          const wasPlaying = !video.paused;
-          const volume = video.volume;
-          const muted = video.muted;
-          const playbackRate = video.playbackRate;
+          // 有預覽片段：無縫切換
+          if (currentPlayer) {
+            const currentTime = video.currentTime;
+            const wasPlaying = !video.paused;
+            const volume = video.volume;
+            const muted = video.muted;
+            const playbackRate = video.playbackRate;
 
-          console.log('[Player] HLS 準備好，切換中... (位置: ' + currentTime.toFixed(1) + 's)');
+            console.log('[Player] HLS 準備好，切換中... (位置: ' + currentTime.toFixed(1) + 's)');
 
-          hls.attachMedia(video);
-          hlsSwitched = true;
+            hls.attachMedia(video);
+            hlsSwitched = true;
 
-          currentPlayer.destroy();
-          currentPlayer = new Plyr(video, hlsPlyrOptions);
-          setupPlayer(currentPlayer);
+            currentPlayer.destroy();
+            currentPlayer = new Plyr(video, hlsPlyrOptions);
+            setupPlayer(currentPlayer);
 
-          // 恢復播放狀態
-          video.currentTime = currentTime;
-          video.volume = volume;
-          video.muted = muted;
-          video.playbackRate = playbackRate;
-          if (wasPlaying) {
-            video.play().catch(() => {});
+            // 恢復播放狀態
+            video.currentTime = currentTime;
+            video.volume = volume;
+            video.muted = muted;
+            video.playbackRate = playbackRate;
+            if (wasPlaying) {
+              video.play().catch(() => {});
+            }
+
+            console.log('[Player] 已切換到 HLS，支援多畫質');
           }
-
-          console.log('[Player] 已切換到 HLS，支援多畫質');
+          // 無預覽片段：直接播放 HLS
+          else {
+            console.log('[Player] HLS 準備好，直接播放');
+            hls.attachMedia(video);
+            hlsSwitched = true;
+            currentPlayer = new Plyr(video, hlsPlyrOptions);
+            setupPlayer(currentPlayer);
+          }
         });
 
         hls.on(Hls.Events.ERROR, function(event, data) {
@@ -7319,24 +7534,31 @@ module.exports = {
 
     // GET /api/collections - 取得收藏夾列表
     if (req.method === 'GET' && urlPath === '/api/collections') {
-      const user = getMemberFromRequest(req);
+      let user = getMemberFromRequest(req);
+      // 支援 admin 登入使用收藏功能
+      if (!user && isAdminAuthenticated(req)) {
+        user = { id: 'admin', tier: 'admin' };
+      }
       if (!user) {
         res.writeHead(401, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '未登入' }));
         return;
       }
 
-      if (user.tier !== 'premium') {
+      if (user.tier !== 'premium' && user.tier !== 'admin') {
         res.writeHead(403, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
         return;
       }
 
       const collections = lurlDb.getCollections(user.id);
-      // 為每個收藏夾加入項目數量
+      const recordId = query.recordId; // 可選：查詢特定內容是否已收藏
+
+      // 為每個收藏夾加入項目數量和收藏狀態
       const collectionsWithCount = collections.map(c => ({
         ...c,
-        itemCount: lurlDb.getCollectionItemCount(c.id)
+        itemCount: lurlDb.getCollectionItemCount(c.id),
+        hasRecord: recordId ? lurlDb.isInCollection(c.id, recordId) : undefined
       }));
 
       res.writeHead(200, corsHeaders());
@@ -7346,14 +7568,17 @@ module.exports = {
 
     // POST /api/collections - 建立收藏夾
     if (req.method === 'POST' && urlPath === '/api/collections') {
-      const user = getMemberFromRequest(req);
+      let user = getMemberFromRequest(req);
+      if (!user && isAdminAuthenticated(req)) {
+        user = { id: 'admin', tier: 'admin' };
+      }
       if (!user) {
         res.writeHead(401, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '未登入' }));
         return;
       }
 
-      if (user.tier !== 'premium') {
+      if (user.tier !== 'premium' && user.tier !== 'admin') {
         res.writeHead(403, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
         return;
@@ -7467,14 +7692,17 @@ module.exports = {
 
     // POST /api/collections/:id/items - 加入收藏
     if (req.method === 'POST' && urlPath.match(/^\/api\/collections\/[^/]+\/items$/)) {
-      const user = getMemberFromRequest(req);
+      let user = getMemberFromRequest(req);
+      if (!user && isAdminAuthenticated(req)) {
+        user = { id: 'admin', tier: 'admin' };
+      }
       if (!user) {
         res.writeHead(401, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '未登入' }));
         return;
       }
 
-      if (user.tier !== 'premium') {
+      if (user.tier !== 'premium' && user.tier !== 'admin') {
         res.writeHead(403, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '收藏功能為老司機專屬' }));
         return;
@@ -7512,7 +7740,10 @@ module.exports = {
 
     // DELETE /api/collections/:id/items/:recordId - 從收藏夾移除
     if (req.method === 'DELETE' && urlPath.match(/^\/api\/collections\/[^/]+\/items\/[^/]+$/)) {
-      const user = getMemberFromRequest(req);
+      let user = getMemberFromRequest(req);
+      if (!user && isAdminAuthenticated(req)) {
+        user = { id: 'admin', tier: 'admin' };
+      }
       if (!user) {
         res.writeHead(401, corsHeaders());
         res.end(JSON.stringify({ ok: false, error: '未登入' }));
@@ -9842,7 +10073,14 @@ module.exports = {
       const hlsPath = path.join(HLS_DIR, record.id, 'master.m3u8');
       const fileExists = fs.existsSync(localFilePath) || (record.hlsReady && fs.existsSync(hlsPath));
 
-      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), viewPage(record, fileExists));
+      // 取得會員資訊（用於收藏功能）
+      // 如果是 admin 登入但沒有會員帳號，給予 admin 權限
+      let user = getMemberFromRequest(req);
+      if (!user && isAdminAuthenticated(req)) {
+        user = { id: 'admin', tier: 'admin', nickname: '管理員' };
+      }
+
+      sendCompressed(req, res, 200, corsHeaders('text/html; charset=utf-8'), viewPage(record, fileExists, user));
       return;
     }
 
