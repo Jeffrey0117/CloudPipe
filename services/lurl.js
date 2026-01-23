@@ -6472,12 +6472,18 @@ function viewPage(record, fileExists) {
     const mp4Url = '/lurl/files/${record.backupPath}';
     const previewUrl = ${record.previewReady ? `'/lurl/files/${record.previewPath}'` : 'null'};
     const isShortVideo = ${record.isShortVideo || false};
+    const posterUrl = ${record.thumbnailPath ? `'/lurl/files/${record.thumbnailPath}'` : 'null'};
 
     let hls = null;
     let currentPlayer = null;
     let hlsSwitched = false;
 
     function initPlayer() {
+      // 設定 poster（縮圖）
+      if (posterUrl) {
+        video.poster = posterUrl;
+      }
+
       const plyrOptions = {
         controls: [
           'play-large', 'play', 'progress', 'current-time', 'mute',
