@@ -5288,7 +5288,7 @@ function browsePage() {
       .tab { padding: 6px 12px; font-size: 0.9em; white-space: nowrap; flex-shrink: 0; }
       .result-count { margin-left: 0; text-align: center; }
 
-      .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .grid { grid-template-columns: 1fr; gap: 12px; }
       .card { border-radius: 10px; }
       .card-info { padding: 10px; }
       .card-title { font-size: 0.85em; -webkit-line-clamp: 2; }
@@ -5573,15 +5573,29 @@ function browsePage() {
     // 展開的標籤選擇器狀態
     let expandedTagSelector = null;
 
-    function toggleTagPopover(recordId, mainTag, event) {
-      event.stopPropagation();
-      const key = recordId + ':' + mainTag;
-      expandedTagSelector = (expandedTagSelector === key) ? null : key;
-      renderGrid();
-    }
-
-    // 點擊外部關閉 popover
+    // 使用事件委派處理 tag 點擊（Browse 頁面）
     document.addEventListener('click', (e) => {
+      // 處理 tag 點擊
+      const tagEl = e.target.closest('.card-tags .tag');
+      if (tagEl) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const action = tagEl.dataset.action;
+        const recordId = tagEl.dataset.record;
+        const tag = tagEl.dataset.tag;
+
+        if (action === 'popover' && recordId && tag) {
+          const key = recordId + ':' + tag;
+          expandedTagSelector = (expandedTagSelector === key) ? null : key;
+          renderGrid();
+        } else if (action === 'toggle' && recordId && tag) {
+          toggleTag(recordId, tag);
+        }
+        return;
+      }
+
+      // 點擊外部關閉 popover
       if (expandedTagSelector && !e.target.closest('.tag-group')) {
         expandedTagSelector = null;
         renderGrid();
@@ -5600,20 +5614,20 @@ function browsePage() {
 
         if (hasSubTags) {
           // 有子標籤：點擊彈出 popover
-          html += \`<span class="tag \${isActive ? 'active' : ''}" onclick="toggleTagPopover('\${record.id}', '\${mainTag}', event)">\${mainTag} ▾</span>\`;
+          html += \`<span class="tag \${isActive ? 'active' : ''}" data-action="popover" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag} ▾</span>\`;
 
           if (isExpanded) {
-            html += \`<div class="tag-popover" onclick="event.stopPropagation()">\`;
+            html += \`<div class="tag-popover">\`;
             html += subTags.map(sub => {
               const fullTag = mainTag + ':' + sub;
               const isSubActive = tags.includes(fullTag);
-              return \`<span class="tag sub \${isSubActive ? 'active' : ''}" onclick="toggleTag('\${record.id}', '\${fullTag}')">\${sub}</span>\`;
+              return \`<span class="tag sub \${isSubActive ? 'active' : ''}" data-action="toggle" data-record="\${record.id}" data-tag="\${fullTag}">\${sub}</span>\`;
             }).join('');
             html += \`</div>\`;
           }
         } else {
           // 沒有子標籤：直接切換
-          html += \`<span class="tag \${isActive ? 'active' : ''}" onclick="toggleTag('\${record.id}', '\${mainTag}')">\${mainTag}</span>\`;
+          html += \`<span class="tag \${isActive ? 'active' : ''}" data-action="toggle" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag}</span>\`;
         }
 
         html += \`</span>\`;
@@ -6332,7 +6346,7 @@ function viewPage(record, fileExists) {
     <div class="media-container">
       ${fileExists
         ? (isVideo
-          ? `<video id="player" playsinline controls data-poster="${record.thumbnailPath ? `/lurl/files/${record.thumbnailPath}` : ''}"></video>`
+          ? `<video id="player" playsinline controls ${record.thumbnailPath ? `poster="/lurl/files/${record.thumbnailPath}" data-poster="/lurl/files/${record.thumbnailPath}"` : ''}></video>`
           : `<div class="img-skeleton" id="imgSkeleton"></div>
              <img src="/lurl/files/${record.backupPath}" alt="${title}" onload="this.classList.add('loaded'); document.getElementById('imgSkeleton').classList.add('hidden');">`)
         : `<div class="media-missing">
@@ -6406,19 +6420,19 @@ function viewPage(record, fileExists) {
         html += '<span class="tag-group">';
 
         if (hasSubTags) {
-          html += '<span class="tag ' + (isActive ? 'active' : '') + '" onclick="togglePopover(\\'' + mainTag + '\\')">' + mainTag + ' ▾</span>';
+          html += '<span class="tag ' + (isActive ? 'active' : '') + '" data-action="popover" data-tag="' + mainTag + '">' + mainTag + ' ▾</span>';
 
           if (isExpanded) {
-            html += '<div class="tag-popover" onclick="event.stopPropagation()">';
+            html += '<div class="tag-popover">';
             subTags.forEach(sub => {
               const fullTag = mainTag + ':' + sub;
               const isSubActive = currentTags.includes(fullTag);
-              html += '<span class="tag sub ' + (isSubActive ? 'active' : '') + '" onclick="toggleTag(\\'' + fullTag + '\\')">' + sub + '</span>';
+              html += '<span class="tag sub ' + (isSubActive ? 'active' : '') + '" data-action="toggle" data-tag="' + fullTag + '">' + sub + '</span>';
             });
             html += '</div>';
           }
         } else {
-          html += '<span class="tag ' + (isActive ? 'active' : '') + '" onclick="toggleTag(\\'' + mainTag + '\\')">' + mainTag + '</span>';
+          html += '<span class="tag ' + (isActive ? 'active' : '') + '" data-action="toggle" data-tag="' + mainTag + '">' + mainTag + '</span>';
         }
 
         html += '</span>';
@@ -6427,10 +6441,24 @@ function viewPage(record, fileExists) {
       container.innerHTML = html;
     }
 
-    function togglePopover(mainTag) {
-      expandedTag = (expandedTag === mainTag) ? null : mainTag;
-      renderTags();
-    }
+    // 使用事件委派處理 tag 點擊
+    document.getElementById('tags').addEventListener('click', function(e) {
+      const target = e.target.closest('.tag');
+      if (!target) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const action = target.dataset.action;
+      const tag = target.dataset.tag;
+
+      if (action === 'popover') {
+        expandedTag = (expandedTag === tag) ? null : tag;
+        renderTags();
+      } else if (action === 'toggle' && tag) {
+        toggleTag(tag);
+      }
+    });
 
     document.addEventListener('click', (e) => {
       if (expandedTag && !e.target.closest('.tag-group')) {
