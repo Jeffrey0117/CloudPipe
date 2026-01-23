@@ -6332,7 +6332,7 @@ function viewPage(record, fileExists) {
     <div class="media-container">
       ${fileExists
         ? (isVideo
-          ? `<video id="player" playsinline controls poster="${record.thumbnailPath ? `/lurl/files/${record.thumbnailPath}` : ''}"></video>`
+          ? `<video id="player" playsinline controls data-poster="${record.thumbnailPath ? `/lurl/files/${record.thumbnailPath}` : ''}"></video>`
           : `<div class="img-skeleton" id="imgSkeleton"></div>
              <img src="/lurl/files/${record.backupPath}" alt="${title}" onload="this.classList.add('loaded'); document.getElementById('imgSkeleton').classList.add('hidden');">`)
         : `<div class="media-missing">
@@ -6630,6 +6630,11 @@ function viewPage(record, fileExists) {
     }
 
     function setupPlayer(player) {
+      // 設定 poster（縮圖）
+      if (posterUrl) {
+        player.poster = posterUrl;
+      }
+
       // 檢查靜音模式
       const globalMuted = localStorage.getItem('lurl_muted') === 'true';
       if (globalMuted) {
