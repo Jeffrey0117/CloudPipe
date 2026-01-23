@@ -6568,19 +6568,14 @@ function viewPage(record, fileExists) {
         return;
       }
 
-      // 策略：預覽片段秒開 + HLS 背景載入 + 無縫切換
+      // 策略：快速啟動 + HLS 背景載入 + 無縫切換
       if (hlsReady && Hls.isSupported()) {
-        // 1. 如果有預覽片段，先用預覽片段秒開
-        if (previewUrl) {
-          video.src = previewUrl;
-          currentPlayer = new Plyr(video, plyrOptions);
-          setupPlayer(currentPlayer);
-          console.log('[Player] 預覽片段秒開');
-        }
-        // 沒有預覽片段，直接等 HLS（舊影片的情況）
-        else {
-          console.log('[Player] 無預覽片段，直接載入 HLS');
-        }
+        // 1. 快速啟動：有 preview 用 preview，沒有就用 MP4
+        const quickStartUrl = previewUrl || mp4Url;
+        video.src = quickStartUrl;
+        currentPlayer = new Plyr(video, plyrOptions);
+        setupPlayer(currentPlayer);
+        console.log('[Player] 快速啟動: ' + (previewUrl ? '預覽片段' : 'MP4'));
 
         // 2. 背景載入 HLS
         hls = new Hls({
@@ -6621,42 +6616,32 @@ function viewPage(record, fileExists) {
             }
           };
 
-          // 有預覽片段：無縫切換
-          if (currentPlayer) {
-            const currentTime = video.currentTime;
-            const wasPlaying = !video.paused;
-            const volume = video.volume;
-            const muted = video.muted;
-            const playbackRate = video.playbackRate;
+          // 無縫切換到 HLS（保留播放狀態）
+          const currentTime = video.currentTime;
+          const wasPlaying = !video.paused;
+          const volume = video.volume;
+          const muted = video.muted;
+          const playbackRate = video.playbackRate;
 
-            console.log('[Player] HLS 準備好，切換中... (位置: ' + currentTime.toFixed(1) + 's)');
+          console.log('[Player] HLS 準備好，切換中... (位置: ' + currentTime.toFixed(1) + 's)');
 
-            hls.attachMedia(video);
-            hlsSwitched = true;
+          hls.attachMedia(video);
+          hlsSwitched = true;
 
-            currentPlayer.destroy();
-            currentPlayer = new Plyr(video, hlsPlyrOptions);
-            setupPlayer(currentPlayer);
+          currentPlayer.destroy();
+          currentPlayer = new Plyr(video, hlsPlyrOptions);
+          setupPlayer(currentPlayer);
 
-            // 恢復播放狀態
-            video.currentTime = currentTime;
-            video.volume = volume;
-            video.muted = muted;
-            video.playbackRate = playbackRate;
-            if (wasPlaying) {
-              video.play().catch(() => {});
-            }
-
-            console.log('[Player] 已切換到 HLS，支援多畫質');
+          // 恢復播放狀態
+          video.currentTime = currentTime;
+          video.volume = volume;
+          video.muted = muted;
+          video.playbackRate = playbackRate;
+          if (wasPlaying) {
+            video.play().catch(() => {});
           }
-          // 無預覽片段：直接播放 HLS
-          else {
-            console.log('[Player] HLS 準備好，直接播放');
-            hls.attachMedia(video);
-            hlsSwitched = true;
-            currentPlayer = new Plyr(video, hlsPlyrOptions);
-            setupPlayer(currentPlayer);
-          }
+
+          console.log('[Player] 已切換到 HLS，支援多畫質');
         });
 
         hls.on(Hls.Events.ERROR, function(event, data) {
