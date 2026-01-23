@@ -737,7 +737,28 @@ async function processImage(sourcePath, id) {
     const thumbFilename = `${id}.webp`;
     const thumbPath = path.join(thumbDir, thumbFilename);
 
-    // 讀取原圖並生成 320px 寬的 WebP 縮圖
+    // 優先使用 workr
+    if (workr) {
+      try {
+        const result = await workr.submitAndWait('webp', {
+          inputPath: sourcePath,
+          outputPath: thumbPath,
+          width: 320,
+          quality: 75
+        });
+
+        if (result.success) {
+          console.log(`[lurl] ✅ 圖片縮圖產生成功 (workr): ${thumbFilename}`);
+          return `thumbnails/${thumbFilename}`;
+        } else {
+          console.log(`[lurl] workr WebP 失敗，fallback 到本地: ${result.error}`);
+        }
+      } catch (e) {
+        console.log(`[lurl] workr 不可用，使用本地 sharp: ${e.message}`);
+      }
+    }
+
+    // Fallback: 使用本地 sharp
     await sharp(sourcePath)
       .resize(320, null, { withoutEnlargement: true })
       .webp({ quality: 75 })
@@ -2548,10 +2569,10 @@ function landingPage() {
       --shadow: rgba(0,0,0,0.06); --shadow-md: rgba(0,0,0,0.08);
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-accent: #1e3a5a; --bg-section: #111827;
-      --text-primary: #f1f5f9; --text-secondary: #e2e8f0; --text-muted: #94a3b8; --text-subtle: #64748b;
-      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #334155; --border-light: #3d5a80;
-      --shadow: rgba(0,0,0,0.3); --shadow-md: rgba(0,0,0,0.4);
+      --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-accent: #1a1a1a; --bg-section: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888; --text-subtle: #666666;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #2a2a2a; --border-light: #333333;
+      --shadow: rgba(0,0,0,0.5); --shadow-md: rgba(0,0,0,0.6);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
@@ -2743,10 +2764,10 @@ function downloadPage() {
       --shadow: rgba(0,0,0,0.06); --shadow-md: rgba(0,0,0,0.08);
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-accent: #1e3a5a; --bg-section: #111827;
-      --text-primary: #f1f5f9; --text-secondary: #e2e8f0; --text-muted: #94a3b8; --text-subtle: #64748b;
-      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #334155; --border-light: #3d5a80;
-      --shadow: rgba(0,0,0,0.3); --shadow-md: rgba(0,0,0,0.4);
+      --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-accent: #1a1a1a; --bg-section: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888; --text-subtle: #666666;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #2a2a2a; --border-light: #333333;
+      --shadow: rgba(0,0,0,0.5); --shadow-md: rgba(0,0,0,0.6);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
@@ -2895,10 +2916,10 @@ function pricingPage() {
       --shadow: rgba(0,0,0,0.06); --shadow-md: rgba(0,0,0,0.08); --btn-bg: #f1f5f9; --btn-bg-hover: #e2e8f0;
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-accent: #1e3a5a; --bg-section: #111827;
-      --text-primary: #f1f5f9; --text-secondary: #e2e8f0; --text-muted: #94a3b8; --text-subtle: #64748b;
-      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #334155; --border-light: #3d5a80;
-      --shadow: rgba(0,0,0,0.3); --shadow-md: rgba(0,0,0,0.4); --btn-bg: #334155; --btn-bg-hover: #475569;
+      --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-accent: #1a1a1a; --bg-section: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888; --text-subtle: #666666;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #2a2a2a; --border-light: #333333;
+      --shadow: rgba(0,0,0,0.5); --shadow-md: rgba(0,0,0,0.6); --btn-bg: #2a2a2a; --btn-bg-hover: #3a3a3a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
@@ -3100,10 +3121,10 @@ function guidePage() {
       --shadow: rgba(0,0,0,0.06); --shadow-md: rgba(0,0,0,0.08); --btn-bg: #f1f5f9; --btn-bg-hover: #e2e8f0;
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-accent: #1e3a5a; --bg-section: #111827;
-      --text-primary: #f1f5f9; --text-secondary: #e2e8f0; --text-muted: #94a3b8; --text-subtle: #64748b;
-      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #334155; --border-light: #3d5a80;
-      --shadow: rgba(0,0,0,0.3); --shadow-md: rgba(0,0,0,0.4); --btn-bg: #334155; --btn-bg-hover: #475569;
+      --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-accent: #1a1a1a; --bg-section: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888; --text-subtle: #666666;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #2a2a2a; --border-light: #333333;
+      --shadow: rgba(0,0,0,0.5); --shadow-md: rgba(0,0,0,0.6); --btn-bg: #2a2a2a; --btn-bg-hover: #3a3a3a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
@@ -3263,10 +3284,10 @@ function feedbackPage() {
       --shadow: rgba(0,0,0,0.06); --shadow-md: rgba(0,0,0,0.08); --btn-disabled: #cbd5e1;
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-accent: #1e3a5a; --bg-section: #111827;
-      --text-primary: #f1f5f9; --text-secondary: #e2e8f0; --text-muted: #94a3b8; --text-subtle: #64748b;
-      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #334155; --border-light: #3d5a80;
-      --shadow: rgba(0,0,0,0.3); --shadow-md: rgba(0,0,0,0.4); --btn-disabled: #475569;
+      --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-accent: #1a1a1a; --bg-section: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888; --text-subtle: #666666;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --border: #2a2a2a; --border-light: #333333;
+      --shadow: rgba(0,0,0,0.5); --shadow-md: rgba(0,0,0,0.6); --btn-disabled: #3a3a3a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
@@ -4776,14 +4797,14 @@ function browsePage() {
       --card-thumb-image: linear-gradient(135deg, #e8d5f0 0%, #f3e8f8 100%);
     }
     [data-theme="dark"] {
-      --bg-body: #0f0f0f; --bg-header: #1a1a2e; --bg-card: #1a1a1a; --bg-input: #1a1a1a;
-      --bg-button: #333; --bg-button-hover: #444; --bg-panel: #1a1a2e;
-      --text-primary: #ffffff; --text-secondary: #cccccc; --text-muted: #888888;
-      --accent: #3b82f6; --accent-hover: #2563eb; --accent-pink: #ec4899;
-      --border: #333; --shadow: rgba(0,0,0,0.3);
-      --card-thumb-bg: linear-gradient(135deg, #1e3a5f 0%, #0f1a2e 100%);
-      --card-thumb-pending: linear-gradient(135deg, #3d2a1a 0%, #1a1a1a 100%);
-      --card-thumb-image: linear-gradient(135deg, #2d1a3d 0%, #1a1a2e 100%);
+      --bg-body: #0a0a0a; --bg-header: #111111; --bg-card: #161616; --bg-input: #1a1a1a;
+      --bg-button: #2a2a2a; --bg-button-hover: #3a3a3a; --bg-panel: #0f0f0f;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --accent-pink: #ec4899;
+      --border: #2a2a2a; --shadow: rgba(0,0,0,0.5);
+      --card-thumb-bg: linear-gradient(135deg, #1a2a3a 0%, #0a0a0a 100%);
+      --card-thumb-pending: linear-gradient(135deg, #2a2010 0%, #161616 100%);
+      --card-thumb-image: linear-gradient(135deg, #201a2a 0%, #161616 100%);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-body); color: var(--text-primary); min-height: 100vh; transition: background 0.3s, color 0.3s; }
@@ -5199,8 +5220,7 @@ function browsePage() {
     <nav>
       <a href="/lurl/">首頁</a>
       <a href="/lurl/browse" class="active">瀏覽</a>
-      <a href="/lurl/pricing">方案</a>
-      <a href="/lurl/guide">教學</a>
+      <a href="/lurl/admin">管理</a>
     </nav>
   </div>
   <!-- 序號兌換面板 -->
@@ -5943,11 +5963,11 @@ function viewPage(record, fileExists) {
       --border: #e2e8f0; --shadow: rgba(0,0,0,0.08);
     }
     [data-theme="dark"] {
-      --bg-body: #0f0f0f; --bg-header: #1a1a2e; --bg-card: #1a1a1a; --bg-input: #1a1a1a;
-      --bg-button: #333; --bg-button-hover: #444; --bg-media: #000;
-      --text-primary: #ffffff; --text-secondary: #cccccc; --text-muted: #888888;
-      --accent: #3b82f6; --accent-hover: #2563eb; --accent-pink: #ec4899;
-      --border: #333; --shadow: rgba(0,0,0,0.3);
+      --bg-body: #0a0a0a; --bg-header: #111111; --bg-card: #161616; --bg-input: #1a1a1a;
+      --bg-button: #2a2a2a; --bg-button-hover: #3a3a3a; --bg-media: #000;
+      --text-primary: #f0f0f0; --text-secondary: #d0d0d0; --text-muted: #888888;
+      --accent: #5BB4D4; --accent-hover: #7EC8E3; --accent-pink: #ec4899;
+      --border: #2a2a2a; --shadow: rgba(0,0,0,0.5);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-body); color: var(--text-primary); min-height: 100vh; transition: background 0.3s, color 0.3s; }
@@ -8300,7 +8320,31 @@ module.exports = {
             const thumbFilename = `${record.id}.jpg`;
             const thumbPath = path.join(THUMBNAILS_DIR, thumbFilename);
 
-            const ok = await generateVideoThumbnail(videoPath, thumbPath);
+            let ok = false;
+
+            // 優先使用 workr
+            if (workr) {
+              try {
+                const result = await workr.submitAndWait('thumbnail', {
+                  videoPath,
+                  outputPath: thumbPath,
+                  timestamp: '00:00:01',
+                  width: 320
+                });
+                ok = result.success;
+                if (!ok) {
+                  console.log(`[lurl] workr 縮圖失敗，fallback 到本地: ${result.error}`);
+                  ok = await generateVideoThumbnail(videoPath, thumbPath);
+                }
+              } catch (e) {
+                console.log(`[lurl] workr 不可用，使用本地方法: ${e.message}`);
+                ok = await generateVideoThumbnail(videoPath, thumbPath);
+              }
+            } else {
+              // Fallback: 使用本地方法
+              ok = await generateVideoThumbnail(videoPath, thumbPath);
+            }
+
             if (ok) {
               updateRecordThumbnail(record.id, `thumbnails/${thumbFilename}`);
               successCount++;
@@ -8364,14 +8408,58 @@ module.exports = {
           message: `開始重試 ${failedRecords.length} 個失敗記錄，處理中...`
         }));
 
-        // 背景執行重試 - 用 Puppeteer 在頁面 context 下載
+        // 背景執行重試 - 優先使用 workr
         (async () => {
-          const result = await lurlRetry.batchRetry(failedRecords, DATA_DIR, (current, total, record) => {
-            console.log(`[lurl] 重試進度: ${current}/${total} - ${record.id}`);
-          });
+          let result = null;
+
+          // 優先使用 workr 批次下載
+          if (workr) {
+            try {
+              console.log('[lurl] 使用 workr 批次下載');
+              const jobResult = await workr.submitAndWait('download', {
+                records: failedRecords,
+                dataDir: DATA_DIR
+              }, { timeout: 10 * 60 * 1000 }); // 10 分鐘 timeout
+
+              if (jobResult.success) {
+                // 轉換 workr 格式為統一格式
+                const successIds = jobResult.result.results
+                  .filter(r => r.success)
+                  .map(r => r.id);
+
+                result = {
+                  total: jobResult.result.total,
+                  successCount: jobResult.result.success,
+                  successIds
+                };
+                console.log(`[lurl] workr 批次下載完成: ${result.successCount}/${result.total}`);
+              } else {
+                throw new Error(jobResult.error || 'workr job failed');
+              }
+            } catch (e) {
+              console.log(`[lurl] workr 不可用，使用本地 Puppeteer: ${e.message}`);
+              // Fallback 到本地方法
+              if (lurlRetry) {
+                result = await lurlRetry.batchRetry(failedRecords, DATA_DIR, (current, total, record) => {
+                  console.log(`[lurl] 重試進度: ${current}/${total} - ${record.id}`);
+                });
+              } else {
+                throw new Error('Puppeteer 未安裝，且 workr 不可用');
+              }
+            }
+          } else {
+            // Fallback: 使用本地方法
+            if (lurlRetry) {
+              result = await lurlRetry.batchRetry(failedRecords, DATA_DIR, (current, total, record) => {
+                console.log(`[lurl] 重試進度: ${current}/${total} - ${record.id}`);
+              });
+            } else {
+              throw new Error('Puppeteer 未安裝，且 workr 不可用');
+            }
+          }
 
           // 更新記錄的 fileExists 狀態
-          if (result.successCount > 0) {
+          if (result && result.successCount > 0) {
             const lines = fs.readFileSync(RECORDS_FILE, 'utf8').split('\n').filter(l => l.trim());
             const newLines = lines.map(line => {
               try {

@@ -322,7 +322,8 @@ function updateRecord(id, updates) {
     JSON.stringify(merged.tags || []),
     merged.hlsReady ? 1 : 0,
     merged.hlsPath,
-    JSON.stringify({ votes: merged.votes })
+    JSON.stringify({ votes: merged.votes }),
+    id
   );
   return merged;
 }
