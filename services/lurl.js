@@ -629,6 +629,17 @@ async function downloadFile(url, destPath, pageUrl = '', cookies = '') {
     baseReferer = 'https://myppt.cc/';
   }
 
+  // 斷點續傳：使用 .tmp 檔案
+  const tmpPath = destPath + '.tmp';
+  let startByte = 0;
+
+  // 檢查是否有未完成的下載
+  if (fs.existsSync(tmpPath)) {
+    const stats = fs.statSync(tmpPath);
+    startByte = stats.size;
+    console.log(`[lurl] 發現未完成下載，從 ${startByte} bytes 繼續`);
+  }
+
   // 策略清單：有 cookie 優先試 cookie
   const strategies = [];
 
@@ -659,7 +670,7 @@ async function downloadFile(url, destPath, pageUrl = '', cookies = '') {
         'Sec-Fetch-Dest': 'video',
         'Sec-Fetch-Mode': 'no-cors',
         'Sec-Fetch-Site': 'same-site',
-        'Range': 'bytes=0-',
+        'Range': `bytes=${startByte}-`,
       };
 
       if (strategy.referer) {
@@ -669,16 +680,29 @@ async function downloadFile(url, destPath, pageUrl = '', cookies = '') {
         headers['Cookie'] = strategy.cookie;
       }
 
-      console.log(`[lurl] 嘗試下載 (策略: ${strategy.name})`);
+      console.log(`[lurl] 嘗試下載 (策略: ${strategy.name}, 起始: ${startByte} bytes)`);
       const response = await fetch(url, { headers });
 
-      if (!response.ok) {
+      // 206 = 部分內容（斷點續傳成功），200 = 完整檔案
+      if (!response.ok && response.status !== 206) {
         console.log(`[lurl] 策略失敗: HTTP ${response.status}`);
         continue;
       }
 
-      const fileStream = fs.createWriteStream(destPath);
+      // 如果伺服器不支援 Range（返回 200），重新開始
+      if (response.status === 200 && startByte > 0) {
+        console.log(`[lurl] 伺服器不支援斷點續傳，重新下載`);
+        startByte = 0;
+      }
+
+      // 寫入 tmp 檔案（append 模式用於續傳）
+      const fileStream = fs.createWriteStream(tmpPath, {
+        flags: startByte > 0 && response.status === 206 ? 'a' : 'w'
+      });
       await pipeline(response.body, fileStream);
+
+      // 下載完成，重命名為正式檔案
+      fs.renameSync(tmpPath, destPath);
       console.log(`[lurl] 下載成功 (策略: ${strategy.name})`);
       return true;
     } catch (err) {
