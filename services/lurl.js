@@ -5605,9 +5605,11 @@ function browsePage() {
         const tag = tagEl.dataset.tag;
 
         if (action === 'popover' && recordId && tag) {
+          // 點母標籤：同時切換母標籤 + 展開子選項
+          toggleTag(recordId, tag);
           const key = recordId + ':' + tag;
           expandedTagSelector = (expandedTagSelector === key) ? null : key;
-          renderGrid();
+          // toggleTag 會呼叫 renderGrid，所以不用再呼叫
         } else if (action === 'toggle' && recordId && tag) {
           toggleTag(recordId, tag);
         }
@@ -5625,7 +5627,6 @@ function browsePage() {
       const tags = record.tags || [];
       return MAIN_TAGS.map(mainTag => {
         const isActive = hasMainTag(tags, mainTag);  // 該分類是否有任何標籤被選
-        const isMainActive = tags.includes(mainTag); // 母標籤本身是否被選
         const subTags = TAG_TREE[mainTag];
         const hasSubTags = subTags.length > 0;
         const isExpanded = expandedTagSelector === record.id + ':' + mainTag;
@@ -5633,14 +5634,12 @@ function browsePage() {
         let html = \`<span class="tag-group" data-group="\${record.id}:\${mainTag}">\`;
 
         if (hasSubTags) {
-          // 有子標籤：點擊展開 popover
+          // 有子標籤：點擊切換母標籤 + 展開子選項
           html += \`<span class="tag \${isActive ? 'active' : ''}" data-action="popover" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag} ▾</span>\`;
 
           if (isExpanded) {
             html += \`<div class="tag-popover">\`;
-            // 母標籤本身作為第一個選項
-            html += \`<span class="tag sub \${isMainActive ? 'active' : ''}" data-action="toggle" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag}</span>\`;
-            // 子標籤
+            // 只顯示子標籤
             html += subTags.map(sub => {
               const fullTag = mainTag + ':' + sub;
               const isSubActive = tags.includes(fullTag);
@@ -5650,7 +5649,7 @@ function browsePage() {
           }
         } else {
           // 沒有子標籤：直接切換
-          html += \`<span class="tag \${isMainActive ? 'active' : ''}" data-action="toggle" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag}</span>\`;
+          html += \`<span class="tag \${isActive ? 'active' : ''}" data-action="toggle" data-record="\${record.id}" data-tag="\${mainTag}">\${mainTag}</span>\`;
         }
 
         html += \`</span>\`;
@@ -6444,7 +6443,6 @@ function viewPage(record, fileExists) {
 
       MAIN_TAGS.forEach(mainTag => {
         const isActive = hasMainTag(currentTags, mainTag);  // 該分類是否有任何標籤被選
-        const isMainActive = currentTags.includes(mainTag); // 母標籤本身是否被選
         const subTags = TAG_TREE[mainTag];
         const hasSubTags = subTags.length > 0;
         const isExpanded = expandedTag === mainTag;
@@ -6452,14 +6450,12 @@ function viewPage(record, fileExists) {
         html += '<span class="tag-group">';
 
         if (hasSubTags) {
-          // 有子標籤：點擊展開 popover
+          // 有子標籤：點擊切換母標籤 + 展開子選項
           html += '<span class="tag ' + (isActive ? 'active' : '') + '" data-action="popover" data-tag="' + mainTag + '">' + mainTag + ' ▾</span>';
 
           if (isExpanded) {
             html += '<div class="tag-popover">';
-            // 母標籤本身作為第一個選項
-            html += '<span class="tag sub ' + (isMainActive ? 'active' : '') + '" data-action="toggle" data-tag="' + mainTag + '">' + mainTag + '</span>';
-            // 子標籤
+            // 只顯示子標籤
             subTags.forEach(sub => {
               const fullTag = mainTag + ':' + sub;
               const isSubActive = currentTags.includes(fullTag);
@@ -6469,7 +6465,7 @@ function viewPage(record, fileExists) {
           }
         } else {
           // 沒有子標籤：直接切換
-          html += '<span class="tag ' + (isMainActive ? 'active' : '') + '" data-action="toggle" data-tag="' + mainTag + '">' + mainTag + '</span>';
+          html += '<span class="tag ' + (isActive ? 'active' : '') + '" data-action="toggle" data-tag="' + mainTag + '">' + mainTag + '</span>';
         }
 
         html += '</span>';
@@ -6491,6 +6487,8 @@ function viewPage(record, fileExists) {
       const tag = target.dataset.tag;
 
       if (action === 'popover' && tag) {
+        // 點母標籤：同時切換母標籤 + 展開子選項
+        toggleTag(tag);
         expandedTag = (expandedTag === tag) ? null : tag;
         renderTags();
       } else if (action === 'toggle' && tag) {
