@@ -245,19 +245,24 @@ class RecordChecker {
       stats.byOriginalStatus[os] = (stats.byOriginalStatus[os] || 0) + 1;
       stats.bySourceStatus[ss] = (stats.bySourceStatus[ss] || 0) + 1;
 
-      // 待處理統計
-      if (ds === 'pending' || ds === 'failed') {
+      // 待處理統計（unknown 也視為待處理，但需考慮記錄類型和條件）
+      // 下載：只有影片且有 fileUrl 且未完成才算待處理
+      if (record.type === 'video' && record.fileUrl && ds !== 'completed') {
         stats.pending.download++;
       }
-      if (ts === 'pending' || ts === 'failed') {
+      // 縮圖：只有影片且下載完成且未產生縮圖才算待處理
+      if (record.type === 'video' && (ds === 'completed' || record.backupPath) && ts !== 'completed') {
         stats.pending.thumbnail++;
       }
-      if (ps === 'pending' || ps === 'failed') {
+      // 預覽：只有影片且有縮圖且未產生預覽才算待處理
+      if (record.type === 'video' && ts === 'completed' && ps !== 'completed') {
         stats.pending.preview++;
       }
-      if (hs === 'pending' || hs === 'failed') {
+      // HLS：只有影片且下載完成且未轉檔才算待處理
+      if (record.type === 'video' && (ds === 'completed' || record.backupPath) && hs !== 'completed') {
         stats.pending.hls++;
       }
+      // 清理：HLS 完成且原檔還在
       if (hs === 'completed' && os === 'exists') {
         stats.pending.cleanup++;
       }
