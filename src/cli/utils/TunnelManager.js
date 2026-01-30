@@ -17,6 +17,18 @@ class TunnelManager {
   }
 
   /**
+   * 檢查 cloudflared 是否已安裝
+   */
+  async checkCloudflared() {
+    const { exec } = require('child_process');
+    return new Promise((resolve) => {
+      exec('cloudflared --version', (error) => {
+        resolve(!error);
+      });
+    });
+  }
+
+  /**
    * 建立 Tunnel
    */
   async create(name, port) {
@@ -25,39 +37,56 @@ class TunnelManager {
       return this.tunnels.get(name);
     }
 
-    // 啟動 cloudflared
-    const child = spawn('cloudflared', [
-      'tunnel',
-      '--url', `http://localhost:${port}`,
-      '--no-autoupdate'
-    ], {
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    // 檢查 cloudflared 是否安裝
+    const hasCloudflared = await this.checkCloudflared();
+    if (!hasCloudflared) {
+      throw new Error(
+        'Cloudflare Tunnel 需要 cloudflared 工具\n' +
+        '安裝方法:\n' +
+        '  Windows: winget install cloudflare.cloudflared\n' +
+        '  macOS: brew install cloudflared\n' +
+        '  Linux: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/\n' +
+        '\n或使用 --no-tunnel 選項跳過 Tunnel 建立'
+      );
+    }
 
-    // 等待獲取 URL
-    const url = await this.waitForUrl(child);
+    try {
+      // 啟動 cloudflared
+      const child = spawn('cloudflared', [
+        'tunnel',
+        '--url', `http://localhost:${port}`,
+        '--no-autoupdate'
+      ], {
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
 
-    const tunnel = {
-      name,
-      port,
-      url,
-      pid: child.pid,
-      process: child
-    };
+      // 等待獲取 URL
+      const url = await this.waitForUrl(child);
 
-    this.tunnels.set(name, tunnel);
+      const tunnel = {
+        name,
+        port,
+        url,
+        pid: child.pid,
+        process: child
+      };
 
-    // 將 tunnel 資訊寫入檔案
-    this.saveTunnelInfo(tunnel);
+      this.tunnels.set(name, tunnel);
 
-    // 當進程退出時清理
-    child.on('exit', () => {
-      this.tunnels.delete(name);
-      this.removeTunnelInfo(name);
-    });
+      // 將 tunnel 資訊寫入檔案
+      this.saveTunnelInfo(tunnel);
 
-    return tunnel;
+      // 當進程退出時清理
+      child.on('exit', () => {
+        this.tunnels.delete(name);
+        this.removeTunnelInfo(name);
+      });
+
+      return tunnel;
+    } catch (err) {
+      throw new Error(`建立 Tunnel 失敗: ${err.message}\n提示: 使用 --no-tunnel 選項跳過 Tunnel 建立`);
+    }
   }
 
   /**

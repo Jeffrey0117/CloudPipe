@@ -17,7 +17,32 @@ class ProjectDetector {
     // 讀取 package.json
     let packageJson = {};
     if (fs.existsSync(this.packageJsonPath)) {
-      packageJson = JSON.parse(fs.readFileSync(this.packageJsonPath, 'utf8'));
+      try {
+        const content = fs.readFileSync(this.packageJsonPath, 'utf8');
+        packageJson = JSON.parse(content);
+      } catch (err) {
+        throw new Error(
+          `無法解析 package.json: ${err.message}\n` +
+          '請確認 package.json 格式正確'
+        );
+      }
+    } else {
+      // 沒有 package.json，檢查是否為靜態網站
+      const staticFiles = ['index.html', 'index.htm'];
+      const hasStaticFile = staticFiles.some(file =>
+        fs.existsSync(path.join(this.projectPath, file))
+      );
+
+      if (!hasStaticFile) {
+        throw new Error(
+          '無法偵測專案類型\n' +
+          '原因: 找不到 package.json 或 index.html\n' +
+          '請確認:\n' +
+          '  1. 當前目錄是否為專案根目錄\n' +
+          '  2. 是否已執行 npm init 建立 package.json\n' +
+          '  3. 或是否包含 index.html 靜態檔案'
+        );
+      }
     }
 
     const deps = {
@@ -32,11 +57,28 @@ class ProjectDetector {
     // 產生配置
     const config = this.generateConfig(type, framework, packageJson);
 
+    // 驗證配置
+    this.validateConfig(config, type, framework);
+
     return {
       type,
       framework,
       ...config
     };
+  }
+
+  /**
+   * 驗證配置
+   */
+  validateConfig(config, type, framework) {
+    if (!config.startCommand) {
+      throw new Error(
+        `無法確定啟動指令\n` +
+        `專案類型: ${type || 'unknown'}\n` +
+        `框架: ${framework || 'unknown'}\n` +
+        `請在 package.json 中添加 start script，或手動建立 cloudpipe.json 配置檔`
+      );
+    }
   }
 
   /**

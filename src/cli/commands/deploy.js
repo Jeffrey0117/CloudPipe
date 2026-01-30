@@ -12,6 +12,19 @@ module.exports = async function deploy(projectPath, options) {
   const targetPath = path.resolve(process.cwd(), projectPath || '.');
   const configPath = path.join(targetPath, 'cloudpipe.json');
 
+  // 驗證專案路徑
+  if (!fs.existsSync(targetPath)) {
+    console.error(chalk.red('✗ 專案路徑不存在:'), targetPath);
+    process.exit(1);
+  }
+
+  // 檢查是否在 node_modules 中
+  if (targetPath.includes('node_modules')) {
+    console.error(chalk.red('✗ 無法部署 node_modules 中的專案'));
+    console.error(chalk.dim('請確認專案路徑正確'));
+    process.exit(1);
+  }
+
   console.log(chalk.cyan(`🚀 部署專案: ${chalk.bold(path.basename(targetPath))}\n`));
 
   let config;
@@ -163,6 +176,15 @@ module.exports = async function deploy(projectPath, options) {
   } catch (error) {
     if (spinner) spinner.fail('部署失敗');
     console.error(chalk.red('✗ 錯誤:'), error.message);
+
+    // 提供除錯建議
+    console.log('');
+    console.log(chalk.yellow('除錯建議:'));
+    console.log(chalk.dim('  1. 檢查專案配置: cloudpipe init'));
+    console.log(chalk.dim('  2. 查看服務日誌: cloudpipe logs <name>'));
+    console.log(chalk.dim('  3. 列出所有服務: cloudpipe list'));
+    console.log(chalk.dim('  4. 檢查端口佔用: netstat -ano | findstr :<port>'));
+    console.log('');
 
     // 記錄失敗
     try {
