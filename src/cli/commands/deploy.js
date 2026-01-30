@@ -5,6 +5,8 @@ const ora = require('ora');
 const ProjectDetector = require('../utils/ProjectDetector');
 const ServiceManager = require('../utils/ServiceManager');
 const TunnelManager = require('../utils/TunnelManager');
+const { EnvManager } = require('./env');
+const DeployHistory = require('../utils/DeployHistory');
 
 module.exports = async function deploy(projectPath, options) {
   const targetPath = path.resolve(process.cwd(), projectPath || '.');
@@ -25,6 +27,10 @@ module.exports = async function deploy(projectPath, options) {
       const detector = new ProjectDetector(targetPath);
       const projectInfo = await detector.detect();
 
+      // 載入環境變數
+      const envManager = new EnvManager(targetPath);
+      const envVars = envManager.load();
+
       config = {
         name: options.name || path.basename(targetPath),
         type: projectInfo.type,
@@ -32,7 +38,7 @@ module.exports = async function deploy(projectPath, options) {
         buildCommand: projectInfo.buildCommand,
         startCommand: projectInfo.startCommand,
         port: options.port || projectInfo.port,
-        env: {},
+        env: envVars,
         tunnel: {
           enabled: options.tunnel !== false
         }
@@ -81,7 +87,47 @@ module.exports = async function deploy(projectPath, options) {
       spinner.succeed(`Tunnel 已建立`);
     }
 
-    // 5. 完成
+    // 5. 啟動檔案監控（如果啟用）
+    if (options.watch) {
+      const FileWatcher = require('../utils/FileWatcher');
+      const watcher = new FileWatcher(targetPath);
+
+      console.log('');
+      watcher.start(async (event, filePath) => {
+        console.log(chalk.cyan('\n🔄 偵測到檔案變動，重新載入...'));
+
+        try {
+          // 重新建置（如果有）
+          if (config.buildCommand) {
+            console.log(chalk.dim('   執行建置...'));
+            const { exec } = require('child_process');
+            await new Promise((resolve, reject) => {
+              exec(config.buildCommand, { cwd: targetPath }, (error) => {
+                if (error) reject(error);
+                else resolve();
+              });
+            });
+          }
+
+          // 重啟服務
+          console.log(chalk.dim('   重啟服務...'));
+          await serviceManager.restart(config.name);
+
+          console.log(chalk.green('   ✓ 重新載入完成\n'));
+        } catch (err) {
+          console.error(chalk.red('   ✗ 重新載入失敗:'), err.message);
+        }
+      });
+
+      // 攔截 Ctrl+C，優雅退出
+      process.on('SIGINT', async () => {
+        console.log('');
+        await watcher.stop();
+        process.exit(0);
+      });
+    }
+
+    // 6. 完成
     console.log('');
     console.log(chalk.green.bold('✓ 部署成功！\n'));
     console.log(chalk.bold('專案資訊：'));
@@ -97,9 +143,40 @@ module.exports = async function deploy(projectPath, options) {
     console.log(chalk.dim(`  cloudpipe remove ${config.name}   # 移除部署`));
     console.log('');
 
+    if (options.watch) {
+      console.log(chalk.yellow('⏳ 監控模式啟動中... (按 Ctrl+C 退出)'));
+      console.log('');
+    }
+
+    // 7. 記錄部署歷史
+    const deployHistory = new DeployHistory();
+    deployHistory.add({
+      name: config.name,
+      path: targetPath,
+      type: config.type,
+      framework: config.framework,
+      port: config.port,
+      url: publicUrl,
+      status: 'success'
+    });
+
   } catch (error) {
     if (spinner) spinner.fail('部署失敗');
     console.error(chalk.red('✗ 錯誤:'), error.message);
+
+    // 記錄失敗
+    try {
+      const deployHistory = new DeployHistory();
+      deployHistory.add({
+        name: config?.name || path.basename(targetPath),
+        path: targetPath,
+        status: 'failed',
+        error: error.message
+      });
+    } catch (historyErr) {
+      // 忽略歷史記錄錯誤
+    }
+
     process.exit(1);
   }
 };

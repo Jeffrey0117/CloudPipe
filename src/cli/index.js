@@ -19,6 +19,8 @@ const listCommand = require('./commands/list');
 const stopCommand = require('./commands/stop');
 const removeCommand = require('./commands/remove');
 const logsCommand = require('./commands/logs');
+const { envSet, envList, envRemove } = require('./commands/env');
+const historyCommand = require('./commands/history');
 
 // 註冊指令
 program
@@ -33,6 +35,7 @@ program
   .option('-n, --name <name>', '指定專案名稱')
   .option('-p, --port <port>', '指定端口')
   .option('--no-tunnel', '不建立 Cloudflare tunnel')
+  .option('-w, --watch', '監控檔案變動並自動重載')
   .action(deployCommand);
 
 program
@@ -58,6 +61,33 @@ program
   .option('-f, --follow', '即時追蹤日誌')
   .option('-n, --lines <number>', '顯示最後 N 行', '50')
   .action(logsCommand);
+
+// 環境變數管理
+const envCommand = program.command('env <action> [key]');
+envCommand.description('管理環境變數');
+
+envCommand
+  .command('set [keyValue]')
+  .description('設定環境變數 (格式: KEY=VALUE)')
+  .action(envSet);
+
+envCommand
+  .command('list')
+  .alias('ls')
+  .description('列出所有環境變數')
+  .action(envList);
+
+envCommand
+  .command('remove <key>')
+  .alias('rm')
+  .description('移除環境變數')
+  .action(envRemove);
+
+program
+  .command('history')
+  .description('查看部署歷史')
+  .option('-l, --limit <number>', '顯示筆數', '10')
+  .action(historyCommand);
 
 // 自訂 help
 program.on('--help', () => {
