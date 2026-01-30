@@ -1,11 +1,44 @@
+# Dependencies
 node_modules/
 package-lock.json
-tunnels/*.yml
+
+# Logs
 *.log
+logs/
+
+# Tunnels
+tunnels/*.yml
+
+# Environment
+.env
+services/.env
+.cloudpipe.env
+
+# Configuration (user-specific)
+config.json
+
+# Data (user-specific)
+data/
+
+# Services (keep only examples)
+services/*
+!services/_example.js
+!services/.gitkeep
+
+# Apps (user-specific projects)
+apps/*
+!apps/.gitkeep
+!apps/README.md
+
+# Private/Personal code
+src/core/auth.js
+src/core/workr-client.js
+workr/
+monitor/
+
+# Temp files
+_gemini_output.txt
 nul
 
-_gemini_output.txt
-data/
-services/.env
-.env
-config.json
+# Claude artifacts (specific pattern to avoid blocking config.example.json)
+C\357\200\272*
