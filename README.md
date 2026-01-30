@@ -63,22 +63,24 @@ Upload a JavaScript file to CloudPipe and instantly get a live public API endpoi
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/cloudpipe.git
-cd cloudpipe
+git clone https://github.com/Jeffrey0117/CloudPipe.git
+cd CloudPipe
 
 # 2. Install dependencies
 npm install
 
-# 3. Configure config.json
-#    Set domain, port, adminPassword, etc.
+# 3. Configure (copy example and customize)
+cp config.example.json config.json
+# Edit config.json with your domain, password, etc.
 
 # 4. Start
 node index.js
-# Or on Windows
-start.bat
+# Or on Windows: start.bat
 ```
 
-Open the Dashboard after startup to begin deploying.
+Open the Dashboard after startup: `http://localhost:8787/admin`
+
+📖 **Detailed setup guide**: See [SETUP.md](SETUP.md)
 
 ## API Services
 
