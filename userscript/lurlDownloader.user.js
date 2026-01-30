@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🔥2026|破解lurl&myppt密碼|自動帶入日期|可下載圖影片🚀|v5.4.0
+// @name         🔥2026|破解lurl&myppt密碼|自動帶入日期|可下載圖影片🚀|v6.0.0
 // @namespace    http://tampermonkey.net/
-// @version      5.4.0
+// @version      6.0.0
 // @description  針對lurl與myppt自動帶入日期密碼;開放下載圖片與影片;支援離線佇列
 // @author       Jeffrey
 // @match        https://lurl.cc/*
@@ -66,7 +66,7 @@
  * - VersionChecker：版本更新檢查
  * - ConsentManager：使用者同意管理
  *
- * @version 5.4.0
+ * @version 6.0.0
  * @author Jeffrey
  * @license MIT
  * @see https://greasyfork.org/zh-TW/scripts/476803
@@ -77,7 +77,7 @@
   "use strict";
 
   /** 腳本版本號，用於遠端版本檢查與強制更新判斷 */
-  const SCRIPT_VERSION = '5.4.0';
+  const SCRIPT_VERSION = '6.0.0';
 
   /** API 驗證 Token，伺服器端用此辨識合法的腳本請求 */
   const CLIENT_TOKEN = 'lurl-script-2026';
@@ -2695,7 +2695,7 @@
    */
   const ConsentManager = {
     CONSENT_KEY: 'lurlhub_user_consent',
-    CONSENT_VERSION: '5.4.0',
+    CONSENT_VERSION: '6.0.0',
 
     /** 檢查使用者是否已同意目前版本的服務條款 */
     hasConsented() {
