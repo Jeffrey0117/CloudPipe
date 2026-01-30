@@ -201,6 +201,27 @@ cloudpipe/
 }
 ```
 
+## CloudPipe CLI
+
+CloudPipe also includes a powerful CLI tool for deploying full-stack applications with zero configuration.
+
+```bash
+# Install globally
+npm install -g cloudpipe
+
+# Deploy any project instantly
+cd my-project
+cloudpipe deploy
+```
+
+Features:
+- **🔍 Auto-detection**: Next.js, Vite, React, Vue, Express, and more
+- **⚡ Hot-reload**: Watch mode for development
+- **🌐 Public URLs**: Cloudflare Tunnel integration
+- **📦 PM2 Management**: Reliable process management
+
+[📖 Full CLI Documentation](docs/CLI.md)
+
 ## License
 
 MIT
