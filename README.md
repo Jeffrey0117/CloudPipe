@@ -5,8 +5,8 @@
 <h1 align="center">CloudPipe</h1>
 
 <p align="center">
-  <strong>Self-Hosted Micro Deploy Platform</strong><br/>
-  Your own mini Vercel / Railway &mdash; one JS file, one public API.
+  <strong>Self-Hosted Micro Deploy Platform + Zero-Config CLI</strong><br/>
+  Your own mini Vercel / Railway &mdash; two ways to deploy.
 </p>
 
 <p align="center">
@@ -19,12 +19,28 @@
 
 ---
 
-## TL;DR
+## Two Products in One
 
+| Product | Use Case | Deployment |
+|---------|----------|------------|
+| **🌐 CloudPipe Platform** | Host multiple services on one server | Upload files via web dashboard |
+| **⚡ CloudPipe CLI** | Deploy full-stack apps locally | Command-line tool (like Vercel CLI) |
+
+### Platform: Upload & Host
 ```
 Upload a .js file  -->  Get a public API instantly
 Upload a .zip file -->  Get a subdomain website
 ```
+
+### CLI: Deploy Anywhere
+```bash
+cd my-nextjs-app
+cloudpipe deploy  # Auto-detects, builds, and deploys
+```
+
+---
+
+## 🌐 CloudPipe Platform
 
 No nginx. No SSL. No CI/CD pipeline. Just drop and go.
 
@@ -201,26 +217,59 @@ cloudpipe/
 }
 ```
 
-## CloudPipe CLI
+---
 
-CloudPipe also includes a powerful CLI tool for deploying full-stack applications with zero configuration.
+## ⚡ CloudPipe CLI
+
+A powerful command-line tool for deploying full-stack applications with **zero configuration**.
+
+### Features
+
+- **🔍 Auto-detection**: Automatically detects Next.js, Vite, React, Vue, Express, Fastify, Koa, and more
+- **⚡ Hot-reload**: Watch mode for automatic rebuilds and restarts during development
+- **🌐 Public URLs**: Automatic Cloudflare Tunnel creation for instant public access
+- **📦 PM2 Management**: Reliable process management and monitoring
+- **🔐 Environment Variables**: Secure management of secrets and configuration
+- **📊 Deployment History**: Track all deployments with detailed logs
+
+### Quick Start
 
 ```bash
 # Install globally
 npm install -g cloudpipe
 
-# Deploy any project instantly
-cd my-project
+# Deploy any project instantly (auto-detects everything)
+cd my-nextjs-app
 cloudpipe deploy
+
+# Deploy with hot-reload for development
+cloudpipe deploy --watch
+
+# Deploy with custom name and port
+cloudpipe deploy --name my-api --port 4000
 ```
 
-Features:
-- **🔍 Auto-detection**: Next.js, Vite, React, Vue, Express, and more
-- **⚡ Hot-reload**: Watch mode for development
-- **🌐 Public URLs**: Cloudflare Tunnel integration
-- **📦 PM2 Management**: Reliable process management
+### Available Commands
+
+```bash
+cloudpipe init              # Scan and generate config
+cloudpipe deploy [path]     # Deploy project
+cloudpipe list              # List all deployments
+cloudpipe logs <name>       # View logs
+cloudpipe stop <name>       # Stop service
+cloudpipe remove <name>     # Remove deployment
+cloudpipe env set KEY=value # Manage environment variables
+cloudpipe history           # View deployment history
+```
+
+### Supported Frameworks
+
+✅ Next.js • Vite • Create React App • Vue • Angular
+✅ Express • Fastify • Koa • Static HTML
 
 [📖 Full CLI Documentation](docs/CLI.md)
+
+---
 
 ## License
 
