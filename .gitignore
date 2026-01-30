@@ -8,3 +8,4 @@ _gemini_output.txt
 data/
 services/.env
 .env
+config.json
