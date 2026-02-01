@@ -132,11 +132,44 @@ async function confirmAction(message, defaultValue = false) {
   return confirm;
 }
 
+/**
+ * 檢查指定端口是否可用
+ */
+function isPortAvailable(port) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+/**
+ * 從指定端口開始，自動找到第一個可用的端口
+ */
+async function findAvailablePort(startPort = 3000) {
+  let port = startPort;
+  const maxAttempts = 100;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const available = await isPortAvailable(port);
+    if (available) return port;
+    port++;
+  }
+
+  throw new Error(`在 ${startPort}-${startPort + maxAttempts} 範圍內找不到可用端口`);
+}
+
 module.exports = {
   validateProjectName,
   validatePort,
   validatePath,
   validateEnvKey,
   showValidationError,
-  confirmAction
+  confirmAction,
+  isPortAvailable,
+  findAvailablePort
 };

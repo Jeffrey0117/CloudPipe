@@ -7,6 +7,7 @@ const ServiceManager = require('../utils/ServiceManager');
 const TunnelManager = require('../utils/TunnelManager');
 const { EnvManager } = require('./env');
 const DeployHistory = require('../utils/DeployHistory');
+const { findAvailablePort } = require('../utils/validators');
 
 module.exports = async function deploy(projectPath, options) {
   const targetPath = path.resolve(process.cwd(), projectPath || '.');
@@ -34,6 +35,12 @@ module.exports = async function deploy(projectPath, options) {
     // 1. 讀取或自動偵測配置
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (options.port) config.port = options.port;
+      const resolvedPort = await findAvailablePort(config.port || 3000);
+      if (resolvedPort !== config.port) {
+        console.log(chalk.yellow(`⚠️  端口 ${config.port} 已被佔用，自動切換到 ${resolvedPort}`));
+      }
+      config.port = resolvedPort;
       console.log(chalk.dim('使用配置: cloudpipe.json\n'));
     } else {
       spinner = ora('自動偵測專案類型...').start();
@@ -44,13 +51,15 @@ module.exports = async function deploy(projectPath, options) {
       const envManager = new EnvManager(targetPath);
       const envVars = envManager.load();
 
+      const preferredPort = options.port || projectInfo.port;
+
       config = {
         name: options.name || path.basename(targetPath),
         type: projectInfo.type,
         framework: projectInfo.framework,
         buildCommand: projectInfo.buildCommand,
         startCommand: projectInfo.startCommand,
-        port: options.port || projectInfo.port,
+        port: preferredPort,
         env: envVars,
         tunnel: {
           enabled: options.tunnel !== false
@@ -58,6 +67,13 @@ module.exports = async function deploy(projectPath, options) {
       };
 
       spinner.succeed(`偵測到: ${chalk.cyan(projectInfo.type)}`);
+
+      // 自動尋找可用端口（避免衝突）
+      const resolvedPort = await findAvailablePort(preferredPort);
+      if (resolvedPort !== preferredPort) {
+        console.log(chalk.yellow(`⚠️  端口 ${preferredPort} 已被佔用，自動切換到 ${resolvedPort}`));
+      }
+      config.port = resolvedPort;
       console.log('');
     }
 
