@@ -52,18 +52,37 @@ function writeDeployments(deployments) {
   fs.writeFileSync(DEPLOYMENTS_FILE, JSON.stringify({ deployments }, null, 2));
 }
 
-// 取得下一個可用 port
-function getNextAvailablePort() {
+// 檢查端口是否可用
+function isPortAvailable(port) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+// 取得下一個可用 port（真正檢查端口是否被佔用）
+async function getNextAvailablePort() {
   const projects = readProjects();
   const usedPorts = projects
     .filter(p => p.port)
     .map(p => p.port);
 
-  if (usedPorts.length === 0) {
-    return BASE_PORT + 1;  // 4001
+  let startPort = BASE_PORT + 1;
+  if (usedPorts.length > 0) {
+    startPort = Math.max(...usedPorts) + 1;
   }
 
-  return Math.max(...usedPorts) + 1;
+  for (let port = startPort; port < startPort + 100; port++) {
+    const available = await isPortAvailable(port);
+    if (available) return port;
+  }
+
+  throw new Error(`在 ${startPort}-${startPort + 100} 範圍內找不到可用端口`);
 }
 
 // ==================== 專案管理 ====================
@@ -76,7 +95,7 @@ function getAllProjects() {
   return readProjects();
 }
 
-function createProject(data) {
+async function createProject(data) {
   const projects = readProjects();
 
   // 檢查 ID 是否已存在
@@ -84,10 +103,10 @@ function createProject(data) {
     throw new Error(`專案 ID "${data.id}" 已存在`);
   }
 
-  // Git 部署的專案自動分配 port
+  // Git 部署或 Node app 自動分配 port
   const deployMethod = data.deployMethod || 'manual';
-  const isGitDeploy = deployMethod === 'github' || deployMethod === 'git-url';
-  const autoPort = isGitDeploy ? getNextAvailablePort() : null;
+  const needsPort = deployMethod === 'github' || deployMethod === 'git-url' || deployMethod === 'upload-app';
+  const autoPort = needsPort ? await getNextAvailablePort() : null;
 
   const project = {
     id: data.id,
@@ -782,6 +801,9 @@ module.exports = {
   removeGitHubWebhook,
   listGitHubWebhooks,
   parseGitHubRepo,
+
+  // Port
+  getNextAvailablePort,
 
   // 輪詢
   startPolling,

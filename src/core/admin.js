@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 const hotloader = require('./hotloader');
 const deploy = require('./deploy');
+const auth = require('./auth');
 
 // 目錄路徑
 const ROOT = path.join(__dirname, '..', '..');
@@ -20,32 +21,10 @@ const CONFIG_PATH = path.join(ROOT, 'config.json');
 const CLOUDFLARED = 'C:\\Users\\jeffb\\cloudflared.exe';
 const TUNNEL_ID = 'afd11345-c75a-4d62-aa67-0a389d82ce74';
 
-// 讀取密碼
-function getPassword() {
-  try {
-    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    return config.adminPassword || '';
-  } catch {
-    return '';
-  }
-}
-
-// 簡易 token (SHA256 hash of password + secret)
-const TOKEN_SECRET = 'cloudpipe_2024';
-function generateToken(password) {
-  return crypto.createHash('sha256').update(password + TOKEN_SECRET).digest('hex');
-}
-
-function verifyToken(token) {
-  const expectedToken = generateToken(getPassword());
-  return token === expectedToken;
-}
-
-// 驗證 middleware
+// 驗證 middleware (使用 JWT)
 function requireAuth(req) {
-  const auth = req.headers['authorization'] || '';
-  const token = auth.replace('Bearer ', '');
-  return verifyToken(token);
+  const payload = auth.verifyRequest(req);
+  return payload !== null;
 }
 
 // 確保 apps 目錄存在
@@ -223,17 +202,16 @@ module.exports = {
   }
 };
 
-// 登入處理
+// 登入處理 (使用 JWT)
 function handleLogin(req, res) {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
     try {
       const { password } = JSON.parse(body);
-      const correctPassword = getPassword();
 
-      if (password === correctPassword) {
-        const token = generateToken(password);
+      if (auth.verifyPassword(password)) {
+        const token = auth.generateAdminToken();
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ success: true, token }));
       } else {
@@ -328,7 +306,7 @@ function uploadService(req, res) {
 
 // 上傳專案
 function uploadApp(req, res) {
-  parseMultipart(req, (err, fields, files) => {
+  parseMultipart(req, async (err, fields, files) => {
     if (err || !files.file) {
       res.writeHead(400, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ error: '上傳失敗' }));
@@ -363,6 +341,72 @@ function uploadApp(req, res) {
       console.error('[admin] 解壓失敗:', e.message);
     }
 
+    // 偵測是否為 Node.js 專案（有 package.json）
+    const pkgPath = path.join(appDir, 'package.json');
+    let assignedPort = null;
+
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        const isNextjs = !!(pkg.dependencies?.next || pkg.devDependencies?.next);
+
+        // 自動分配端口
+        assignedPort = await deploy.getNextAvailablePort();
+
+        // npm install
+        console.log(`[admin] 安裝依賴: ${name}`);
+        execSync('npm install --production', { cwd: appDir, stdio: 'pipe', windowsHide: true });
+
+        // build（如果有 build script）
+        if (pkg.scripts?.build) {
+          console.log(`[admin] 建置專案: ${name}`);
+          execSync('npm run build', { cwd: appDir, stdio: 'pipe', windowsHide: true });
+        }
+
+        // 決定啟動指令
+        const startCommand = isNextjs
+          ? 'npx next start'
+          : (pkg.scripts?.start ? 'npm start' : null);
+
+        if (startCommand) {
+          // 建立部署專案記錄（讓 router proxy 能找到）
+          deploy.createProject({
+            id: name,
+            name,
+            deployMethod: 'upload-app',
+            port: assignedPort,
+            pm2Name: name,
+            directory: `apps/${name}`,
+            entryFile: startCommand,
+          });
+
+          // 用 PM2 啟動
+          const [cmd, ...args] = startCommand.split(' ');
+          const pm2Name = `cloudpipe-${name}`;
+
+          try {
+            execSync(`pm2 delete ${pm2Name}`, { stdio: 'pipe', windowsHide: true });
+          } catch (_) {
+            // 忽略 — 可能不存在
+          }
+
+          execSync(
+            `pm2 start "${cmd}" --name ${pm2Name} -- ${args.join(' ')}`,
+            {
+              cwd: appDir,
+              env: { ...process.env, PORT: String(assignedPort), NODE_ENV: 'production' },
+              stdio: 'pipe',
+              windowsHide: true
+            }
+          );
+
+          console.log(`[admin] PM2 已啟動: ${pm2Name} (port: ${assignedPort})`);
+        }
+      } catch (e) {
+        console.error('[admin] Node.js 專案啟動失敗:', e.message);
+      }
+    }
+
     // 自動建立 DNS CNAME
     try {
       const hostname = `${name}.isnowfriend.com`;
@@ -372,12 +416,17 @@ function uploadApp(req, res) {
       console.error('[admin] DNS 建立失敗:', e.message);
     }
 
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({
+    const result = {
       success: true,
       name,
       url: `https://${name}.isnowfriend.com`
-    }));
+    };
+    if (assignedPort) {
+      result.port = assignedPort;
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(result));
   });
 }
 
@@ -488,7 +537,7 @@ function parseJsonBody(req) {
 async function handleCreateProject(req, res) {
   try {
     const data = await parseJsonBody(req);
-    const project = deploy.createProject(data);
+    const project = await deploy.createProject(data);
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ success: true, project }));
   } catch (err) {
