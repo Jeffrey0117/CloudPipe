@@ -370,7 +370,7 @@ function uploadApp(req, res) {
 
         if (startCommand) {
           // 建立部署專案記錄（讓 router proxy 能找到）
-          deploy.createProject({
+          await deploy.createProject({
             id: name,
             name,
             deployMethod: 'upload-app',
