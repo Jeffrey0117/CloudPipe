@@ -350,23 +350,32 @@ function uploadApp(req, res) {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
         const isNextjs = !!(pkg.dependencies?.next || pkg.devDependencies?.next);
 
+        // 偵測 package manager
+        const hasPnpmLock = fs.existsSync(path.join(appDir, 'pnpm-lock.yaml'));
+        const hasYarnLock = fs.existsSync(path.join(appDir, 'yarn.lock'));
+        const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
+        const pmInstall = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+        const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
+
+        console.log(`[admin] 偵測到 package manager: ${pm}`);
+
         // 自動分配端口
         assignedPort = await deploy.getNextAvailablePort();
 
-        // npm install
+        // install dependencies
         console.log(`[admin] 安裝依賴: ${name}`);
-        execSync('npm install --production', { cwd: appDir, stdio: 'pipe', windowsHide: true });
+        execSync(pmInstall, { cwd: appDir, stdio: 'pipe', windowsHide: true });
 
         // build（如果有 build script）
         if (pkg.scripts?.build) {
           console.log(`[admin] 建置專案: ${name}`);
-          execSync('npm run build', { cwd: appDir, stdio: 'pipe', windowsHide: true });
+          execSync(`${pmRun} build`, { cwd: appDir, stdio: 'pipe', windowsHide: true });
         }
 
         // 決定啟動指令
         const startCommand = isNextjs
           ? 'npx next start'
-          : (pkg.scripts?.start ? 'npm start' : null);
+          : (pkg.scripts?.start ? `${pm} start` : null);
 
         if (startCommand) {
           // 建立部署專案記錄（讓 router proxy 能找到）

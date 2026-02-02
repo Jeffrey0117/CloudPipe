@@ -72,6 +72,14 @@ class ServiceRegistry {
         const createServer = require(service.entry);
         const server = createServer(service);
 
+        server.on('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            console.error(`[!] ${service.name}: Port ${service.port} already in use`);
+          } else {
+            console.error(`[!] ${service.name}: Server error - ${err.message}`);
+          }
+        });
+
         server.listen(service.port, () => {
           console.log(`[OK] ${service.name}`);
           console.log(`     Type: ${service.type}`);
@@ -96,9 +104,13 @@ class ServiceRegistry {
    */
   stopAll() {
     this.servers.forEach(({ service, server }) => {
-      server.close();
-      console.log(`[OK] ${service.name} stopped`);
+      if (server && server.listening) {
+        server.close(() => {
+          console.log(`[OK] ${service.name} stopped`);
+        });
+      }
     });
+    this.servers = [];
   }
 
   /**

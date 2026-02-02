@@ -193,6 +193,15 @@
           </div>
           <div class="service-status running">運行中</div>
         </div>
+        <div class="service-card" onclick="window.open('http://localhost:4002/admin', '_blank')">
+          <div class="service-icon">⚡</div>
+          <div class="service-info">
+            <div class="service-name">Workr <span style="color:#8ab4f8;font-size:0.8em;">:4002</span></div>
+            <div class="service-desc">Job Queue 任務處理</div>
+            <div class="service-stats" id="workrStats">載入中...</div>
+          </div>
+          <div class="service-status" id="workrStatus">檢查中</div>
+        </div>
       </div>
     </section>
 
@@ -240,10 +249,34 @@
     async function loadAll() {
       await Promise.all([
         loadLurlStats(),
+        loadWorkrStats(),
         loadSystemInfo(),
         loadGitProjects(),
         loadDeployed()
       ]);
+    }
+
+    // 載入 Workr 統計
+    async function loadWorkrStats() {
+      const statsEl = document.getElementById('workrStats');
+      const statusEl = document.getElementById('workrStatus');
+      try {
+        // 透過 cloudpipe proxy 或直接打 workr
+        const res = await fetch('/workr/health', { timeout: 5000 });
+        if (!res.ok) throw new Error('Not OK');
+        const data = await res.json();
+        if (data.ok) {
+          statsEl.textContent = `${data.queued || 0} 排隊 · ${data.running || 0} 執行中 · ${data.completed || 0} 完成`;
+          statusEl.textContent = '運行中';
+          statusEl.className = 'service-status running';
+        } else {
+          throw new Error('Health check failed');
+        }
+      } catch (e) {
+        statsEl.textContent = '無法連線';
+        statusEl.textContent = '離線';
+        statusEl.className = 'service-status failed';
+      }
     }
 
     // 載入 LurlHub 統計

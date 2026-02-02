@@ -2,6 +2,7 @@ module.exports = {
   apps: [{
     name: 'cloudpipe',
     script: './index.js',
+    exec_mode: 'fork',
     instances: 1,
     autorestart: true,
     watch: false,
