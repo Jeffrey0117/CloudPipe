@@ -348,16 +348,22 @@ async function deploy(projectId, options = {}) {
       log(`Commit: ${commitHash} - ${commitMessage}`);
     }
 
-    // 自動安裝依賴（如果有 package.json）
+    // 偵測 package manager
     const pkgPath = path.join(projectDir, 'package.json');
+    const hasPnpmLock = fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'));
+    const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
+    const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
+
+    // 自動安裝依賴（如果有 package.json）
     if (fs.existsSync(pkgPath)) {
       const nodeModulesPath = path.join(projectDir, 'node_modules');
-      const lockPath = path.join(projectDir, 'package-lock.json');
+      const lockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'];
+      const lockPath = lockFiles.map(f => path.join(projectDir, f)).find(f => fs.existsSync(f));
       const hashFile = path.join(projectDir, '.pkg-hash');
 
       // 計算 package.json + lock 的 hash
       const pkgContent = fs.readFileSync(pkgPath, 'utf8');
-      const lockContent = fs.existsSync(lockPath) ? fs.readFileSync(lockPath, 'utf8') : '';
+      const lockContent = lockPath ? fs.readFileSync(lockPath, 'utf8') : '';
       const currentHash = crypto.createHash('md5').update(pkgContent + lockContent).digest('hex');
 
       // 讀取上次安裝時的 hash
@@ -375,23 +381,39 @@ async function deploy(projectId, options = {}) {
         } else if (!fs.existsSync(nodeModulesPath)) {
           log(`node_modules 不存在，執行安裝...`);
         }
-        log(`執行 npm install...`);
-        execSync('npm install', { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+        const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+        log(`執行 ${installCmd}...`);
+        execSync(installCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
         // 儲存 hash
         fs.writeFileSync(hashFile, currentHash);
         log(`依賴安裝完成`);
       }
     }
 
-    // 執行 build command
-    if (project.buildCommand) {
-      log(`執行 build: ${project.buildCommand}`);
-      execSync(project.buildCommand, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    // 執行 build command（手動設定或自動偵測）
+    let buildCmd = project.buildCommand;
+    if (!buildCmd && fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.scripts?.build) {
+          const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
+          buildCmd = `${pmRun} build`;
+          log(`偵測到 build script，自動執行`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (buildCmd) {
+      log(`執行 build: ${buildCmd}`);
+      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
       log(`Build 完成`);
     }
 
-    // 自動偵測入口檔案
+    // 自動偵測入口檔案或啟動指令
     let entryFile = project.entryFile;
+    let startCommand = null;  // 框架專案用啟動指令代替入口檔案
+
     if (fs.existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
@@ -414,6 +436,31 @@ async function deploy(projectId, options = {}) {
         }
       }
     }
+    // 框架偵測：如果仍找不到入口檔案，偵測框架啟動方式
+    if (!fs.existsSync(path.join(projectDir, entryFile)) && fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        const isNextjs = !!(pkg.dependencies?.next || pkg.devDependencies?.next);
+        if (isNextjs) {
+          // Next.js：直接用 next 的 JS 入口（Windows 上 .cmd 不能被 PM2 執行）
+          const nextBin = path.join(projectDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+          startCommand = { script: nextBin, args: 'start' };
+          log(`偵測到 Next.js 專案，使用 next start`);
+        } else if (pkg.scripts?.start) {
+          // 其他框架：建立 wrapper script 來呼叫 start
+          const wrapperPath = path.join(projectDir, '.pm2-start.cjs');
+          fs.writeFileSync(wrapperPath, [
+            `const { spawn } = require('child_process');`,
+            `const child = spawn(${JSON.stringify(pm)}, ['start'], { stdio: 'inherit', cwd: __dirname, shell: true });`,
+            `child.on('exit', (code) => process.exit(code || 0));`,
+          ].join('\n'));
+          startCommand = { script: wrapperPath, args: '' };
+          log(`偵測到 scripts.start，使用 ${pm} start (wrapper)`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     // 更新專案配置
     if (entryFile !== project.entryFile) {
       updateProject(project.id, { entryFile });
@@ -422,43 +469,49 @@ async function deploy(projectId, options = {}) {
 
     // PM2 重啟
     if (project.pm2Name) {
-      const entryPath = path.join(projectDir, entryFile);
-      if (!fs.existsSync(entryPath)) {
-        throw new Error(`入口檔案不存在: ${entryFile}`);
-      }
-      log(`重啟 PM2: ${project.pm2Name}`);
-
       // 準備環境變數
       const pm2Env = project.port ? { PORT: String(project.port) } : {};
+      const spawnEnv = { ...process.env, ...pm2Env };
 
+      // 先刪除舊的（如果有）
       try {
-        // 嘗試重啟（如果已存在）
-        execSync(`pm2 reload ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-        log(`PM2 重啟完成`);
-      } catch (e) {
-        log(`PM2 重啟失敗，嘗試啟動...`);
-        // 先刪除舊的（如果有）
-        try {
-          execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-        } catch (delErr) {
-          // 忽略刪除錯誤
+        execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+      } catch (delErr) {
+        // 忽略刪除錯誤
+      }
+
+      if (startCommand) {
+        // 框架專案
+        const { script, args } = startCommand;
+        const argsStr = args ? ` -- ${args}` : '';
+        log(`啟動 PM2 (framework): ${path.basename(script)} ${args}`);
+        execSync(`pm2 start "${script}" --name ${project.pm2Name}${argsStr}`, {
+          stdio: 'pipe',
+          cwd: projectDir,
+          env: spawnEnv,
+          windowsHide: true
+        });
+      } else {
+        // 直接入口檔案
+        const entryPath = path.join(projectDir, entryFile);
+        if (!fs.existsSync(entryPath)) {
+          throw new Error(`入口檔案不存在: ${entryFile}`);
         }
-        // 使用 spawn 啟動 PM2，正確傳遞環境變數
-        const pm2Args = ['start', entryPath, '--name', project.pm2Name];
-        const spawnEnv = { ...process.env, ...pm2Env };
+        log(`啟動 PM2 (file): ${entryFile}`);
         execSync(`pm2 start "${entryPath}" --name ${project.pm2Name}`, {
           stdio: 'pipe',
           cwd: projectDir,
           env: spawnEnv,
           windowsHide: true
         });
-        log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
       }
+      log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
 
       // Health Check：確認服務啟動
       if (project.port) {
         log(`執行 Health Check (port: ${project.port})...`);
-        const healthCheckPassed = await performHealthCheck(project.port, project.healthEndpoint || '/health', log);
+        const healthEndpoint = project.healthEndpoint || (startCommand ? '/' : '/health');
+        const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log);
         if (!healthCheckPassed) {
           throw new Error(`Health Check 失敗：服務未能在 port ${project.port} 啟動`);
         }
