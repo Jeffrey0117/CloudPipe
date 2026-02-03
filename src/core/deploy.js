@@ -26,6 +26,16 @@ const CLOUDFLARED_CONFIG = path.join(__dirname, '../../cloudflared.yml');
 // Port 分配設定
 const BASE_PORT = 4000;  // 起始 port
 
+// 讀取 config.json
+const CONFIG_PATH = path.join(__dirname, '../../config.json');
+function getConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
 // ==================== 資料存取 ====================
 
 function readProjects() {
@@ -129,6 +139,22 @@ async function createProject(data) {
 
   projects.push(project);
   writeProjects(projects);
+
+  // GitHub 專案自動設定 webhook
+  if (deployMethod === 'github' && project.repoUrl) {
+    const config = getConfig();
+    const domain = config.domain || 'isnowfriend.com';
+    const webhookUrl = `https://epi.${domain}/webhook/${project.id}`;
+
+    // 非同步設定，不阻塞 createProject
+    setupGitHubWebhook(project.id, webhookUrl).then(result => {
+      if (result.success) {
+        console.log(`[deploy] 自動設定 webhook: ${project.id}`);
+      }
+    }).catch(err => {
+      console.log(`[deploy] Webhook 設定失敗 (可稍後手動設定): ${err.message}`);
+    });
+  }
 
   return project;
 }
