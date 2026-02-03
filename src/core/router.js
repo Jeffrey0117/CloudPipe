@@ -105,9 +105,16 @@ module.exports = function(config) {
     }
 
     // 靜態檔案 (public/)
-    const staticFile = urlPath === '/' ? '/index.html' : urlPath;
-    const filePath = path.join(publicDir, staticFile);
-    const ext = path.extname(filePath);
+    let staticFile = urlPath === '/' ? '/index.html' : urlPath;
+    let filePath = path.join(publicDir, staticFile);
+    let ext = path.extname(filePath);
+
+    // 目錄請求：嘗試 index.html
+    if (!ext && fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+      staticFile = path.join(staticFile, 'index.html');
+      filePath = path.join(publicDir, staticFile);
+      ext = '.html';
+    }
 
     if (ext && MIME[ext] && fs.existsSync(filePath)) {
       res.writeHead(200, { 'content-type': MIME[ext] });
