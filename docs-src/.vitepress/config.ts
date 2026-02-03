@@ -7,7 +7,7 @@ export default defineConfig({
   outDir: '../public/docs',
 
   head: [
-    ['link', { rel: 'icon', href: '/docs/favicon.ico' }]
+    ['link', { rel: 'icon', href: '/docs/newfav.ico' }]
   ],
 
   themeConfig: {
