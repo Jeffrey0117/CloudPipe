@@ -14,16 +14,20 @@ hero:
       link: https://github.com/Jeffrey0117/CloudPipe
 
 features:
-  - icon: 🚀
+  - icon:
+      svg: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3"/><path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3"/><path d="M14 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg>
     title: 一鍵部署
     details: 連接 GitHub repo，push 就自動部署。支援 Node.js、Next.js、靜態網站。
-  - icon: 🔄
+  - icon:
+      svg: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>
     title: 自動化
     details: Webhook 即時觸發，或 5 分鐘輪詢備援。支援自動 build、依賴安裝。
-  - icon: 🌐
+  - icon:
+      svg: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 7a9 9 0 0 0 -7.5 -4a8.991 8.991 0 0 0 -7.484 4"/><path d="M11.5 3a16.989 16.989 0 0 0 -1.826 4"/><path d="M12.5 3a16.989 16.989 0 0 1 1.828 4"/><path d="M19.5 17a9 9 0 0 1 -7.5 4a8.991 8.991 0 0 1 -7.484 -4"/><path d="M11.5 21a16.989 16.989 0 0 1 -1.826 -4"/><path d="M12.5 21a16.989 16.989 0 0 0 1.828 -4"/><path d="M2 10l1 4l1.5 -4l1.5 4l1 -4"/><path d="M17 10l1 4l1.5 -4l1.5 4l1 -4"/><path d="M9.5 10l1 4l1.5 -4l1.5 4l1 -4"/></svg>
     title: Cloudflare Tunnel
     details: 自動設定 DNS 和 HTTPS，不需要公網 IP，在家就能架站。
-  - icon: 📊
+  - icon:
+      svg: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16h-16z"/><path d="M4 12h16"/><path d="M12 4v16"/><path d="M8 16v.01"/><path d="M8 12v.01"/><path d="M16 8v.01"/><path d="M8 8v.01"/><path d="M16 16v.01"/><path d="M16 12v.01"/></svg>
     title: Dashboard
     details: Web 介面管理所有專案、查看部署記錄、即時 logs。
 ---
