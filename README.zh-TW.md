@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/LOGO.png" alt="CloudPipe" width="180" />
+  <img src="public/Cloud.jpeg" alt="CloudPipe" width="180" />
 </p>
 
 <h1 align="center">CloudPipe</h1>
