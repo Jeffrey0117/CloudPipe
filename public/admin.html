@@ -9,6 +9,52 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     .hidden { display: none !important; }
 
+    /* CSS Variables - Light Mode (default) */
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f6f6f7;
+      --bg-soft: #f9f9f9;
+      --text: #213547;
+      --text-2: #4b5563;
+      --text-3: #6b7280;
+      --border: #e2e2e3;
+      --border-hover: #c8c8c9;
+      --brand: #10b981;
+      --brand-hover: #059669;
+      --brand-soft: #f0fdf4;
+      --danger: #ef4444;
+      --danger-soft: #fef2f2;
+      --info: #3b82f6;
+      --info-soft: #eff6ff;
+      --warning: #f59e0b;
+      --warning-soft: #fffbeb;
+      --shadow: rgba(0,0,0,0.04);
+      --shadow-md: rgba(0,0,0,0.08);
+    }
+
+    /* Dark Mode */
+    .dark {
+      --bg: #1a1a1a;
+      --bg-alt: #242424;
+      --bg-soft: #2f2f2f;
+      --text: #e5e5e5;
+      --text-2: #a8a8a8;
+      --text-3: #7c7c7c;
+      --border: #3a3a3a;
+      --border-hover: #4a4a4a;
+      --brand: #4ade80;
+      --brand-hover: #22c55e;
+      --brand-soft: #1a2e1a;
+      --danger: #f87171;
+      --danger-soft: #3d2020;
+      --info: #60a5fa;
+      --info-soft: #1e3a5f;
+      --warning: #fbbf24;
+      --warning-soft: #3d3520;
+      --shadow: rgba(0,0,0,0.2);
+      --shadow-md: rgba(0,0,0,0.3);
+    }
+
     /* Tabler Icons */
     .icon { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
     .icon svg { width: 1em; height: 1em; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
@@ -18,48 +64,121 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #ffffff;
-      color: #213547;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
     }
+
+    /* VitePress-style Navbar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .navbar-brand img {
+      height: 32px;
+      border-radius: 6px;
+    }
+    .navbar-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      color: var(--text-2);
+      text-decoration: none;
+      font-size: 14px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .nav-link:hover {
+      color: var(--brand);
+      background: var(--bg-alt);
+    }
+    .theme-toggle {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
+      background: var(--bg-alt);
+    }
+    .theme-toggle .sun { display: none; }
+    .theme-toggle .moon { display: block; }
+    .dark .theme-toggle .sun { display: block; }
+    .dark .theme-toggle .moon { display: none; }
+
+    /* Login Screen */
     .login-screen {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: #f6f6f7;
+      background: var(--bg-alt);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
     }
     .login-box {
-      background: #fff;
-      border: 1px solid #e2e2e3;
+      background: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 3rem;
       text-align: center;
       width: 100%;
       max-width: 360px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      box-shadow: 0 2px 8px var(--shadow);
     }
     .login-box .logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 0.25rem; }
     .login-box .logo-row img { height: 56px; border-radius: 8px; }
-    .login-box h1 { font-size: 2rem; font-weight: 600; color: #213547; margin: 0; }
-    .login-box > p { color: #6b7280; margin-bottom: 2rem; }
+    .login-box h1 { font-size: 2rem; font-weight: 600; color: var(--text); margin: 0; }
+    .login-box > p { color: var(--text-3); margin-bottom: 2rem; }
     .login-box input {
       width: 100%;
-      background: #f6f6f7;
-      border: 1px solid #e2e2e3;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
       border-radius: 6px;
       padding: 0.875rem 1rem;
-      color: #213547;
+      color: var(--text);
       font-size: 1rem;
       margin-bottom: 1rem;
       outline: none;
     }
-    .login-box input:focus { border-color: #10b981; }
+    .login-box input:focus { border-color: var(--brand); }
     .login-box button {
       width: 100%;
-      background: #10b981;
+      background: var(--brand);
       border: none;
       border-radius: 6px;
       padding: 0.875rem;
@@ -68,118 +187,97 @@
       font-weight: 500;
       cursor: pointer;
     }
-    .login-box button:hover { background: #059669; }
-    .login-box .error { color: #ef4444; font-size: 0.85rem; margin-top: 1rem; }
+    .login-box button:hover { background: var(--brand-hover); }
+    .login-box .error { color: var(--danger); font-size: 0.85rem; margin-top: 1rem; }
 
+    /* Main Content */
     .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-    header { margin-bottom: 3rem; }
-    .header-row { display: flex; justify-content: space-between; align-items: center; }
-    .header-center { text-align: center; flex: 1; }
-    .header-title { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 0.5rem; }
-    .header-title img { height: 64px; border-radius: 12px; }
-    .header-side { display: flex; gap: 8px; }
-    .header-side.right { justify-content: flex-end; }
-    header h1 { font-size: 2.5rem; font-weight: 600; color: #213547; margin: 0; }
-    .subtitle { color: #6b7280; font-size: 1rem; }
+    .page-header { text-align: center; margin-bottom: 3rem; }
+    .page-header h1 { font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .page-header p { color: var(--text-3); }
 
-    .nav-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: #f6f6f7;
-      border: 1px solid #e2e2e3;
-      border-radius: 8px;
-      color: #6b7280;
-      text-decoration: none;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    .nav-btn:hover { background: #e2e2e3; color: #213547; border-color: #10b981; }
-
+    /* Cards */
     .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
     .card {
-      background: #fff;
-      border: 1px solid #e2e2e3;
+      background: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 2rem;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 3px var(--shadow);
     }
-    .card:hover { border-color: #10b981; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .card.active { border-color: #10b981; background: #f0fdf4; }
-    .card-icon { font-size: 3rem; margin-bottom: 1rem; color: #10b981; }
-    .card h2 { font-size: 1.2rem; font-weight: 600; color: #213547; margin-bottom: 0.5rem; }
-    .card p { color: #6b7280; font-size: 0.9rem; margin-bottom: 0.5rem; }
-    .card code { background: #f6f6f7; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; color: #059669; }
+    .card:hover { border-color: var(--brand); transform: translateY(-2px); box-shadow: 0 4px 12px var(--shadow-md); }
+    .card.active { border-color: var(--brand); background: var(--brand-soft); }
+    .card-icon { font-size: 3rem; margin-bottom: 1rem; color: var(--brand); }
+    .card h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .card p { color: var(--text-3); font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .card code { background: var(--bg-alt); padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; color: var(--brand); }
 
-    .upload-zone { background: #fff; border: 1px solid #e2e2e3; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    /* Upload Zone */
+    .upload-zone { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px var(--shadow); }
     .upload-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .upload-header span { font-weight: 600; color: #213547; }
-    .close-btn { background: none; border: none; color: #9ca3af; font-size: 1.5rem; cursor: pointer; }
-    .close-btn:hover { color: #213547; }
+    .upload-header span { font-weight: 600; }
+    .close-btn { background: none; border: none; color: var(--text-3); font-size: 1.5rem; cursor: pointer; }
+    .close-btn:hover { color: var(--text); }
 
-    .guide { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #1d4ed8; }
-    .guide code { background: #dbeafe; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+    .guide { background: var(--info-soft); border: 1px solid var(--info); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--info); }
+    .guide code { background: var(--bg-alt); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
 
     .name-input { margin-bottom: 1rem; }
-    .name-input label { display: block; color: #6b7280; font-size: 0.85rem; margin-bottom: 0.5rem; }
-    .input-preview { display: flex; background: #f6f6f7; border: 1px solid #e2e2e3; border-radius: 6px; overflow: hidden; }
-    .input-preview input { flex: 1; background: transparent; border: none; padding: 0.75rem; color: #213547; font-size: 1rem; outline: none; }
-    .input-preview span { padding: 0.75rem; color: #9ca3af; background: #e2e2e3; font-size: 0.9rem; }
-    .name-hint { margin-top: 0.5rem; font-size: 0.8rem; color: #9ca3af; }
+    .name-input label { display: block; color: var(--text-3); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .input-preview { display: flex; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .input-preview input { flex: 1; background: transparent; border: none; padding: 0.75rem; color: var(--text); font-size: 1rem; outline: none; }
+    .input-preview span { padding: 0.75rem; color: var(--text-3); background: var(--bg-soft); font-size: 0.9rem; }
+    .name-hint { margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-3); }
 
-    .dropzone { border: 2px dashed #e2e2e3; border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; background: #fafafa; }
-    .dropzone:hover { border-color: #10b981; background: #f0fdf4; }
-    .dropzone-icon { font-size: 3rem; margin-bottom: 1rem; color: #10b981; }
-    .dropzone p { color: #6b7280; margin-bottom: 0.5rem; }
-    .dropzone .hint { font-size: 0.85rem; color: #9ca3af; }
+    .dropzone { border: 2px dashed var(--border); border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; background: var(--bg-alt); }
+    .dropzone:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .dropzone-icon { font-size: 3rem; margin-bottom: 1rem; color: var(--brand); }
+    .dropzone p { color: var(--text-2); margin-bottom: 0.5rem; }
+    .dropzone .hint { font-size: 0.85rem; color: var(--text-3); }
 
     .upload-status { text-align: center; padding: 2rem; }
-    .upload-status a { color: #10b981; }
+    .upload-status a { color: var(--brand); }
 
-    .deployed h3 { color: #6b7280; font-size: 0.9rem; font-weight: 400; margin-bottom: 1rem; text-transform: uppercase; }
+    /* Deployed Items */
+    .deployed h3 { color: var(--text-3); font-size: 0.9rem; font-weight: 400; margin-bottom: 1rem; text-transform: uppercase; }
     .deployed-list { display: flex; flex-direction: column; gap: 0.5rem; }
-    .deployed-item { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #e2e2e3; border-radius: 8px; padding: 1rem; }
+    .deployed-item { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
     .deployed-item .info { display: flex; align-items: center; gap: 1rem; }
     .deployed-item .icon { font-size: 1.5rem; }
-    .deployed-item .name { font-weight: 500; color: #213547; }
-    .deployed-item .url { font-size: 0.85rem; color: #10b981; }
-    .deployed-item .status { display: flex; align-items: center; gap: 0.5rem; color: #10b981; font-size: 0.85rem; }
-    .deployed-item .status::before { content: ''; width: 8px; height: 8px; background: #10b981; border-radius: 50%; }
+    .deployed-item .name { font-weight: 500; }
+    .deployed-item .url { font-size: 0.85rem; color: var(--brand); }
+    .deployed-item .status { display: flex; align-items: center; gap: 0.5rem; color: var(--brand); font-size: 0.85rem; }
+    .deployed-item .status::before { content: ''; width: 8px; height: 8px; background: var(--brand); border-radius: 50%; }
     .deployed-item .actions { display: flex; gap: 0.5rem; }
-    .deployed-item button, .deployed-item a.btn { background: #f6f6f7; border: 1px solid #e2e2e3; color: #6b7280; padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-block; }
-    .deployed-item button:hover, .deployed-item a.btn:hover { background: #e2e2e3; color: #213547; }
-    .deployed-item button.delete:hover { background: #fef2f2; color: #ef4444; border-color: #fecaca; }
-    .deployed-item a.btn.admin { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-    .deployed-item a.btn.admin:hover { background: #dbeafe; color: #1e40af; }
+    .deployed-item button, .deployed-item a.btn { background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-2); padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-block; }
+    .deployed-item button:hover, .deployed-item a.btn:hover { background: var(--border); color: var(--text); }
+    .deployed-item button.delete:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+    .deployed-item a.btn.admin { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+    .deployed-item a.btn.admin:hover { background: var(--info); color: #fff; }
 
-    .empty { text-align: center; color: #9ca3af; padding: 2rem; }
-    footer { text-align: center; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e2e2e3; }
-    .logout-btn { background: #f6f6f7; border: 1px solid #e2e2e3; color: #6b7280; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-    .logout-btn:hover { background: #e2e2e3; color: #213547; }
+    .empty { text-align: center; color: var(--text-3); padding: 2rem; }
+    footer { text-align: center; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .logout-btn { background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-2); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    .logout-btn:hover { background: var(--border); color: var(--text); }
 
     @media (max-width: 600px) { .cards { grid-template-columns: 1fr; } }
 
-    /* Form */
-    .form-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.3rem; }
-    .btn-primary { background: #10b981; border: none; color: #fff; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; }
-    .btn-primary:hover { background: #059669; }
+    /* Form Elements */
+    .form-hint { font-size: 0.75rem; color: var(--text-3); margin-top: 0.3rem; }
+    .btn-primary { background: var(--brand); border: none; color: #fff; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    .btn-primary:hover { background: var(--brand-hover); }
 
     /* Toast */
-    .toast { position: fixed; bottom: 24px; right: 24px; background: #374151; color: #fff; padding: 12px 20px; border-radius: 8px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 2000; box-shadow: 0 4px 12px var(--shadow-md); }
     .toast.show { transform: translateY(0); opacity: 1; }
-    .toast.success { background: #059669; }
-    .toast.error { background: #dc2626; }
+    .toast.success { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+    .toast.error { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
 
     /* Source Selector */
-    .source-selector {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
+    .source-selector { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
     .source-btn {
       flex: 1;
       display: flex;
@@ -187,55 +285,34 @@
       justify-content: center;
       gap: 0.5rem;
       padding: 0.875rem 1rem;
-      background: #f6f6f7;
-      border: 1px solid #e2e2e3;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      color: #6b7280;
+      color: var(--text-2);
       font-size: 0.95rem;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .source-btn:hover {
-      border-color: #d1d5db;
-      color: #374151;
-    }
-    .source-btn.active {
-      background: #f0fdf4;
-      border-color: #10b981;
-      color: #059669;
-    }
-    .source-icon {
-      font-size: 1.1rem;
-    }
+    .source-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .source-btn.active { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+    .source-icon { font-size: 1.1rem; }
 
     /* GitHub Input */
-    .github-input {
-      margin-bottom: 1rem;
-    }
-    .github-input > label {
-      display: block;
-      color: #6b7280;
-      font-size: 0.85rem;
-      margin-bottom: 0.5rem;
-    }
+    .github-input { margin-bottom: 1rem; }
+    .github-input > label { display: block; color: var(--text-3); font-size: 0.85rem; margin-bottom: 0.5rem; }
     .github-input > input {
       width: 100%;
-      background: #f6f6f7;
-      border: 1px solid #e2e2e3;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
       border-radius: 6px;
       padding: 0.75rem;
-      color: #213547;
+      color: var(--text);
       font-size: 0.95rem;
     }
-    .github-input > input:focus {
-      outline: none;
-      border-color: #10b981;
-    }
+    .github-input > input:focus { outline: none; border-color: var(--brand); }
 
     /* GitHub Deploy Button */
-    .github-deploy {
-      margin-top: 1rem;
-    }
+    .github-deploy { margin-top: 1rem; }
     .btn-full {
       width: 100%;
       display: flex;
@@ -246,9 +323,38 @@
       font-size: 1rem;
     }
 
+    /* Format Hint */
+    .format-hint { margin-top: 1rem; padding: 1rem; background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 8px; font-size: 0.85rem; }
+    .format-hint p:first-child { color: var(--warning); margin-bottom: 0.5rem; }
+    .format-hint p { color: var(--text-2); margin-bottom: 0.5rem; }
+    .format-hint code { background: var(--bg-alt); padding: 2px 6px; border-radius: 4px; }
+    .format-hint a { color: var(--brand); }
   </style>
 </head>
 <body>
+  <!-- Navbar (always visible) -->
+  <nav class="navbar">
+    <a href="/_admin" class="navbar-brand">
+      <img src="/Cloud.jpeg" alt="CloudPipe">
+      <span>CloudPipe</span>
+    </a>
+    <div class="navbar-links">
+      <a href="/docs/" class="nav-link" target="_blank">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" /></svg></span>
+        文檔
+      </a>
+      <a href="/_admin/settings" class="nav-link">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"></path><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path></svg></span>
+        管理
+      </a>
+      <button class="theme-toggle" onclick="toggleTheme()" title="切換深淺色">
+        <span class="icon sun"><svg viewBox="0 0 24 24"><path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" /></svg></span>
+        <span class="icon moon"><svg viewBox="0 0 24 24"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" /></svg></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Login Screen -->
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
       <div class="logo-row">
@@ -262,23 +368,13 @@
     </div>
   </div>
 
+  <!-- Dashboard -->
   <div class="container hidden" id="dashboard">
-    <header>
-      <div class="header-row">
-        <div class="header-side"></div>
-        <div class="header-center">
-          <div class="header-title">
-            <img src="/Cloud.jpeg" alt="CloudPipe">
-            <h1>CloudPipe</h1>
-          </div>
-          <p class="subtitle">Dashboard</p>
-        </div>
-        <div class="header-side right">
-          <a href="/docs/" class="nav-btn" target="_blank"><span class="icon"><svg viewBox="0 0 24 24"><path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" /></svg></span> 文檔</a>
-          <a href="/_admin/settings" class="nav-btn"><span class="icon"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"></path><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path></svg></span> 管理</a>
-        </div>
-      </div>
-    </header>
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p>選擇部署方式</p>
+    </div>
+
     <main>
       <section class="cards">
         <div class="card" onclick="showUpload('service')">
@@ -301,7 +397,7 @@
           <button class="close-btn" onclick="hideUpload()">&times;</button>
         </div>
 
-        <!-- 來源選擇器（僅專案部署時顯示） -->
+        <!-- Source Selector (app only) -->
         <div class="source-selector hidden" id="sourceSelector">
           <button class="source-btn active" data-source="zip" onclick="switchSource('zip')">
             <span class="source-icon icon icon-sm"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" /><path d="M12 12l8 -4.5" /><path d="M12 12l0 9" /><path d="M12 12l-8 -4.5" /></svg></span>
@@ -313,7 +409,7 @@
           </button>
         </div>
 
-        <!-- GitHub URL 輸入（僅 GitHub 來源顯示） -->
+        <!-- GitHub URL Input -->
         <div class="github-input hidden" id="githubInput">
           <label>GitHub Repository</label>
           <input type="text" id="githubUrl" placeholder="https://github.com/user/repo" oninput="parseGithubUrl()">
@@ -329,7 +425,7 @@
           <p class="name-hint" id="nameHint"></p>
         </div>
 
-        <!-- ZIP 上傳區 -->
+        <!-- ZIP Upload -->
         <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
           <div class="dropzone-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" /></svg></div>
           <p>拖拽檔案到這裡</p>
@@ -337,50 +433,60 @@
           <input type="file" id="fileInput" hidden onchange="handleUpload()">
         </div>
 
-        <!-- GitHub 部署按鈕 -->
+        <!-- GitHub Deploy Button -->
         <div class="github-deploy hidden" id="githubDeploy">
           <button class="btn-primary btn-full" onclick="deployFromGithub()">
             <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3" /><path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3" /><path d="M15 9m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg></span> 部署專案
           </button>
         </div>
 
-        <div class="format-hint" id="formatHint" style="display:none; margin-top: 1rem; padding: 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; font-size: 0.85rem;">
-          <p style="color: #f59e0b; margin-bottom: 0.5rem;"><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg></span> Service 格式要求</p>
-          <p style="color: #888; margin-bottom: 0.5rem;">檔案必須導出 <code style="background:#252525;padding:2px 6px;border-radius:4px;">match(req)</code> 和 <code style="background:#252525;padding:2px 6px;border-radius:4px;">handle(req, res)</code></p>
-          <p style="color: #666;"><a href="/_example.js" target="_blank" style="color: #4ade80;"><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg></span> 查看範例 _example.js</a></p>
+        <div class="format-hint" id="formatHint" style="display:none;">
+          <p><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg></span> Service 格式要求</p>
+          <p>檔案必須導出 <code>match(req)</code> 和 <code>handle(req, res)</code></p>
+          <p><a href="/_example.js" target="_blank"><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg></span> 查看範例 _example.js</a></p>
         </div>
         <div class="upload-status hidden" id="uploadStatus">
           <p id="statusText">上傳中...</p>
         </div>
       </section>
-
     </main>
+
     <footer>
       <button class="logout-btn" onclick="doLogout()">Logout</button>
     </footer>
   </div>
 
-
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
   <script>
+    // Theme Toggle
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    // Load saved theme
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+
     let authToken = localStorage.getItem('cloudpipe_token');
     let currentType = null;
     let existingNames = [];
 
-    // 頁面載入
     window.onload = function() {
       if (authToken) verifyToken();
       initDropzone();
     };
 
-    // 初始化拖曳上傳
     function initDropzone() {
       const dropzone = document.getElementById('dropzone');
       if (!dropzone) return;
 
-      // 阻止整個頁面的預設拖曳行為
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
         document.body.addEventListener(event, (e) => {
           e.preventDefault();
@@ -388,29 +494,26 @@
         });
       });
 
-      // Dropzone 樣式回饋
       dropzone.addEventListener('dragenter', () => {
-        dropzone.style.borderColor = '#4ade80';
-        dropzone.style.background = 'rgba(74, 222, 128, 0.1)';
+        dropzone.style.borderColor = 'var(--brand)';
+        dropzone.style.background = 'var(--brand-soft)';
       });
 
       dropzone.addEventListener('dragleave', () => {
-        dropzone.style.borderColor = '#333';
-        dropzone.style.background = 'transparent';
+        dropzone.style.borderColor = 'var(--border)';
+        dropzone.style.background = 'var(--bg-alt)';
       });
 
       dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#4ade80';
-        dropzone.style.background = 'rgba(74, 222, 128, 0.1)';
+        dropzone.style.borderColor = 'var(--brand)';
+        dropzone.style.background = 'var(--brand-soft)';
       });
 
-      // 處理放下檔案
       dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#333';
-        dropzone.style.background = 'transparent';
-
+        dropzone.style.borderColor = 'var(--border)';
+        dropzone.style.background = 'var(--bg-alt)';
         const files = e.dataTransfer.files;
         if (files.length > 0) {
           document.getElementById('fileInput').files = files;
@@ -419,7 +522,6 @@
       });
     }
 
-    // 登入
     async function doLogin() {
       const pwd = document.getElementById('passwordInput').value.trim();
       if (!pwd) return alert('請輸入密碼');
@@ -444,12 +546,10 @@
       }
     }
 
-    // Enter 登入
     document.getElementById('passwordInput').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') doLogin();
     });
 
-    // 驗證 token
     async function verifyToken() {
       try {
         const res = await fetch('/api/_admin/verify', {
@@ -472,8 +572,7 @@
       document.getElementById('dashboard').classList.add('hidden');
     }
 
-    // 上傳區
-    let currentSource = 'zip'; // 'zip' or 'github'
+    let currentSource = 'zip';
 
     function showUpload(type) {
       currentType = type;
@@ -500,7 +599,6 @@
         document.getElementById('fileInput').accept = '.zip';
         document.getElementById('formatHint').style.display = 'none';
         document.getElementById('sourceSelector').classList.remove('hidden');
-        // 重設來源選擇器
         document.querySelectorAll('.source-btn').forEach(btn => {
           btn.classList.toggle('active', btn.dataset.source === 'zip');
         });
@@ -527,7 +625,6 @@
 
     function parseGithubUrl() {
       const url = document.getElementById('githubUrl').value.trim();
-      // 解析 https://github.com/user/repo 或 https://github.com/user/repo.git
       const match = url.match(/github\.com\/[\w-]+\/([\w.-]+?)(\.git)?$/);
       if (match) {
         const repoName = match[1].toLowerCase().replace(/\./g, '-');
@@ -564,7 +661,6 @@
         });
         const result = await res.json();
 
-        // 如果專案已存在，直接重新部署
         if (result.error && result.error.includes('已存在')) {
           showToast('專案已存在，重新部署...', 'success');
         } else if (result.error) {
@@ -574,7 +670,6 @@
           showToast('專案已建立，開始部署...');
         }
 
-        // 觸發部署
         await fetch(`/api/_admin/deploy/projects/${name}/deploy`, {
           method: 'POST',
           headers: { 'authorization': 'Bearer ' + authToken }
@@ -582,7 +677,6 @@
         document.getElementById('uploadStatus').classList.remove('hidden');
         document.getElementById('statusText').innerHTML = `部署中...<br><a href="https://${name}.isnowfriend.com" target="_blank">${name}.isnowfriend.com</a>`;
 
-        // 輪詢檢查部署狀態
         pollDeployStatus(name);
       } catch (e) {
         showToast('部署失敗: ' + e.message, 'error');
@@ -591,9 +685,8 @@
       }
     }
 
-    // 輪詢部署狀態
     async function pollDeployStatus(projectId) {
-      const maxAttempts = 60; // 最多等 2 分鐘
+      const maxAttempts = 60;
       let attempts = 0;
 
       const check = async () => {
@@ -610,27 +703,25 @@
             const hasWebhook = data.project?.webhookId;
             const linkIcon = '<span class="icon" style="vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" /><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /></svg></span>';
             const webhookBtn = hasWebhook
-              ? `<span style="color:#4ade80;font-size:0.85rem;">${linkIcon} Webhook 已設定</span>`
-              : `<button onclick="setupWebhook('${projectId}')" style="margin-top:0.5rem;padding:0.5rem 1rem;background:#1e3a5f;border:none;color:#8ab4f8;border-radius:4px;cursor:pointer;">${linkIcon} 設定 GitHub Webhook</button>`;
-            const checkIcon = '<span class="icon" style="color:#4ade80;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
+              ? `<span style="color:var(--brand);font-size:0.85rem;">${linkIcon} Webhook 已設定</span>`
+              : `<button onclick="setupWebhook('${projectId}')" style="margin-top:0.5rem;padding:0.5rem 1rem;background:var(--info-soft);border:1px solid var(--info);color:var(--info);border-radius:4px;cursor:pointer;">${linkIcon} 設定 GitHub Webhook</button>`;
+            const checkIcon = '<span class="icon" style="color:var(--brand);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
             showToast('部署成功！' + portInfo, 'success');
             document.getElementById('statusText').innerHTML = `${checkIcon} 部署成功！${portInfo}<br><a href="https://${projectId}.isnowfriend.com" target="_blank">${projectId}.isnowfriend.com</a><br>${webhookBtn}`;
             return;
           } else if (status === 'failed') {
-            // 取得最新的部署記錄來顯示錯誤訊息
             const latestDeploy = data.deployments?.[0];
             const errorMsg = latestDeploy?.error || '未知錯誤';
-            const failIcon = '<span class="icon" style="color:#f87171;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg></span>';
+            const failIcon = '<span class="icon" style="color:var(--danger);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg></span>';
             showToast('部署失敗：' + errorMsg, 'error');
-            document.getElementById('statusText').innerHTML = `${failIcon} 部署失敗<br><code style="color:#f87171;font-size:0.85rem;">${errorMsg}</code>`;
+            document.getElementById('statusText').innerHTML = `${failIcon} 部署失敗<br><code style="color:var(--danger);font-size:0.85rem;">${errorMsg}</code>`;
             return;
           }
 
-          // 還在進行中，繼續輪詢
           if (attempts < maxAttempts) {
             setTimeout(check, 2000);
           } else {
-            document.getElementById('statusText').innerHTML = '<span class="icon" style="color:#f59e0b;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg></span> 部署超時，請檢查後台';
+            document.getElementById('statusText').innerHTML = '<span class="icon" style="color:var(--warning);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg></span> 部署超時，請檢查後台';
           }
         } catch (e) {
           console.error('檢查部署狀態失敗:', e);
@@ -640,7 +731,6 @@
       setTimeout(check, 2000);
     }
 
-    // 設定 GitHub Webhook
     async function setupWebhook(projectId) {
       const webhookUrl = `https://epi.isnowfriend.com/webhook/${projectId}`;
 
@@ -657,10 +747,9 @@
 
         if (result.success) {
           showToast('GitHub Webhook 已設定！', 'success');
-          // 更新按鈕狀態
           const linkIconSmall = '<span class="icon" style="vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" /><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /></svg></span>';
           document.getElementById('statusText').innerHTML = document.getElementById('statusText').innerHTML
-            .replace(/<button[^>]*>.*?<\/button>/, `<span style="color:#4ade80;font-size:0.85rem;">${linkIconSmall} Webhook 已設定</span>`);
+            .replace(/<button[^>]*>.*?<\/button>/, `<span style="color:var(--brand);font-size:0.85rem;">${linkIconSmall} Webhook 已設定</span>`);
         } else if (result.alreadyExists) {
           showToast('Webhook 已存在', 'success');
         } else {
@@ -675,7 +764,6 @@
       document.getElementById('uploadZone').classList.add('hidden');
     }
 
-    // 上傳檔案
     async function handleUpload() {
       const file = document.getElementById('fileInput').files[0];
       if (!file) return;
@@ -712,7 +800,6 @@
       }
     }
 
-    // 載入已部署
     async function loadDeployed() {
       try {
         const res = await fetch('/api/_admin/services', {
@@ -732,7 +819,7 @@
         data.services.forEach(s => {
           html += '<div class="deployed-item">' +
             '<div class="info">' + apiIcon + '<div>' +
-            '<div class="name"><a href="/' + s.name + '" target="_blank" style="color:#fff;text-decoration:none;">' + s.name + '</a></div>' +
+            '<div class="name"><a href="/' + s.name + '" target="_blank" style="color:var(--text);text-decoration:none;">' + s.name + '</a></div>' +
             '<div class="url">' + s.url + '</div></div></div>' +
             '<div class="status">運行中</div>' +
             '<div class="actions">' +
@@ -744,7 +831,7 @@
         data.apps.forEach(a => {
           html += '<div class="deployed-item">' +
             '<div class="info">' + worldIcon + '<div>' +
-            '<div class="name"><a href="https://' + a.name + '.isnowfriend.com" target="_blank" style="color:#fff;text-decoration:none;">' + a.name + '</a></div>' +
+            '<div class="name"><a href="https://' + a.name + '.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">' + a.name + '</a></div>' +
             '<div class="url">' + a.url + '</div></div></div>' +
             '<div class="status">運行中</div>' +
             '<div class="actions">' +
@@ -758,7 +845,6 @@
       }
     }
 
-    // 刪除
     async function deleteItem(type, name) {
       if (!confirm('確定刪除 ' + name + '？')) return;
       const endpoint = type === 'service' ? '/api/_admin/service/' + name : '/api/_admin/app/' + name;
@@ -766,14 +852,12 @@
       loadDeployed();
     }
 
-    // Toast
     function showToast(message, type = 'success') {
       const toast = document.getElementById('toast');
       toast.textContent = message;
       toast.className = 'toast show ' + type;
       setTimeout(() => toast.className = 'toast', 3000);
     }
-
   </script>
 </body>
 </html>
