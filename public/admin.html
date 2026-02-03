@@ -8,6 +8,13 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     .hidden { display: none !important; }
+
+    /* Tabler Icons */
+    .icon { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+    .icon svg { width: 1em; height: 1em; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+    .icon-lg svg { width: 3rem; height: 3rem; }
+    .icon-md svg { width: 1.5rem; height: 1.5rem; }
+    .icon-sm svg { width: 1.1rem; height: 1.1rem; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0a;
@@ -252,20 +259,20 @@
           <p class="subtitle">Dashboard</p>
         </div>
         <div class="header-side" style="text-align: right;">
-          <a href="/_admin/settings" class="manage-btn">⚙️ 管理</a>
+          <a href="/_admin/settings" class="manage-btn"><span class="icon"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"></path><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path></svg></span> 管理</a>
         </div>
       </div>
     </header>
     <main>
       <section class="cards">
         <div class="card" onclick="showUpload('service')">
-          <div class="card-icon">📡</div>
+          <div class="card-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M4.876 13.61a4 4 0 1 0 6.124 3.39h6" /><path d="M15.066 20.502a4 4 0 1 0 1.934 -7.502c-.706 0 -1.424 .179 -2 .5l-3 -5.5" /><path d="M16 8a4 4 0 1 0 -8 0c0 1.506 .77 2.818 2 3.5l-3 5.5" /></svg></div>
           <h2>API 服務</h2>
           <p>路徑式部署</p>
           <code>epi.isnowfriend.com/xxx</code>
         </div>
         <div class="card" onclick="showUpload('app')">
-          <div class="card-icon">🌐</div>
+          <div class="card-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg></div>
           <h2>專案部署</h2>
           <p>子域名式</p>
           <code>xxx.isnowfriend.com</code>
@@ -281,11 +288,11 @@
         <!-- 來源選擇器（僅專案部署時顯示） -->
         <div class="source-selector hidden" id="sourceSelector">
           <button class="source-btn active" data-source="zip" onclick="switchSource('zip')">
-            <span class="source-icon">📦</span>
+            <span class="source-icon icon icon-sm"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" /><path d="M12 12l8 -4.5" /><path d="M12 12l0 9" /><path d="M12 12l-8 -4.5" /></svg></span>
             <span>上傳 ZIP</span>
           </button>
           <button class="source-btn" data-source="github" onclick="switchSource('github')">
-            <span class="source-icon">🐙</span>
+            <span class="source-icon icon icon-sm"><svg viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /></svg></span>
             <span>GitHub</span>
           </button>
         </div>
@@ -308,7 +315,7 @@
 
         <!-- ZIP 上傳區 -->
         <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" /></svg></div>
           <p>拖拽檔案到這裡</p>
           <p class="hint" id="uploadHint">或點擊選擇檔案</p>
           <input type="file" id="fileInput" hidden onchange="handleUpload()">
@@ -317,14 +324,14 @@
         <!-- GitHub 部署按鈕 -->
         <div class="github-deploy hidden" id="githubDeploy">
           <button class="btn-primary btn-full" onclick="deployFromGithub()">
-            <span>🚀</span> 部署專案
+            <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3" /><path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3" /><path d="M15 9m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg></span> 部署專案
           </button>
         </div>
 
         <div class="format-hint" id="formatHint" style="display:none; margin-top: 1rem; padding: 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; font-size: 0.85rem;">
-          <p style="color: #f59e0b; margin-bottom: 0.5rem;">⚠️ Service 格式要求</p>
+          <p style="color: #f59e0b; margin-bottom: 0.5rem;"><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg></span> Service 格式要求</p>
           <p style="color: #888; margin-bottom: 0.5rem;">檔案必須導出 <code style="background:#252525;padding:2px 6px;border-radius:4px;">match(req)</code> 和 <code style="background:#252525;padding:2px 6px;border-radius:4px;">handle(req, res)</code></p>
-          <p style="color: #666;"><a href="/_example.js" target="_blank" style="color: #4ade80;">📄 查看範例 _example.js</a></p>
+          <p style="color: #666;"><a href="/_example.js" target="_blank" style="color: #4ade80;"><span class="icon" style="vertical-align: -2px;"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg></span> 查看範例 _example.js</a></p>
         </div>
         <div class="upload-status hidden" id="uploadStatus">
           <p id="statusText">上傳中...</p>
@@ -564,7 +571,7 @@
       } catch (e) {
         showToast('部署失敗: ' + e.message, 'error');
       } finally {
-        document.getElementById('githubDeploy').innerHTML = '<button class="btn-primary btn-full" onclick="deployFromGithub()"><span>🚀</span> 部署專案</button>';
+        document.getElementById('githubDeploy').innerHTML = '<button class="btn-primary btn-full" onclick="deployFromGithub()"><span class="icon"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3" /><path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3" /><path d="M15 9m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg></span> 部署專案</button>';
       }
     }
 
@@ -585,18 +592,21 @@
           if (status === 'success') {
             const portInfo = data.project?.port ? ` (Port: ${data.project.port})` : '';
             const hasWebhook = data.project?.webhookId;
+            const linkIcon = '<span class="icon" style="vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" /><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /></svg></span>';
             const webhookBtn = hasWebhook
-              ? '<span style="color:#4ade80;font-size:0.85rem;">🔗 Webhook 已設定</span>'
-              : `<button onclick="setupWebhook('${projectId}')" style="margin-top:0.5rem;padding:0.5rem 1rem;background:#1e3a5f;border:none;color:#8ab4f8;border-radius:4px;cursor:pointer;">🔗 設定 GitHub Webhook</button>`;
+              ? `<span style="color:#4ade80;font-size:0.85rem;">${linkIcon} Webhook 已設定</span>`
+              : `<button onclick="setupWebhook('${projectId}')" style="margin-top:0.5rem;padding:0.5rem 1rem;background:#1e3a5f;border:none;color:#8ab4f8;border-radius:4px;cursor:pointer;">${linkIcon} 設定 GitHub Webhook</button>`;
+            const checkIcon = '<span class="icon" style="color:#4ade80;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
             showToast('部署成功！' + portInfo, 'success');
-            document.getElementById('statusText').innerHTML = `✅ 部署成功！${portInfo}<br><a href="https://${projectId}.isnowfriend.com" target="_blank">${projectId}.isnowfriend.com</a><br>${webhookBtn}`;
+            document.getElementById('statusText').innerHTML = `${checkIcon} 部署成功！${portInfo}<br><a href="https://${projectId}.isnowfriend.com" target="_blank">${projectId}.isnowfriend.com</a><br>${webhookBtn}`;
             return;
           } else if (status === 'failed') {
             // 取得最新的部署記錄來顯示錯誤訊息
             const latestDeploy = data.deployments?.[0];
             const errorMsg = latestDeploy?.error || '未知錯誤';
+            const failIcon = '<span class="icon" style="color:#f87171;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg></span>';
             showToast('部署失敗：' + errorMsg, 'error');
-            document.getElementById('statusText').innerHTML = `❌ 部署失敗<br><code style="color:#f87171;font-size:0.85rem;">${errorMsg}</code>`;
+            document.getElementById('statusText').innerHTML = `${failIcon} 部署失敗<br><code style="color:#f87171;font-size:0.85rem;">${errorMsg}</code>`;
             return;
           }
 
@@ -604,7 +614,7 @@
           if (attempts < maxAttempts) {
             setTimeout(check, 2000);
           } else {
-            document.getElementById('statusText').innerHTML = `⏱️ 部署超時，請檢查後台`;
+            document.getElementById('statusText').innerHTML = '<span class="icon" style="color:#f59e0b;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg></span> 部署超時，請檢查後台';
           }
         } catch (e) {
           console.error('檢查部署狀態失敗:', e);
@@ -632,8 +642,9 @@
         if (result.success) {
           showToast('GitHub Webhook 已設定！', 'success');
           // 更新按鈕狀態
+          const linkIconSmall = '<span class="icon" style="vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" /><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /></svg></span>';
           document.getElementById('statusText').innerHTML = document.getElementById('statusText').innerHTML
-            .replace(/<button[^>]*>.*?<\/button>/, '<span style="color:#4ade80;font-size:0.85rem;">🔗 Webhook 已設定</span>');
+            .replace(/<button[^>]*>.*?<\/button>/, `<span style="color:#4ade80;font-size:0.85rem;">${linkIconSmall} Webhook 已設定</span>`);
         } else if (result.alreadyExists) {
           showToast('Webhook 已存在', 'success');
         } else {
@@ -699,10 +710,12 @@
           return;
         }
 
+        const apiIcon = '<span class="icon icon-md"><svg viewBox="0 0 24 24"><path d="M4.876 13.61a4 4 0 1 0 6.124 3.39h6" /><path d="M15.066 20.502a4 4 0 1 0 1.934 -7.502c-.706 0 -1.424 .179 -2 .5l-3 -5.5" /><path d="M16 8a4 4 0 1 0 -8 0c0 1.506 .77 2.818 2 3.5l-3 5.5" /></svg></span>';
+        const worldIcon = '<span class="icon icon-md"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg></span>';
         let html = '';
         data.services.forEach(s => {
           html += '<div class="deployed-item">' +
-            '<div class="info"><span class="icon">📡</span><div>' +
+            '<div class="info">' + apiIcon + '<div>' +
             '<div class="name"><a href="/' + s.name + '" target="_blank" style="color:#fff;text-decoration:none;">' + s.name + '</a></div>' +
             '<div class="url">' + s.url + '</div></div></div>' +
             '<div class="status">運行中</div>' +
@@ -714,7 +727,7 @@
         });
         data.apps.forEach(a => {
           html += '<div class="deployed-item">' +
-            '<div class="info"><span class="icon">🌐</span><div>' +
+            '<div class="info">' + worldIcon + '<div>' +
             '<div class="name"><a href="https://' + a.name + '.isnowfriend.com" target="_blank" style="color:#fff;text-decoration:none;">' + a.name + '</a></div>' +
             '<div class="url">' + a.url + '</div></div></div>' +
             '<div class="status">運行中</div>' +
