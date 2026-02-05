@@ -492,8 +492,8 @@
         const rocketIcon = '<span class="icon icon-md"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3" /><path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3" /><path d="M15 9m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg></span>';
         const apiIcon = '<span class="icon icon-md"><svg viewBox="0 0 24 24"><path d="M4.876 13.61a4 4 0 1 0 6.124 3.39h6" /><path d="M15.066 20.502a4 4 0 1 0 1.934 -7.502c-.706 0 -1.424 .179 -2 .5l-3 -5.5" /><path d="M16 8a4 4 0 1 0 -8 0c0 1.506 .77 2.818 2 3.5l-3 5.5" /></svg></span>';
         const worldIcon = '<span class="icon icon-md"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg></span>';
-        const checkSm = '<span class="icon" style="color:#4ade80;"><svg viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10" /></svg></span>';
-        const xSm = '<span class="icon" style="color:#f87171;"><svg viewBox="0 0 24 24"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg></span>';
+        const checkSm = '<span class="icon" style="color:var(--brand);"><svg viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10" /></svg></span>';
+        const xSm = '<span class="icon" style="color:var(--danger);"><svg viewBox="0 0 24 24"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg></span>';
 
         let html = '';
         // Git 專案（含操作按鈕）
@@ -504,18 +504,18 @@
 
           let statusHtml = '';
           if (isSuccess && runningCommit) {
-            statusHtml = `<span style="color:#4ade80;">${checkSm} ${runningCommit}</span>`;
+            statusHtml = `<span style="color:var(--brand);">${checkSm} ${runningCommit}</span>`;
           } else if (!isSuccess && runningCommit) {
-            statusHtml = `<span style="color:#f87171;">${xSm} 失敗</span> <span style="color:#888;font-size:0.85em;">運行中: ${runningCommit}</span>`;
+            statusHtml = `<span style="color:var(--danger);">${xSm} 失敗</span> <span style="color:var(--text-3);font-size:0.85em;">運行中: ${runningCommit}</span>`;
           } else if (!isSuccess) {
-            statusHtml = `<span style="color:#f87171;">${xSm} 部署失敗</span>`;
+            statusHtml = `<span style="color:var(--danger);">${xSm} 部署失敗</span>`;
           } else {
-            statusHtml = `<span style="color:#4ade80;">運行中</span>`;
+            statusHtml = `<span style="color:var(--brand);">運行中</span>`;
           }
 
           html += `<div class="deployed-item">
             <div class="info">${rocketIcon}<div>
-              <div class="name"><a href="https://${p.id}.isnowfriend.com" target="_blank" style="color:#fff;text-decoration:none;">${p.name || p.id}</a>${p.port ? ` <span style="color:#8ab4f8;font-size:0.8em;">:${p.port}</span>` : ''}</div>
+              <div class="name"><a href="https://${p.id}.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">${p.name || p.id}</a>${p.port ? ` <span style="color:var(--info);font-size:0.8em;">:${p.port}</span>` : ''}</div>
               <div class="url">Git 部署 · ${lastDeploy}</div></div></div>
             <div class="status">${statusHtml}</div>
             <div class="actions">
@@ -528,7 +528,7 @@
         data.services.forEach(s => {
           html += `<div class="deployed-item">
             <div class="info">${apiIcon}<div>
-              <div class="name"><a href="/${s.name}" target="_blank" style="color:#fff;text-decoration:none;">${s.name}</a></div>
+              <div class="name"><a href="/${s.name}" target="_blank" style="color:var(--text);text-decoration:none;">${s.name}</a></div>
               <div class="url">${s.url}</div></div></div>
             <div class="status">運行中</div>
             <div class="actions">
@@ -541,7 +541,7 @@
         data.apps.forEach(a => {
           html += `<div class="deployed-item">
             <div class="info">${worldIcon}<div>
-              <div class="name"><a href="https://${a.name}.isnowfriend.com" target="_blank" style="color:#fff;text-decoration:none;">${a.name}</a></div>
+              <div class="name"><a href="https://${a.name}.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">${a.name}</a></div>
               <div class="url">${a.url}</div></div></div>
             <div class="status">運行中</div>
             <div class="actions">
@@ -603,7 +603,7 @@
           card.innerHTML = `
             <div class="service-icon">${rocketIconLg}</div>
             <div class="service-info">
-              <div class="service-name">${p.name || p.id}${p.port ? ` <span style="color:#8ab4f8;font-size:0.8em;">:${p.port}</span>` : ''}</div>
+              <div class="service-name">${p.name || p.id}${p.port ? ` <span style="color:var(--info);font-size:0.8em;">:${p.port}</span>` : ''}</div>
               <div class="service-desc">Git 自動部署專案</div>
             </div>
             <div class="service-status ${statusClass}">${statusText}</div>
@@ -632,9 +632,9 @@
 
       const repoShort = project.repoUrl ? project.repoUrl.replace('https://github.com/', '').replace('.git', '') : '-';
 
-      const successIcon = '<span class="icon" style="color:#4ade80;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
-      const failIcon = '<span class="icon" style="color:#f87171;vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg></span>';
-      let deploysHtml = deployments.length === 0 ? '<p style="color:#666;">無部署記錄</p>' : '';
+      const successIcon = '<span class="icon" style="color:var(--brand);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
+      const failIcon = '<span class="icon" style="color:var(--danger);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg></span>';
+      let deploysHtml = deployments.length === 0 ? '<p style="color:var(--text-3);">無部署記錄</p>' : '';
       deployments.slice(0, 8).forEach(d => {
         const isSuccess = d.status === 'success';
         const time = new Date(d.startedAt).toLocaleString('zh-TW');
@@ -646,7 +646,7 @@
               <span class="time">${time} · ${duration}</span>
             </div>
             <div class="commit">${d.commit || '-'} · ${d.triggeredBy || 'unknown'}</div>
-            ${d.commitMessage ? `<div class="commit" style="color:#aaa;">${d.commitMessage.substring(0, 60)}</div>` : ''}
+            ${d.commitMessage ? `<div class="commit" style="color:var(--text-2);">${d.commitMessage.substring(0, 60)}</div>` : ''}
             ${d.error ? `<div class="error">${d.error.substring(0, 150)}</div>` : ''}
           </div>
         `;
