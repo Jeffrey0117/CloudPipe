@@ -7,7 +7,8 @@ ingress:
   - hostname: workr.isnowfriend.com
     service: http://localhost:4002
   - hostname: myspeedtest.isnowfriend.com
-    service: http://localhost:4001  - hostname: adman.isnowfriend.com
+    service: http://localhost:4001
+  - hostname: adman.isnowfriend.com
     service: http://localhost:4003
 
   - hostname: "*.isnowfriend.com"

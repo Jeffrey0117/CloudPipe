@@ -8,16 +8,22 @@ echo   ================================
 echo.
 
 echo [1/3] Stopping old instance...
-pm2 delete cloudpipe >nul 2>&1
+call pm2 delete cloudpipe >nul 2>&1
 timeout /t 2 /nobreak >nul
 
 echo [2/3] Starting server with PM2...
-pm2 start ecosystem.config.js
+call pm2 start ecosystem.config.js
+if errorlevel 1 (
+  echo.
+  echo ERROR: PM2 failed to start server!
+  pause
+  exit /b 1
+)
 
 timeout /t 5 /nobreak >nul
 
 REM Check if server is running
-pm2 list | findstr "online" >nul
+call pm2 list | findstr "online" >nul
 if errorlevel 1 (
   echo.
   echo ERROR: Server failed to start!
@@ -26,8 +32,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo   Server is running!
 echo.
 echo [3/3] Starting tunnel...
+echo   Press Ctrl+C to stop tunnel
+echo.
 C:\Users\jeffb\cloudflared.exe tunnel --config cloudflared.yml run cloudpipe
 
+echo.
+echo Tunnel stopped.
 pause
