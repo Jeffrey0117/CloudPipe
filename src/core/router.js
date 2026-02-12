@@ -196,10 +196,12 @@ module.exports = function(config) {
       }
     }
 
-    // 靜態檔案服務 (public/ 或根目錄)
+    // 靜態檔案服務 (public/ → dist/ → 根目錄)
     const appPublicDir = fs.existsSync(path.join(appDir, 'public'))
       ? path.join(appDir, 'public')
-      : appDir;
+      : fs.existsSync(path.join(appDir, 'dist'))
+        ? path.join(appDir, 'dist')
+        : appDir;
 
     const staticFile = urlPath === '/' ? '/index.html' : urlPath;
     const filePath = path.join(appPublicDir, staticFile);

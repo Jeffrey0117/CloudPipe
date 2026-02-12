@@ -409,7 +409,9 @@ async function deploy(projectId, options = {}) {
         }
         const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
         log(`執行 ${installCmd}...`);
-        execSync(installCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+        // NODE_ENV=development 確保 devDependencies 也會安裝（build 工具通常在 devDeps）
+        const installEnv = { ...process.env, NODE_ENV: 'development' };
+        execSync(installCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, env: installEnv });
         // 儲存 hash
         fs.writeFileSync(hashFile, currentHash);
         log(`依賴安裝完成`);
@@ -487,6 +489,35 @@ async function deploy(projectId, options = {}) {
         // ignore
       }
     }
+    // 靜態站偵測：有 build 產出但沒有入口檔案或啟動指令
+    if (!startCommand && !fs.existsSync(path.join(projectDir, entryFile))) {
+      const outputDirs = ['dist', 'build', 'out'];
+      for (const dir of outputDirs) {
+        const outputPath = path.join(projectDir, dir);
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()) {
+          // 安裝 serve（如果尚未安裝）
+          const serveBin = path.join(projectDir, 'node_modules', '.bin', 'serve');
+          if (!fs.existsSync(serveBin)) {
+            log('安裝 serve 套件（靜態站託管）...');
+            execSync(`npm install serve --save-dev`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+          }
+          // 建立 PM2 wrapper
+          const wrapperPath = path.join(projectDir, '.pm2-static.cjs');
+          fs.writeFileSync(wrapperPath, [
+            `const { spawn } = require('child_process');`,
+            `const port = process.env.PORT || ${project.port || 3000};`,
+            `const child = spawn('npx', ['serve', '${dir}', '-s', '-l', String(port)], {`,
+            `  stdio: 'inherit', cwd: __dirname, shell: true`,
+            `});`,
+            `child.on('exit', (code) => process.exit(code || 0));`,
+          ].join('\n'));
+          startCommand = { script: wrapperPath, args: '' };
+          log(`偵測到靜態站 (${dir}/)，使用 serve 託管`);
+          break;
+        }
+      }
+    }
+
     // 更新專案配置
     if (entryFile !== project.entryFile) {
       updateProject(project.id, { entryFile });
