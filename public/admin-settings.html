@@ -373,10 +373,27 @@
     const authToken = localStorage.getItem('cloudpipe_token');
     let uptimeSeconds = 0;
 
+    function handleAuthError() {
+      localStorage.removeItem('cloudpipe_token');
+      window.location.href = '/_admin';
+    }
+
     // 頁面載入
-    window.onload = function() {
+    window.onload = async function() {
       if (!authToken) {
-        window.location.href = '/_admin';
+        handleAuthError();
+        return;
+      }
+      try {
+        const res = await fetch('/api/_admin/verify', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        if (!res.ok) {
+          handleAuthError();
+          return;
+        }
+      } catch {
+        handleAuthError();
         return;
       }
       loadAll();
@@ -479,6 +496,10 @@
           fetch('/api/_admin/services', { headers: { 'authorization': 'Bearer ' + authToken } }),
           fetch('/api/_admin/deploy/projects', { headers: { 'authorization': 'Bearer ' + authToken } })
         ]);
+        if (servicesRes.status === 401 || projectsRes.status === 401) {
+          handleAuthError();
+          return;
+        }
         const data = await servicesRes.json();
         const projectsData = await projectsRes.json();
         const gitProjects = projectsData.projects || [];

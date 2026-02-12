@@ -805,6 +805,10 @@
         const res = await fetch('/api/_admin/services', {
           headers: { 'authorization': 'Bearer ' + authToken }
         });
+        if (res.status === 401) {
+          doLogout();
+          return;
+        }
         const data = await res.json();
         existingNames = [...data.services.map(s => s.name), ...data.apps.map(a => a.name)];
 
