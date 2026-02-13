@@ -225,6 +225,11 @@ module.exports = {
       }));
     }
 
+    // GET /api/_admin/setup-bundle - 給其他機器用的設定包
+    if (req.method === 'GET' && pathname === '/api/_admin/setup-bundle') {
+      return handleSetupBundle(req, res);
+    }
+
     // PUT /api/_admin/config/telegram - 更新 Telegram 設定
     if (req.method === 'PUT' && pathname === '/api/_admin/config/telegram') {
       if (!requireAuth(req)) {
@@ -705,6 +710,36 @@ function handleGetPM2Logs(req, res, pm2Name) {
 
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ logs: logs || '無 log 檔案' }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// Setup Bundle（給其他機器用）
+function handleSetupBundle(req, res) {
+  try {
+    const config = getConfig();
+    const credPath = config.cloudflared?.credentialsFile || '';
+    let tunnelCredentials = null;
+
+    if (credPath && fs.existsSync(credPath)) {
+      tunnelCredentials = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+    }
+
+    const bundle = {
+      domain: config.domain || '',
+      port: config.port || 8787,
+      subdomain: config.subdomain || 'epi',
+      adminPassword: config.adminPassword || '',
+      jwtSecret: config.jwtSecret || '',
+      serviceToken: config.serviceToken || '',
+      tunnelId: config.cloudflared?.tunnelId || '',
+      tunnelCredentials,
+    };
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(bundle));
   } catch (err) {
     res.writeHead(500, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
