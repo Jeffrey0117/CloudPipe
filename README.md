@@ -19,20 +19,26 @@
 
 ---
 
-## Two Products in One
+## Three Ways to Deploy
 
-| Product | Use Case | Deployment |
-|---------|----------|------------|
-| **🌐 CloudPipe Platform** | Host multiple services on one server | Upload files via web dashboard |
-| **⚡ CloudPipe CLI** | Deploy full-stack apps locally | Command-line tool (like Vercel CLI) |
+| Method | Use Case | How |
+|--------|----------|-----|
+| **🚀 Git Deploy** | Full apps from GitHub | Connect repo, auto-deploy on push |
+| **🌐 Upload Deploy** | Quick services & static sites | Upload `.js` or `.zip` via dashboard |
+| **⚡ CLI Deploy** | Local development | Command-line tool (like Vercel CLI) |
 
-### Platform: Upload & Host
+### Git Deploy (Recommended)
+```
+Connect GitHub repo --> Auto build --> PM2 + Health Check --> Live on subdomain
+```
+
+### Upload Deploy
 ```
 Upload a .js file  -->  Get a public API instantly
 Upload a .zip file -->  Get a subdomain website
 ```
 
-### CLI: Deploy Anywhere
+### CLI Deploy
 ```bash
 cd my-nextjs-app
 cloudpipe deploy  # Auto-detects, builds, and deploys
@@ -52,12 +58,26 @@ No nginx. No SSL. No CI/CD pipeline. Just drop and go.
 
 Upload a JavaScript file to CloudPipe and instantly get a live public API endpoint. No extra server setup, no nginx config, no SSL management.
 
-## Two Deploy Modes
+## Deploy Modes
 
 | Mode | URL Pattern | Use Case |
 |------|-------------|----------|
+| **Git Deploy** | `xxx.yourdomain.com` | Full-stack apps from GitHub |
 | **API Service** | `api.yourdomain.com/xxx` | APIs, Webhooks, Microservices |
-| **Project Deploy** | `xxx.yourdomain.com` | Full websites, Static pages |
+| **Project Upload** | `xxx.yourdomain.com` | Static pages, quick deploys |
+
+## Git Deploy Engine
+
+Connect a GitHub repo and CloudPipe handles everything:
+
+- **Auto-detect** framework (Next.js, Vite, Express, static sites)
+- **npm install** + **build** + **PM2 start**
+- **Health check** to verify the service is live
+- **Cloudflare Tunnel DNS** auto-configured
+- **GitHub Webhook** for deploy-on-push
+- **5-minute polling** as backup
+
+Deploy via Dashboard, API, CLI, or Telegram Bot.
 
 ## Quick Start
 
@@ -191,33 +211,60 @@ Access: `https://api.yourdomain.com`
 cloudpipe/
 ├── index.js              # Entry point
 ├── config.json           # Configuration
+├── config.example.json   # Config template
+├── cloudflared.yml       # Tunnel ingress rules
 ├── start.bat             # Windows quick start
+├── ecosystem.config.js   # PM2 config
+│
+├── src/core/             # Core modules
+│   ├── server.js         # Startup orchestrator
+│   ├── router.js         # HTTP router (subdomain + path)
+│   ├── deploy.js         # Git deploy engine
+│   ├── admin.js          # Admin API
+│   ├── telegram.js       # Telegram bot
+│   └── auth.js           # JWT authentication
 │
 ├── services/             # API services (upload .js)
-│   ├── _example.js       # Example
-│   └── your-api.js       # Your API
-│
-├── apps/                 # Projects (upload .zip)
-│   └── {name}/
-│
-├── data/                 # Data storage (auto-created)
-│   └── {service}/
-│
-└── public/               # Dashboard frontend
+├── projects/             # Git-deployed projects
+├── apps/                 # Uploaded projects (.zip)
+├── data/                 # Deploy records & project data
+└── public/               # Dashboard + docs frontend
 ```
 
 ## Configuration
 
-`config.json`:
+Copy `config.example.json` to `config.json` and customize:
 
 ```json
 {
   "domain": "yourdomain.com",
   "port": 8787,
   "subdomain": "api",
-  "adminPassword": "your-secure-password"
+  "adminPassword": "your-secure-password",
+  "jwtSecret": "random-secret-string",
+  "cloudflared": {
+    "path": "cloudflared",
+    "tunnelId": "your-tunnel-id"
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "chatId": ""
+  }
 }
 ```
+
+## Telegram Bot
+
+Optional Telegram bot for quick project access and deploy management.
+
+**Commands:**
+- `/projects` — Inline keyboard with clickable links to all projects
+- `/status` — PM2 status overview for each project
+- `/deploy <id>` — Trigger a deploy from your phone
+- Auto-notification on deploy success/failure
+
+**Setup:** Create a bot via [@BotFather](https://t.me/BotFather), get your Chat ID, fill in `config.json` or the Admin Settings page.
 
 ---
 

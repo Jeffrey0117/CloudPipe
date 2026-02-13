@@ -6,6 +6,7 @@
 const path = require('path');
 const ServiceRegistry = require('./registry');
 const deploy = require('./deploy');
+const telegram = require('./telegram');
 
 // 專案根目錄
 const rootDir = path.join(__dirname, '..', '..');
@@ -36,6 +37,9 @@ if (!registry.startAll()) {
 // 啟動 GitHub 輪詢（Backup 機制，每 5 分鐘）
 deploy.startPolling(5 * 60 * 1000);
 
+// 啟動 Telegram Bot
+telegram.startBot();
+
 // Graceful shutdown
 const shutdown = async () => {
   console.log('');
@@ -43,6 +47,7 @@ const shutdown = async () => {
 
   try {
     deploy.stopPolling();
+    telegram.stopBot();
 
     // 等待伺服器完全關閉（給 3 秒時間）
     registry.stopAll();

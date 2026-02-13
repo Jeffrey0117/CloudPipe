@@ -353,6 +353,34 @@
         <div class="empty">載入中...</div>
       </div>
     </section>
+
+    <!-- Telegram Bot 設定 -->
+    <section class="services-section">
+      <h3 class="section-title">Telegram Bot</h3>
+      <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:1.5rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+          <label style="font-size:0.9rem;color:var(--text);">啟用</label>
+          <button id="tgToggle" onclick="toggleTelegram()" style="width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:all 0.2s;">
+            <span style="width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:3px;transition:all 0.2s;"></span>
+          </button>
+          <span id="tgStatus" style="font-size:0.8rem;color:var(--text-3);"></span>
+        </div>
+        <div style="display:grid;gap:1rem;">
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-3);margin-bottom:4px;">Bot Token</label>
+            <input id="tgToken" type="text" placeholder="從 @BotFather 取得" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem;">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-3);margin-bottom:4px;">Chat ID</label>
+            <input id="tgChatId" type="text" placeholder="你的 Telegram Chat ID" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem;">
+          </div>
+          <div style="display:flex;gap:0.5rem;">
+            <button onclick="saveTelegramSettings()" style="padding:8px 20px;background:var(--brand);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">儲存</button>
+            <span id="tgSaveMsg" style="font-size:0.85rem;color:var(--brand);align-self:center;"></span>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <script>
@@ -372,6 +400,7 @@
 
     const authToken = localStorage.getItem('cloudpipe_token');
     let uptimeSeconds = 0;
+    let siteConfig = { domain: '', subdomain: 'epi' };
 
     function handleAuthError() {
       localStorage.removeItem('cloudpipe_token');
@@ -400,13 +429,24 @@
     };
 
     async function loadAll() {
+      await loadSiteConfig();
       await Promise.all([
         loadLurlStats(),
         loadWorkrStats(),
         loadSystemInfo(),
         loadGitProjects(),
-        loadDeployed()
+        loadDeployed(),
+        loadTelegramSettings()
       ]);
+    }
+
+    async function loadSiteConfig() {
+      try {
+        const res = await fetch('/api/_admin/config', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        if (res.ok) siteConfig = await res.json();
+      } catch {}
     }
 
     // 載入 Workr 統計
@@ -536,12 +576,12 @@
 
           html += `<div class="deployed-item">
             <div class="info">${rocketIcon}<div>
-              <div class="name"><a href="https://${p.id}.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">${p.name || p.id}</a>${p.port ? ` <span style="color:var(--info);font-size:0.8em;">:${p.port}</span>` : ''}</div>
+              <div class="name"><a href="https://${p.id}.${siteConfig.domain}" target="_blank" style="color:var(--text);text-decoration:none;">${p.name || p.id}</a>${p.port ? ` <span style="color:var(--info);font-size:0.8em;">:${p.port}</span>` : ''}</div>
               <div class="url">Git 部署 · ${lastDeploy}</div></div></div>
             <div class="status">${statusHtml}</div>
             <div class="actions">
               <button onclick="viewLogs('${p.pm2Name || p.id}')">Log</button>
-              <a class="btn" href="https://${p.id}.isnowfriend.com" target="_blank">開啟</a>
+              <a class="btn" href="https://${p.id}.${siteConfig.domain}" target="_blank">開啟</a>
               <button onclick="redeployProject('${p.id}')">重新部署</button>
             </div></div>`;
         });
@@ -562,11 +602,11 @@
         data.apps.forEach(a => {
           html += `<div class="deployed-item">
             <div class="info">${worldIcon}<div>
-              <div class="name"><a href="https://${a.name}.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">${a.name}</a></div>
+              <div class="name"><a href="https://${a.name}.${siteConfig.domain}" target="_blank" style="color:var(--text);text-decoration:none;">${a.name}</a></div>
               <div class="url">${a.url}</div></div></div>
             <div class="status">運行中</div>
             <div class="actions">
-              <a class="btn" href="https://${a.name}.isnowfriend.com" target="_blank">開啟</a>
+              <a class="btn" href="https://${a.name}.${siteConfig.domain}" target="_blank">開啟</a>
               <button class="delete" onclick="deleteItem('app','${a.name}')">刪除</button>
             </div></div>`;
         });
@@ -691,7 +731,7 @@
           <div class="project-modal-body">
             <div style="color:var(--text-3);font-size:0.9rem;margin-bottom:15px;">${repoShort} · ${project.branch || 'main'}</div>
             <div class="project-modal-actions">
-              <a href="https://${project.id}.isnowfriend.com" target="_blank" class="primary">${worldH} 開啟網站</a>
+              <a href="https://${project.id}.${siteConfig.domain}" target="_blank" class="primary">${worldH} 開啟網站</a>
               <button onclick="viewLogs('${project.pm2Name || project.id}')" class="secondary">${clipH} 查看 Log</button>
               <button onclick="this.closest('.project-modal').remove(); redeployProject('${project.id}')" class="secondary">${refreshH} 重新部署</button>
               <button onclick="this.closest('.project-modal').remove(); deleteGitProject('${project.id}')" class="danger">${trashH} 刪除專案</button>
@@ -765,6 +805,65 @@
       } catch (e) {
         alert('無法取得 log: ' + e.message);
       }
+    }
+
+    // ===== Telegram Settings =====
+    let tgEnabled = false;
+
+    function updateTgToggleUI() {
+      const btn = document.getElementById('tgToggle');
+      const dot = btn.querySelector('span');
+      const status = document.getElementById('tgStatus');
+      btn.style.background = tgEnabled ? 'var(--brand)' : 'var(--border)';
+      dot.style.left = tgEnabled ? '23px' : '3px';
+      status.textContent = tgEnabled ? '已啟用' : '未啟用';
+      status.style.color = tgEnabled ? 'var(--brand)' : 'var(--text-3)';
+    }
+
+    function toggleTelegram() {
+      tgEnabled = !tgEnabled;
+      updateTgToggleUI();
+    }
+
+    async function loadTelegramSettings() {
+      try {
+        const tg = siteConfig.telegram || {};
+        tgEnabled = tg.enabled || false;
+        document.getElementById('tgToken').value = tg.botToken || '';
+        document.getElementById('tgChatId').value = tg.chatId || '';
+        updateTgToggleUI();
+      } catch {}
+    }
+
+    async function saveTelegramSettings() {
+      const msg = document.getElementById('tgSaveMsg');
+      msg.textContent = '儲存中...';
+      msg.style.color = 'var(--text-3)';
+      try {
+        const res = await fetch('/api/_admin/config/telegram', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({
+            enabled: tgEnabled,
+            botToken: document.getElementById('tgToken').value.trim(),
+            chatId: document.getElementById('tgChatId').value.trim()
+          })
+        });
+        if (res.ok) {
+          msg.textContent = '已儲存';
+          msg.style.color = 'var(--brand)';
+        } else {
+          msg.textContent = '儲存失敗';
+          msg.style.color = 'var(--danger)';
+        }
+      } catch {
+        msg.textContent = '儲存失敗';
+        msg.style.color = 'var(--danger)';
+      }
+      setTimeout(() => { msg.textContent = ''; }, 3000);
     }
 
   </script>

@@ -12,16 +12,24 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawn } = require('child_process');
 const crypto = require('crypto');
+const { EventEmitter } = require('events');
+
+const events = new EventEmitter();
 
 const DATA_DIR = path.join(__dirname, '../../data/deploy');
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const DEPLOYMENTS_FILE = path.join(DATA_DIR, 'deployments.json');
 const CLOUDPIPE_ROOT = path.join(__dirname, '../..');
 
-// Cloudflare Tunnel 設定
-const CLOUDFLARED = 'C:\\Users\\jeffb\\cloudflared.exe';
-const TUNNEL_ID = 'afd11345-c75a-4d62-aa67-0a389d82ce74';
+// Cloudflare Tunnel 設定（從 config.json 讀取）
 const CLOUDFLARED_CONFIG = path.join(__dirname, '../../cloudflared.yml');
+function getCloudflared() {
+  const config = getConfig();
+  return {
+    path: config.cloudflared?.path || 'cloudflared',
+    tunnelId: config.cloudflared?.tunnelId || '',
+  };
+}
 
 // Port 分配設定
 const BASE_PORT = 4000;  // 起始 port
@@ -144,7 +152,8 @@ async function createProject(data) {
   if (deployMethod === 'github' && project.repoUrl) {
     const config = getConfig();
     const domain = config.domain || 'isnowfriend.com';
-    const webhookUrl = `https://epi.${domain}/webhook/${project.id}`;
+    const subdomain = config.subdomain || 'epi';
+    const webhookUrl = `https://${subdomain}.${domain}/webhook/${project.id}`;
 
     // 非同步設定，不阻塞 createProject
     setupGitHubWebhook(project.id, webhookUrl).then(result => {
@@ -207,8 +216,9 @@ function updateTunnelIngress(hostname, port) {
       return true;
     }
 
-    // 在 "*.isnowfriend.com" 之前插入新規則
-    const wildcardPattern = /(\s*- hostname: "\*\.isnowfriend\.com")/;
+    // 在 "*.<domain>" 之前插入新規則
+    const domain = (getConfig().domain || 'isnowfriend.com').replace(/\./g, '\\.');
+    const wildcardPattern = new RegExp(`(\\s*- hostname: "\\*\\.${domain}")`);
     const newRule = `  - hostname: ${hostname}\n    service: http://localhost:${port}\n`;
 
     if (wildcardPattern.test(content)) {
@@ -577,12 +587,18 @@ async function deploy(projectId, options = {}) {
     }
 
     // 自動建立 DNS (Cloudflare Tunnel)
-    const hostname = `${project.id}.isnowfriend.com`;
-    try {
-      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore', windowsHide: true });
-      log(`DNS 已建立: ${hostname}`);
-    } catch (e) {
-      log(`DNS 建立失敗（可能已存在）: ${e.message}`);
+    const config = getConfig();
+    const hostname = `${project.id}.${config.domain || 'localhost'}`;
+    const cf = getCloudflared();
+    if (cf.tunnelId) {
+      try {
+        execSync(`"${cf.path}" tunnel route dns ${cf.tunnelId} ${hostname}`, { stdio: 'ignore', windowsHide: true });
+        log(`DNS 已建立: ${hostname}`);
+      } catch (e) {
+        log(`DNS 建立失敗（可能已存在）: ${e.message}`);
+      }
+    } else {
+      log(`跳過 DNS 建立（未設定 cloudflared.tunnelId）`);
     }
 
     // 更新 Tunnel Ingress 規則
@@ -629,6 +645,9 @@ async function deploy(projectId, options = {}) {
     projectUpdate.runningCommit = deployment.commit;
   }
   updateProject(projectId, projectUpdate);
+
+  // Emit deploy event for notifications (Telegram bot etc.)
+  events.emit('deploy:complete', { project, deployment });
 
   return deployment;
 }
@@ -919,5 +938,8 @@ module.exports = {
   startPolling,
   stopPolling,
   pollAllProjects,
-  checkProjectForUpdates
+  checkProjectForUpdates,
+
+  // Events
+  events
 };

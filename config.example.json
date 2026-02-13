@@ -10,5 +10,15 @@
     "serviceRoleKey": "",
     "logRequests": false
   },
-  "serviceToken": "internal_service_token_change_me"
+  "serviceToken": "internal_service_token_change_me",
+  "cloudflared": {
+    "path": "cloudflared",
+    "tunnelId": "your-tunnel-id",
+    "credentialsFile": "/path/to/.cloudflared/tunnel-id.json"
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "chatId": ""
+  }
 }

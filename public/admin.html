@@ -381,13 +381,13 @@
           <div class="card-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M4.876 13.61a4 4 0 1 0 6.124 3.39h6" /><path d="M15.066 20.502a4 4 0 1 0 1.934 -7.502c-.706 0 -1.424 .179 -2 .5l-3 -5.5" /><path d="M16 8a4 4 0 1 0 -8 0c0 1.506 .77 2.818 2 3.5l-3 5.5" /></svg></div>
           <h2>API 服務</h2>
           <p>路徑式部署</p>
-          <code>epi.isnowfriend.com/xxx</code>
+          <code>api.yourdomain.com/xxx</code>
         </div>
         <div class="card" onclick="showUpload('app')">
           <div class="card-icon icon icon-lg"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg></div>
           <h2>專案部署</h2>
           <p>子域名式</p>
-          <code>xxx.isnowfriend.com</code>
+          <code>xxx.yourdomain.com</code>
         </div>
       </section>
 
@@ -420,7 +420,7 @@
           <label id="nameLabel">名稱</label>
           <div class="input-preview">
             <input type="text" id="serviceName" placeholder="my-api">
-            <span id="nameSuffix">.isnowfriend.com</span>
+            <span id="nameSuffix"></span>
           </div>
           <p class="name-hint" id="nameHint"></p>
         </div>
@@ -477,11 +477,24 @@
     let authToken = localStorage.getItem('cloudpipe_token');
     let currentType = null;
     let existingNames = [];
+    let siteDomain = '';
 
     window.onload = function() {
       if (authToken) verifyToken();
       initDropzone();
     };
+
+    async function loadSiteDomain() {
+      try {
+        const res = await fetch('/api/_admin/config', {
+          headers: { 'authorization': 'Bearer ' + authToken }
+        });
+        if (res.ok) {
+          const cfg = await res.json();
+          siteDomain = cfg.domain || '';
+        }
+      } catch {}
+    }
 
     function initDropzone() {
       const dropzone = document.getElementById('dropzone');
@@ -560,9 +573,10 @@
       } catch { doLogout(); }
     }
 
-    function showDashboard() {
+    async function showDashboard() {
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
+      await loadSiteDomain();
     }
 
     function doLogout() {
@@ -595,7 +609,7 @@
       } else {
         document.getElementById('uploadTitle').textContent = '部署專案';
         document.getElementById('nameLabel').textContent = '子域名';
-        document.getElementById('nameSuffix').textContent = '.isnowfriend.com';
+        document.getElementById('nameSuffix').textContent = '.' + (siteDomain || 'yourdomain.com');
         document.getElementById('fileInput').accept = '.zip';
         document.getElementById('formatHint').style.display = 'none';
         document.getElementById('sourceSelector').classList.remove('hidden');
@@ -675,7 +689,7 @@
           headers: { 'authorization': 'Bearer ' + authToken }
         });
         document.getElementById('uploadStatus').classList.remove('hidden');
-        document.getElementById('statusText').innerHTML = `部署中...<br><a href="https://${name}.isnowfriend.com" target="_blank">${name}.isnowfriend.com</a>`;
+        document.getElementById('statusText').innerHTML = `部署中...<br><a href="https://${name}.${siteDomain}" target="_blank">${name}.${siteDomain}</a>`;
 
         pollDeployStatus(name);
       } catch (e) {
@@ -707,7 +721,7 @@
               : `<button onclick="setupWebhook('${projectId}')" style="margin-top:0.5rem;padding:0.5rem 1rem;background:var(--info-soft);border:1px solid var(--info);color:var(--info);border-radius:4px;cursor:pointer;">${linkIcon} 設定 GitHub Webhook</button>`;
             const checkIcon = '<span class="icon" style="color:var(--brand);vertical-align:-2px;"><svg viewBox="0 0 24 24"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg></span>';
             showToast('部署成功！' + portInfo, 'success');
-            document.getElementById('statusText').innerHTML = `${checkIcon} 部署成功！${portInfo}<br><a href="https://${projectId}.isnowfriend.com" target="_blank">${projectId}.isnowfriend.com</a><br>${webhookBtn}`;
+            document.getElementById('statusText').innerHTML = `${checkIcon} 部署成功！${portInfo}<br><a href="https://${projectId}.${siteDomain}" target="_blank">${projectId}.${siteDomain}</a><br>${webhookBtn}`;
             return;
           } else if (status === 'failed') {
             const latestDeploy = data.deployments?.[0];
@@ -732,7 +746,7 @@
     }
 
     async function setupWebhook(projectId) {
-      const webhookUrl = `https://epi.isnowfriend.com/webhook/${projectId}`;
+      const webhookUrl = `https://${siteDomain ? 'epi.' + siteDomain : location.host}/webhook/${projectId}`;
 
       try {
         const res = await fetch(`/api/_admin/deploy/projects/${projectId}/webhook`, {
@@ -835,11 +849,11 @@
         data.apps.forEach(a => {
           html += '<div class="deployed-item">' +
             '<div class="info">' + worldIcon + '<div>' +
-            '<div class="name"><a href="https://' + a.name + '.isnowfriend.com" target="_blank" style="color:var(--text);text-decoration:none;">' + a.name + '</a></div>' +
+            '<div class="name"><a href="https://' + a.name + '.' + siteDomain + '" target="_blank" style="color:var(--text);text-decoration:none;">' + a.name + '</a></div>' +
             '<div class="url">' + a.url + '</div></div></div>' +
             '<div class="status">運行中</div>' +
             '<div class="actions">' +
-            '<a class="btn" href="https://' + a.name + '.isnowfriend.com" target="_blank">開啟</a>' +
+            '<a class="btn" href="https://' + a.name + '.' + siteDomain + '" target="_blank">開啟</a>' +
             '<button class="delete" onclick="deleteItem(\'app\',\'' + a.name + '\')">刪除</button>' +
             '</div></div>';
         });

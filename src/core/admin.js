@@ -17,9 +17,23 @@ const SERVICES_DIR = path.join(ROOT, 'services');
 const APPS_DIR = path.join(ROOT, 'apps');
 const CONFIG_PATH = path.join(ROOT, 'config.json');
 
-// Cloudflared 路徑
-const CLOUDFLARED = 'C:\\Users\\jeffb\\cloudflared.exe';
-const TUNNEL_ID = 'afd11345-c75a-4d62-aa67-0a389d82ce74';
+// 讀取 config.json
+function getConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+// Cloudflared（從 config.json 讀取）
+function getCloudflared() {
+  const config = getConfig();
+  return {
+    path: config.cloudflared?.path || 'cloudflared',
+    tunnelId: config.cloudflared?.tunnelId || '',
+  };
+}
 
 // 驗證 middleware (使用 JWT)
 function requireAuth(req) {
@@ -196,6 +210,30 @@ module.exports = {
       return handleSystemInfo(req, res);
     }
 
+    // GET /api/_admin/config - 取得公開設定（domain 等）
+    if (req.method === 'GET' && pathname === '/api/_admin/config') {
+      if (!requireAuth(req)) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: '請先登入' }));
+      }
+      const cfg = getConfig();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({
+        domain: cfg.domain || '',
+        subdomain: cfg.subdomain || 'epi',
+        telegram: cfg.telegram || { enabled: false, botToken: '', chatId: '' }
+      }));
+    }
+
+    // PUT /api/_admin/config/telegram - 更新 Telegram 設定
+    if (req.method === 'PUT' && pathname === '/api/_admin/config/telegram') {
+      if (!requireAuth(req)) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: '請先登入' }));
+      }
+      return handleUpdateTelegram(req, res);
+    }
+
     // 404
     res.writeHead(404, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -227,6 +265,7 @@ function handleLogin(req, res) {
 
 // 列出所有服務和專案
 function listServices(req, res) {
+  const cfg = getConfig();
   const services = [];
   const apps = [];
 
@@ -238,7 +277,7 @@ function listServices(req, res) {
         const name = path.basename(file, '.js');
         services.push({
           name,
-          url: `https://epi.isnowfriend.com/${name}`,
+          url: `https://${cfg.subdomain || 'epi'}.${cfg.domain || 'localhost'}/${name}`,
           status: 'running'
         });
       });
@@ -251,7 +290,7 @@ function listServices(req, res) {
       .forEach(dir => {
         apps.push({
           name: dir,
-          url: `https://${dir}.isnowfriend.com`,
+          url: `https://${dir}.${cfg.domain || 'localhost'}`,
           status: 'running'
         });
       });
@@ -299,7 +338,7 @@ function uploadService(req, res) {
     res.end(JSON.stringify({
       success: true,
       name,
-      url: `https://epi.isnowfriend.com/${name}`
+      url: `https://${getConfig().subdomain || 'epi'}.${getConfig().domain || 'localhost'}/${name}`
     }));
   });
 }
@@ -418,9 +457,14 @@ function uploadApp(req, res) {
 
     // 自動建立 DNS CNAME
     try {
-      const hostname = `${name}.isnowfriend.com`;
-      execSync(`"${CLOUDFLARED}" tunnel route dns ${TUNNEL_ID} ${hostname}`, { stdio: 'ignore', windowsHide: true });
-      console.log(`[admin] DNS 已建立: ${hostname}`);
+      const cf = getCloudflared();
+      const hostname = `${name}.${getConfig().domain || 'localhost'}`;
+      if (cf.tunnelId) {
+        execSync(`"${cf.path}" tunnel route dns ${cf.tunnelId} ${hostname}`, { stdio: 'ignore', windowsHide: true });
+        console.log(`[admin] DNS 已建立: ${hostname}`);
+      } else {
+        console.log(`[admin] 跳過 DNS 建立（未設定 cloudflared.tunnelId）`);
+      }
     } catch (e) {
       console.error('[admin] DNS 建立失敗:', e.message);
     }
@@ -428,7 +472,7 @@ function uploadApp(req, res) {
     const result = {
       success: true,
       name,
-      url: `https://${name}.isnowfriend.com`
+      url: `https://${name}.${getConfig().domain || 'localhost'}`
     };
     if (assignedPort) {
       result.port = assignedPort;
@@ -665,6 +709,41 @@ function handleGetPM2Logs(req, res, pm2Name) {
     res.writeHead(500, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }
+}
+
+// 更新 Telegram 設定
+function handleUpdateTelegram(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    try {
+      const { enabled, botToken, chatId } = JSON.parse(body);
+      const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      config.telegram = {
+        enabled: Boolean(enabled),
+        botToken: botToken || '',
+        chatId: chatId || ''
+      };
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+
+      // 重啟 Telegram bot
+      try {
+        const telegram = require('./telegram');
+        telegram.stopBot();
+        if (config.telegram.enabled) {
+          telegram.startBot();
+        }
+      } catch (e) {
+        console.error('[admin] Telegram bot restart failed:', e.message);
+      }
+
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  });
 }
 
 // 系統資訊
