@@ -10,7 +10,10 @@ ingress:
     service: http://localhost:4001
   - hostname: adman.isnowfriend.com
     service: http://localhost:4003
-
+  - hostname: letmeuse.isnowfriend.com
+    service: http://localhost:4006
+  - hostname: reelscript.isnowfriend.com
+    service: http://localhost:4005
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787
   - service: http_status:404
