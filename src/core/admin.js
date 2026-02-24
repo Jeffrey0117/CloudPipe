@@ -133,6 +133,12 @@ module.exports = {
       return handleManualDeploy(req, res, id);
     }
 
+    // POST /api/_admin/deploy/projects/:id/restart - PM2 重啟
+    if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/restart$/)) {
+      const id = pathname.split('/')[5];
+      return handleRestartProject(req, res, id);
+    }
+
     // POST /api/_admin/deploy/projects/:id/webhook - 設定 GitHub Webhook
     if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/webhook$/)) {
       const id = pathname.split('/')[5];
@@ -613,6 +619,24 @@ async function handleUpdateProject(req, res, id) {
     res.end(JSON.stringify({ success: true, project }));
   } catch (err) {
     res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// PM2 重啟
+function handleRestartProject(req, res, id) {
+  try {
+    const project = deploy.getProject(id);
+    if (!project) {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: '專案不存在' }));
+    }
+    const pm2Name = project.pm2Name || id;
+    execSync(`pm2 restart ${pm2Name}`, { stdio: 'pipe', windowsHide: true });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ success: true, message: `${pm2Name} 已重啟` }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }
 }

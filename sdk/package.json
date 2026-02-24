@@ -1,0 +1,11 @@
+{
+  "name": "cloudpipe-sdk",
+  "version": "1.0.0",
+  "description": "SDK for CloudPipe deployment platform",
+  "main": "index.js",
+  "license": "MIT",
+  "keywords": ["cloudpipe", "deployment", "sdk"],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
