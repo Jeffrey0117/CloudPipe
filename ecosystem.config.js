@@ -132,6 +132,26 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 4006
       }
+    },
+
+    // ── upimg (duk.tw) ── port 4007 (Next.js)
+    {
+      name: 'upimg',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 4007',
+      cwd: './projects/upimg',
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '10s',
+      error_file: '../../logs/upimg-error.log',
+      out_file: '../../logs/upimg-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4007,
+        HOSTNAME: '0.0.0.0'
+      }
     }
   ]
 };

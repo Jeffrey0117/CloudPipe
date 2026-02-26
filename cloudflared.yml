@@ -13,7 +13,14 @@ ingress:
   - hostname: letmeuse.isnowfriend.com
     service: http://localhost:4006
   - hostname: reelscript.isnowfriend.com
-    service: http://localhost:4005
+    service: http://localhost:4005  - hostname: autocard.isnowfriend.com
+    service: http://localhost:4004
+
+  - hostname: duk.tw
+    service: http://localhost:4007
+  - hostname: "*.duk.tw"
+    service: http://localhost:4007
+
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787
   - service: http_status:404

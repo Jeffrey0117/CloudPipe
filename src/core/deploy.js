@@ -538,6 +538,24 @@ async function deploy(projectId, options = {}) {
     if (project.pm2Name) {
       // 準備環境變數
       const pm2Env = project.port ? { PORT: String(project.port) } : {};
+
+      // Load .env file from project directory
+      const envFilePath = path.join(projectDir, '.env');
+      if (fs.existsSync(envFilePath)) {
+        const envContent = fs.readFileSync(envFilePath, 'utf8');
+        envContent.split('\n').forEach(line => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) return;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx > 0) {
+            const key = trimmed.slice(0, eqIdx);
+            let val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '');
+            pm2Env[key] = val;
+          }
+        });
+        log(`.env 已載入 (${Object.keys(pm2Env).length} 個變數)`);
+      }
+
       const spawnEnv = { ...process.env, ...pm2Env };
 
       // 先刪除舊的（如果有）
@@ -605,6 +623,23 @@ async function deploy(projectId, options = {}) {
     if (project.port) {
       log(`更新 Tunnel Ingress: ${hostname} -> localhost:${project.port}`);
       updateTunnelIngress(hostname, project.port);
+    }
+
+    // Handle custom domains
+    if (project.customDomains && Array.isArray(project.customDomains)) {
+      for (const customDomain of project.customDomains) {
+        log(`設定自訂網域: ${customDomain} -> localhost:${project.port}`);
+        updateTunnelIngress(customDomain, project.port);
+        // DNS route for custom domain
+        if (cf.tunnelId) {
+          try {
+            execSync(`"${cf.path}" tunnel route dns ${cf.tunnelId} ${customDomain}`, { stdio: 'ignore', windowsHide: true });
+            log(`DNS 已建立: ${customDomain}`);
+          } catch (e) {
+            log(`DNS 建立失敗（可能已存在）: ${e.message}`);
+          }
+        }
+      }
     }
 
     // 更新部署狀態
