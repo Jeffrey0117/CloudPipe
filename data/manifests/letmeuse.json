@@ -1,0 +1,102 @@
+{
+  "name": "LetMeUse",
+  "version": "1.0.0",
+  "description": "Auth-as-a-Service platform - manage apps, users, and subscriptions",
+  "endpoints": [
+    {
+      "name": "list_apps",
+      "description": "List all registered apps",
+      "method": "GET",
+      "path": "/api/admin/apps",
+      "auth": "bearer"
+    },
+    {
+      "name": "create_app",
+      "description": "Register a new app for authentication",
+      "method": "POST",
+      "path": "/api/admin/apps",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "App name" },
+          "domains": { "type": "array", "description": "Allowed domains" },
+          "webhookUrl": { "type": "string", "description": "Webhook URL for auth events" }
+        },
+        "required": ["name", "domains"]
+      }
+    },
+    {
+      "name": "get_app",
+      "description": "Get app details",
+      "method": "GET",
+      "path": "/api/admin/apps/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "App ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "List users with filters (appId, search, pagination)",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "appId": { "type": "string", "description": "Filter by app ID" },
+          "search": { "type": "string", "description": "Search by email or name" },
+          "page": { "type": "number", "description": "Page number (default: 1)" },
+          "limit": { "type": "number", "description": "Results per page (default: 20)" }
+        }
+      }
+    },
+    {
+      "name": "get_user",
+      "description": "Get user details",
+      "method": "GET",
+      "path": "/api/admin/users/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "User ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_stats",
+      "description": "Get system statistics (users, sessions, apps)",
+      "method": "GET",
+      "path": "/api/admin/stats",
+      "auth": "bearer"
+    },
+    {
+      "name": "list_sessions",
+      "description": "List active user sessions",
+      "method": "GET",
+      "path": "/api/admin/sessions",
+      "auth": "bearer"
+    },
+    {
+      "name": "get_audit_log",
+      "description": "Get audit log entries",
+      "method": "GET",
+      "path": "/api/admin/audit-log",
+      "auth": "bearer"
+    },
+    {
+      "name": "list_plans",
+      "description": "List billing plans",
+      "method": "GET",
+      "path": "/api/admin/plans",
+      "auth": "bearer"
+    }
+  ]
+}

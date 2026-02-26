@@ -1,0 +1,103 @@
+{
+  "name": "AutoCard",
+  "version": "1.0.0",
+  "description": "AI-powered flashcard content generator",
+  "endpoints": [
+    {
+      "name": "generate_content",
+      "description": "Generate flashcard content using DeepSeek AI",
+      "method": "POST",
+      "path": "/api/generate",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "topic": { "type": "string", "description": "Content topic to generate flashcards for" },
+          "pages": { "type": "number", "description": "Number of pages to generate (default: 4)" }
+        },
+        "required": ["topic"]
+      }
+    },
+    {
+      "name": "suggest_topics",
+      "description": "AI suggests 10 flashcard topics for a category",
+      "method": "POST",
+      "path": "/api/suggest-topics",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "category": { "type": "string", "description": "Category to generate topic suggestions for" }
+        },
+        "required": ["category"]
+      }
+    },
+    {
+      "name": "gemini_action",
+      "description": "Gemini AI operations: social captions, content enhancement",
+      "method": "POST",
+      "path": "/api/gemini",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "description": "Action type (e.g. social_caption, enhance)" },
+          "text": { "type": "string", "description": "Input text to process" },
+          "topic": { "type": "string", "description": "Topic context" }
+        },
+        "required": ["action", "text"]
+      }
+    },
+    {
+      "name": "list_pool",
+      "description": "List all content pool entries",
+      "method": "GET",
+      "path": "/api/pool",
+      "auth": "bearer"
+    },
+    {
+      "name": "get_pool_entry",
+      "description": "Get a single pool entry with full content",
+      "method": "GET",
+      "path": "/api/pool/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Pool entry ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "create_pool_entry",
+      "description": "Create or update a content pool entry",
+      "method": "POST",
+      "path": "/api/pool",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "Entry title" },
+          "markdown": { "type": "string", "description": "Content in markdown format" },
+          "tags": { "type": "array", "description": "Tags for categorization" }
+        },
+        "required": ["title", "markdown"]
+      }
+    },
+    {
+      "name": "delete_pool_entry",
+      "description": "Delete a content pool entry",
+      "method": "DELETE",
+      "path": "/api/pool/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Pool entry ID to delete" }
+        },
+        "required": ["id"]
+      }
+    }
+  ]
+}

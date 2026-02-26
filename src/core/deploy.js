@@ -370,7 +370,7 @@ async function deploy(projectId, options = {}) {
     // Git 部署
     if (project.deployMethod === 'github' || project.deployMethod === 'git-url') {
       log(`執行 git fetch...`);
-      execSync(`git fetch origin ${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+      execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
 
       log(`執行 git reset --hard...`);
       execSync(`git reset --hard origin/${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });

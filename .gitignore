@@ -18,7 +18,9 @@ services/.env
 config.json
 
 # Data (user-specific)
-data/
+data/*
+!data/manifests/
+!data/.gitkeep
 
 # Services (keep only examples)
 services/*

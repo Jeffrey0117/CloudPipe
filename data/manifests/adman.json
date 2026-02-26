@@ -1,0 +1,112 @@
+{
+  "name": "AdMan",
+  "version": "1.0.0",
+  "description": "Ad management platform",
+  "endpoints": [
+    {
+      "name": "list_projects",
+      "description": "List all ad projects",
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "name": "create_project",
+      "description": "Create a new ad project",
+      "method": "POST",
+      "path": "/api/projects",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Project name" },
+          "domain": { "type": "string", "description": "Associated domain" },
+          "description": { "type": "string", "description": "Project description" }
+        },
+        "required": ["name", "domain"]
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "Get a single ad project with its ads",
+      "method": "GET",
+      "path": "/api/projects/{projectId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "description": "Project ID" }
+        },
+        "required": ["projectId"]
+      }
+    },
+    {
+      "name": "update_project",
+      "description": "Update an ad project",
+      "method": "PUT",
+      "path": "/api/projects/{projectId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "description": "Project ID" },
+          "name": { "type": "string", "description": "Project name" },
+          "domain": { "type": "string", "description": "Associated domain" },
+          "description": { "type": "string", "description": "Project description" }
+        },
+        "required": ["projectId"]
+      }
+    },
+    {
+      "name": "delete_project",
+      "description": "Delete an ad project (fails if ads exist)",
+      "method": "DELETE",
+      "path": "/api/projects/{projectId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "description": "Project ID" }
+        },
+        "required": ["projectId"]
+      }
+    },
+    {
+      "name": "get_ad",
+      "description": "Get a single ad by ID",
+      "method": "GET",
+      "path": "/api/ads/{adId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "adId": { "type": "string", "description": "Ad ID" }
+        },
+        "required": ["adId"]
+      }
+    },
+    {
+      "name": "update_ad",
+      "description": "Update an ad (content, status, position)",
+      "method": "PUT",
+      "path": "/api/ads/{adId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "adId": { "type": "string", "description": "Ad ID" },
+          "name": { "type": "string", "description": "Ad name" },
+          "status": { "type": "string", "description": "Ad status (enabled/disabled)" },
+          "position": { "type": "string", "description": "Ad position" }
+        },
+        "required": ["adId"]
+      }
+    },
+    {
+      "name": "delete_ad",
+      "description": "Delete an ad",
+      "method": "DELETE",
+      "path": "/api/ads/{adId}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "adId": { "type": "string", "description": "Ad ID" }
+        },
+        "required": ["adId"]
+      }
+    }
+  ]
+}
