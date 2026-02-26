@@ -26,6 +26,20 @@ console.log('  CLOUDPIPE - Local Deploy Gateway');
 console.log('========================================');
 console.log('');
 
+// 多機設定提示
+const _cfg = registry.config || {};
+if (!_cfg.machineId || !_cfg.redis?.url) {
+  console.log('⚠️  多機功能未設定！請在 config.json 加入：');
+  if (!_cfg.machineId) {
+    console.log('   "machineId": "my-pc"        ← 給這台電腦取個名字');
+  }
+  if (!_cfg.redis?.url) {
+    console.log('   "redis": { "url": "rediss://...@xxx.upstash.io:6379" }');
+  }
+  console.log('   設定後重啟即可啟用心跳、同步、Bot 選舉等功能');
+  console.log('');
+}
+
 // 掃描服務 (services/*.js)
 const servicesDir = path.join(rootDir, 'services');
 registry.scanServices(servicesDir);
