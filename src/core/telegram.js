@@ -349,16 +349,15 @@ async function handleEnvToken(chatId) {
     const domain = config.domain || 'localhost';
     const subdomain = config.subdomain || 'epi';
 
+    const fullUrl = `https://${subdomain}.${domain}/api/_admin/env-bundle/download?token=${token}`;
+
     const text = [
       '🔑 <b>.env 下載 Token 已生成</b>',
       '',
-      `<b>5 分鐘內有效，用一次就作廢</b>`,
+      '<b>5 分鐘內有效，用一次就作廢</b>',
       '',
-      'B 電腦執行：',
-      `<code>node setup-env.js ${token}</code>`,
-      '',
-      '或直接開連結：',
-      `<code>https://${subdomain}.${domain}/api/_admin/env-bundle/download?token=${token}</code>`,
+      '新機器執行（複製整行）：',
+      `<code>node setup-env.js ${fullUrl}</code>`,
     ].join('\n');
 
     await sendMessage(chatId, text);
