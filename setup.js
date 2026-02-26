@@ -88,25 +88,46 @@ async function main() {
   ];
 
   // 先用 where（Windows）或 which（Linux/Mac）找 PATH 裡的
-  try {
-    const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
-    cfPath = execCmd(cmd, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim().split('\n')[0].trim();
-    console.log('  cloudflared: ' + cfPath);
-  } catch {
-    // PATH 裡沒有，掃常見位置
-    const found = candidates.find(p => fs.existsSync(p));
-    if (found) {
-      cfPath = found;
-      console.log('  cloudflared: ' + cfPath);
-    } else {
-      cfPath = 'cloudflared';
-      console.log('');
-      console.log('  [!] cloudflared not found');
-      console.log('  [!] Install: winget install cloudflare.cloudflared');
-      console.log('  [!] Or download: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/');
-      console.log('  [!] Install it before running start.bat');
-      console.log('');
+  function findCloudflared() {
+    try {
+      const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
+      return execCmd(cmd, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim().split('\n')[0].trim();
+    } catch {
+      return candidates.find(p => fs.existsSync(p)) || null;
     }
+  }
+
+  let found = findCloudflared();
+  if (!found) {
+    // 自動安裝
+    console.log('  cloudflared not found, installing...');
+    try {
+      if (process.platform === 'win32') {
+        execCmd('winget install cloudflare.cloudflared --accept-source-agreements --accept-package-agreements', {
+          stdio: 'inherit',
+          windowsHide: true,
+          timeout: 120000,
+        });
+      } else {
+        execCmd('curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared', {
+          stdio: 'inherit',
+          timeout: 120000,
+        });
+      }
+      // 裝完重新偵測
+      found = findCloudflared();
+    } catch (e) {
+      console.error('  auto-install failed:', e.message);
+    }
+  }
+
+  if (found) {
+    cfPath = found;
+    console.log('  cloudflared: ' + cfPath);
+  } else {
+    console.error('  cloudflared install failed, please install manually and re-run setup');
+    rl.close();
+    process.exit(1);
   }
 
   // 6. 建立 credentials file
