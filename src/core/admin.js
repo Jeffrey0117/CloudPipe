@@ -760,6 +760,11 @@ function handleSetupBundle(req, res) {
       serviceToken: config.serviceToken || '',
       tunnelId: config.cloudflared?.tunnelId || '',
       tunnelCredentials,
+      telegram: {
+        ...(config.telegram || {}),
+        polling: false,  // replica 不做 polling
+      },
+      projects: deploy.getAllProjects(),
     };
 
     res.writeHead(200, { 'content-type': 'application/json' });

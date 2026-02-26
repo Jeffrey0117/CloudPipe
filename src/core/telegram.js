@@ -445,9 +445,24 @@ function stopBot() {
   console.log('[Telegram] Bot 已停止');
 }
 
+/**
+ * Notification-only mode: subscribe to deploy events without polling.
+ * Used by replica machines (polling=false) to still send Telegram notifications.
+ */
+function startNotificationsOnly() {
+  const config = getConfig();
+  if (!config.enabled || !config.botToken || !config.chatId) {
+    console.log('[Telegram] Notification-only: missing config, skipping');
+    return;
+  }
+  deploy.events.on('deploy:complete', onDeployComplete);
+  console.log(`[Telegram] Notification-only mode active (chatId: ${config.chatId})`);
+}
+
 module.exports = {
   startBot,
   stopBot,
+  startNotificationsOnly,
   sendMessage,
   getConfig: getConfig,
 };

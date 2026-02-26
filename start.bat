@@ -7,20 +7,23 @@ echo   CloudPipe - Local Deploy Gateway
 echo   ================================
 echo.
 
-echo [1/3] Stopping old instances...
+echo [1/4] Stopping old instances...
 call pm2 delete all >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [2/3] Starting all services with PM2...
-call pm2 start ecosystem.config.js
+echo [2/4] Starting CloudPipe core...
+call pm2 start ecosystem.config.js --only cloudpipe
 if errorlevel 1 (
   echo.
-  echo ERROR: PM2 failed to start services!
+  echo ERROR: PM2 failed to start CloudPipe!
   pause
   exit /b 1
 )
-
 timeout /t 5 /nobreak >nul
+
+echo [3/4] Deploying projects...
+call node scripts/deploy-all.js
+timeout /t 2 /nobreak >nul
 
 echo.
 call pm2 list
@@ -38,10 +41,13 @@ if errorlevel 1 (
 
 echo   All services running!
 echo.
-echo [3/3] Starting tunnel...
+echo [4/4] Starting tunnel...
 echo   Press Ctrl+C to stop tunnel
 echo.
-C:\Users\jeffb\cloudflared.exe tunnel --config cloudflared.yml run cloudpipe
+
+REM Read cloudflared path from config.json dynamically
+FOR /F "delims=" %%i IN ('node -e "console.log(require('./config.json').cloudflared?.path||'cloudflared')"') DO SET CF_CMD=%%i
+"%CF_CMD%" tunnel --config cloudflared.yml run cloudpipe
 
 echo.
 echo Tunnel stopped.

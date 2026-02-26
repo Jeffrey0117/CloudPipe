@@ -77,9 +77,37 @@ async function main() {
     process.exit(1);
   }
 
-  // 5. 問 cloudflared 路徑
-  const defaultCfPath = process.platform === 'win32' ? 'C:\\Program Files\\cloudflared\\cloudflared.exe' : 'cloudflared';
-  const cfPath = (await ask(rl, `cloudflared 路徑 [${defaultCfPath}]: `)).trim() || defaultCfPath;
+  // 5. 自動偵測 cloudflared 路徑
+  const { execSync: execCmd } = require('child_process');
+  let cfPath = 'cloudflared';
+  const candidates = [
+    'C:\\Program Files\\cloudflared\\cloudflared.exe',
+    'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+    path.join(process.env.USERPROFILE || '', 'cloudflared.exe'),
+    path.join(process.env.USERPROFILE || '', '.cloudflared', 'cloudflared.exe'),
+  ];
+
+  // 先用 where（Windows）或 which（Linux/Mac）找 PATH 裡的
+  try {
+    const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
+    cfPath = execCmd(cmd, { windowsHide: true }).toString().trim().split('\n')[0].trim();
+    console.log(`  找到 cloudflared: ${cfPath}`);
+  } catch {
+    // PATH 裡沒有，掃常見位置
+    const found = candidates.find(p => fs.existsSync(p));
+    if (found) {
+      cfPath = found;
+      console.log(`  找到 cloudflared: ${cfPath}`);
+    } else {
+      console.log('  找不到 cloudflared，請手動輸入路徑');
+      cfPath = (await ask(rl, '  cloudflared 路徑: ')).trim();
+      if (!cfPath) {
+        console.error('  需要 cloudflared 才能建立 tunnel');
+        rl.close();
+        process.exit(1);
+      }
+    }
+  }
 
   // 6. 建立 credentials file
   let credentialsFile = '';
@@ -93,7 +121,12 @@ async function main() {
     console.log(`\n  Tunnel credentials 已寫入: ${credentialsFile}`);
   }
 
-  // 7. 建立 config.json
+  // 7. 建立 config.json（telegram polling=false for replica）
+  const telegramConfig = {
+    ...(bundle.telegram || { enabled: false, botToken: '', chatId: '' }),
+    polling: false,  // replica 不做 polling，僅發通知
+  };
+
   const config = {
     domain: bundle.domain,
     port: bundle.port,
@@ -107,7 +140,7 @@ async function main() {
       tunnelId: bundle.tunnelId,
       credentialsFile,
     },
-    telegram: { enabled: false, botToken: '', chatId: '' },
+    telegram: telegramConfig,
   };
 
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -124,10 +157,37 @@ async function main() {
     console.log('  cloudflared.yml 已更新!');
   }
 
+  // 9. 儲存 projects.json（從主機同步專案清單）
+  if (bundle.projects && bundle.projects.length > 0) {
+    const deployDir = path.join(__dirname, 'data', 'deploy');
+    if (!fs.existsSync(deployDir)) {
+      fs.mkdirSync(deployDir, { recursive: true });
+    }
+    const projectsPath = path.join(deployDir, 'projects.json');
+    fs.writeFileSync(projectsPath, JSON.stringify({ projects: bundle.projects }, null, 2));
+    console.log(`  projects.json 已同步! (${bundle.projects.length} 個專案)`);
+
+    // 10. 詢問是否部署全部專案
+    const deployAnswer = (await ask(rl, '\n  要現在部署全部專案嗎？(Y/n): ')).trim().toLowerCase();
+    if (deployAnswer !== 'n' && deployAnswer !== 'no') {
+      console.log('\n  開始部署全部專案...\n');
+      const { execSync: exec } = require('child_process');
+      try {
+        exec('node scripts/deploy-all.js', {
+          cwd: __dirname,
+          stdio: 'inherit',
+          windowsHide: true,
+        });
+      } catch (e) {
+        console.error('  部署過程中有錯誤:', e.message);
+      }
+    }
+  }
+
   console.log('\n  ============================');
   console.log('  設定完成! 啟動方式：');
   console.log('');
-  console.log('    node index.js');
+  console.log('    start.bat');
   console.log('    # 或');
   console.log('    pm2 start ecosystem.config.js');
   console.log('  ============================\n');

@@ -19,6 +19,13 @@
   "telegram": {
     "enabled": false,
     "botToken": "",
+    "chatId": "",
+    "polling": true
+  },
+  "xcard": {
+    "enabled": false,
+    "botPath": "",
+    "botToken": "",
     "chatId": ""
   }
 }

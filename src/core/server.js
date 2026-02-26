@@ -37,8 +37,28 @@ if (!registry.startAll()) {
 // 啟動 GitHub 輪詢（Backup 機制，每 5 分鐘）
 deploy.startPolling(5 * 60 * 1000);
 
-// 啟動 Telegram Bot
-telegram.startBot();
+// 啟動 Telegram Bot（respect polling flag）
+const tgConfig = telegram.getConfig();
+if (tgConfig.polling !== false) {
+  telegram.startBot();
+} else {
+  console.log('[Telegram] polling=false, notification-only mode');
+  telegram.startNotificationsOnly();
+}
+
+// XCard Bot: optional loading from config
+let xcardBot = null;
+const xcardConfig = registry.config?.xcard;
+if (xcardConfig?.enabled && xcardConfig?.botPath) {
+  try {
+    xcardBot = require(xcardConfig.botPath);
+    xcardBot.startBot(xcardConfig);
+  } catch (e) {
+    console.log('[XCard] Bot not found, skipping:', e.message);
+  }
+} else {
+  console.log('[XCard] Not enabled or no botPath, skipping');
+}
 
 // Graceful shutdown
 const shutdown = async () => {
@@ -48,6 +68,7 @@ const shutdown = async () => {
   try {
     deploy.stopPolling();
     telegram.stopBot();
+    if (xcardBot) xcardBot.stopBot();
 
     // 等待伺服器完全關閉（給 3 秒時間）
     registry.stopAll();
