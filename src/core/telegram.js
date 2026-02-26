@@ -131,20 +131,37 @@ function formatUptime(seconds) {
   return `${m}m`;
 }
 
+// ==================== Bot Commands Menu ====================
+
+async function registerCommands() {
+  await apiCall('setMyCommands', {
+    commands: [
+      { command: 'status', description: '狀態總覽（多機 + 部署資訊）' },
+      { command: 'projects', description: '專案列表（點擊直接開啟）' },
+      { command: 'machines', description: '各機器詳細資訊' },
+      { command: 'deploy', description: '觸發部署（需指定專案 ID）' },
+      { command: 'restart', description: '重啟服務（PM2 restart）' },
+      { command: 'help', description: '指令說明' },
+    ],
+  });
+}
+
 // ==================== Command Handlers ====================
 
 async function handleStart(chatId) {
   const text = [
-    '<b>CloudPipe Bot</b>',
+    '🚀 <b>CloudPipe Bot</b>',
     '',
     '快速進入你的所有專案：',
     '',
-    '/projects — 專案列表（點擊直接開啟）',
     '/status — 狀態總覽',
+    '/projects — 專案列表（點擊直接開啟）',
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務',
     '/help — 指令列表',
+    '',
+    '💡 輸入 / 可以看到所有指令選單',
   ].join('\n');
 
   await sendMessage(chatId, text);
@@ -373,6 +390,20 @@ async function handleCallback(callbackQuery) {
     return;
   }
 
+  // Quick action buttons
+  if (data === 'quick:status') {
+    await answerCallback(queryId);
+    return handleStatus(chatId);
+  }
+  if (data === 'quick:projects') {
+    await answerCallback(queryId);
+    return handleProjects(chatId);
+  }
+  if (data === 'quick:machines') {
+    await answerCallback(queryId);
+    return handleMachines(chatId);
+  }
+
   await answerCallback(queryId);
 }
 
@@ -408,7 +439,19 @@ async function handleUpdate(update) {
     case '/help':
       return handleHelp(chatId);
     default:
-      break;
+      // 未知指令或純文字 → 提示
+      if (text.startsWith('/')) {
+        return sendMessage(chatId, `❓ 不認識的指令 <code>${command}</code>\n\n輸入 /help 查看可用指令`);
+      }
+      return sendMessage(chatId, '💡 輸入 / 可以看到指令選單，或試試 /status', {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '📊 狀態', callback_data: 'quick:status' },
+            { text: '📁 專案', callback_data: 'quick:projects' },
+            { text: '🖥 機器', callback_data: 'quick:machines' },
+          ]],
+        },
+      });
   }
 }
 
@@ -511,6 +554,7 @@ async function startWithLeaderElection() {
     console.log('[Telegram] This machine is the bot leader 👑');
     isLeader = true;
     await clearStaleConnections();
+    await registerCommands();
     polling = true;
     poll();
   } else {
@@ -526,6 +570,7 @@ async function startWithLeaderElection() {
     if (!wasLeader && isLeader) {
       console.log('[Telegram] Acquired bot leadership 👑');
       await clearStaleConnections();
+      await registerCommands();
       polling = true;
       poll();
     } else if (wasLeader && !isLeader) {
@@ -593,6 +638,7 @@ async function startBot() {
   }
 
   await clearStaleConnections();
+  await registerCommands();
 
   polling = true;
   poll();
