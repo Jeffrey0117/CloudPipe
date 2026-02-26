@@ -32,7 +32,6 @@ apps/*
 !apps/README.md
 
 # Private/Personal code
-src/core/auth.js
 src/core/workr-client.js
 workr/
 monitor/
