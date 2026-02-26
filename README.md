@@ -5,12 +5,15 @@
 <h1 align="center">CloudPipe</h1>
 
 <p align="center">
-  <strong>Self-Hosted Micro Deploy Platform + Zero-Config CLI</strong><br/>
-  Your own mini Vercel / Railway &mdash; two ways to deploy.
+  <strong>Your own Vercel. On your own machine. Zero vendor lock-in.</strong>
 </p>
 
 <p align="center">
-  <code>Node.js</code>&nbsp;&nbsp;|&nbsp;&nbsp;<code>Cloudflare Tunnel</code>&nbsp;&nbsp;|&nbsp;&nbsp;<code>Zero Config</code>
+  <a href="https://www.npmjs.com/package/@jeffrey0117/cloudpipe"><img src="https://img.shields.io/npm/v/@jeffrey0117/cloudpipe?color=blue" alt="npm" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node 18+" />
+  <img src="https://img.shields.io/badge/MCP_tools-31+-purple" alt="MCP Tools" />
+  <img src="https://img.shields.io/badge/projects_in_production-7-orange" alt="Production" />
 </p>
 
 <p align="center">
@@ -19,307 +22,164 @@
 
 ---
 
-## Three Ways to Deploy
+**CloudPipe** is a self-hosted deployment platform that does what Vercel, Railway, and Coolify do — but runs entirely on your machine, costs $0/month, and gives you full control.
 
-| Method | Use Case | How |
-|--------|----------|-----|
-| **🚀 Git Deploy** | Full apps from GitHub | Connect repo, auto-deploy on push |
-| **🌐 Upload Deploy** | Quick services & static sites | Upload `.js` or `.zip` via dashboard |
-| **⚡ CLI Deploy** | Local development | Command-line tool (like Vercel CLI) |
-
-### Git Deploy (Recommended)
-```
-Connect GitHub repo --> Auto build --> PM2 + Health Check --> Live on subdomain
-```
-
-### Upload Deploy
-```
-Upload a .js file  -->  Get a public API instantly
-Upload a .zip file -->  Get a subdomain website
-```
-
-### CLI Deploy
-```bash
-cd my-nextjs-app
-cloudpipe deploy  # Auto-detects, builds, and deploys
-```
+One Node.js process. Git push to deploy. Telegram notifications. AI-ready MCP server. No Docker required.
 
 ---
 
-## 🌐 CloudPipe Platform
+## Why CloudPipe
 
-No nginx. No SSL. No CI/CD pipeline. Just drop and go.
+| | Vercel / Railway | Coolify | **CloudPipe** |
+|---|---|---|---|
+| Cost | $20+/mo | Free (needs Docker) | **Free (bare metal)** |
+| Docker required | - | Yes | **No** |
+| Deploy method | Git push | Git push | **Git push + CLI + Upload + Telegram + API** |
+| AI integration | None | None | **31+ MCP tools, auto-discovered** |
+| Multi-machine sync | N/A | Manual | **Automatic via Redis** |
+| Mobile deploy | No | No | **Yes (Telegram bot)** |
+| Setup time | 5 min | 30 min | **5 min** |
 
 ---
 
-## Concept
+## What It Can Do
 
-**One `.js` file = One public API**
+### Git Push → Live in Seconds
 
-Upload a JavaScript file to CloudPipe and instantly get a live public API endpoint. No extra server setup, no nginx config, no SSL management.
+Connect a GitHub repo. CloudPipe auto-detects your framework, installs deps, builds, starts with PM2, sets up Cloudflare Tunnel DNS, and health-checks — all automatically.
 
-## Deploy Modes
+```
+git push origin main
+```
 
-| Mode | URL Pattern | Use Case |
-|------|-------------|----------|
-| **Git Deploy** | `xxx.yourdomain.com` | Full-stack apps from GitHub |
-| **API Service** | `api.yourdomain.com/xxx` | APIs, Webhooks, Microservices |
-| **Project Upload** | `xxx.yourdomain.com` | Static pages, quick deploys |
+That's it. Your app is live at `yourapp.yourdomain.com`.
 
-## Git Deploy Engine
+**Auto-detected**: Next.js, Vite, React, Vue, Angular, Express, Fastify, Koa, FastAPI, static sites.
 
-Connect a GitHub repo and CloudPipe handles everything:
+### Deploy From Anywhere
 
-- **Auto-detect** framework (Next.js, Vite, Express, static sites)
-- **npm install** + **build** + **PM2 start**
-- **Health check** to verify the service is live
-- **Cloudflare Tunnel DNS** auto-configured
-- **GitHub Webhook** for deploy-on-push
-- **5-minute polling** as backup
+| Method | How |
+|--------|-----|
+| **Git Push** | GitHub webhook, auto-deploy on push |
+| **CLI** | `cloudpipe deploy` — zero-config, auto-detects everything |
+| **Dashboard** | Web UI with one-click deploy, logs, env management |
+| **Telegram** | `/deploy myapp` from your phone |
+| **API** | Full REST API with JWT auth |
+| **MCP** | AI agents deploy for you via Model Context Protocol |
 
-Deploy via Dashboard, API, CLI, or Telegram Bot.
+### 31+ AI Tools via MCP
+
+CloudPipe ships with a **Model Context Protocol server** that exposes your entire platform to AI agents.
+
+```
+"Deploy my app"          → AI calls deploy_project
+"Show me the logs"       → AI calls get_logs
+"Create a new ad"        → AI calls adman_create_ad
+"Generate flashcards"    → AI calls autocard_generate_content
+```
+
+Tools are **auto-discovered** from your deployed projects. Deploy a FastAPI app with OpenAPI docs? CloudPipe automatically creates MCP tools from your endpoints. Zero config.
+
+### Multi-Machine Sync
+
+Run CloudPipe on 2+ machines. They auto-sync via Redis:
+
+- **Leader election** — only one bot polls GitHub, automatic failover in 30s
+- **Deploy broadcast** — Machine A deploys → Machine B catches up within 30s
+- **Heartbeat monitoring** — 90s TTL, Telegram alert if a machine goes offline
+- **Shared state** — deployment status, process metrics, all synced
+
+### Telegram Bot — Your Deploy Remote Control
+
+Not just notifications. Full control from your phone:
+
+- `/deploy myapp` — trigger deploy with confirmation buttons
+- `/status` — PM2 status across all machines, memory, CPU, uptime
+- `/machines` — which machines are online, how many processes each
+- `/restart myapp` — PM2 restart from the couch
+- `/envtoken` — secure one-time `.env` bundle download
+
+Deploy fails at 3 AM? You'll know. Fix it from bed.
+
+### Hot-Reload API Services
+
+Drop a `.js` file → get a live public API. No restart needed.
+
+```javascript
+// services/hello.js
+module.exports = {
+  match: (req) => req.url.startsWith('/hello'),
+  handle: (req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ message: 'Hello from CloudPipe' }));
+  }
+};
+```
+
+Upload → `https://api.yourdomain.com/hello` is live. Update the file → changes apply instantly. No redeploy.
+
+---
+
+## The Numbers
+
+| Metric | Value |
+|--------|-------|
+| MCP tools | **31+** (7 core + 24 auto-discovered) |
+| Admin API endpoints | **25+** |
+| Telegram commands | **13** |
+| Framework auto-detection | **10+** frameworks |
+| Deploy methods | **6** (git, CLI, upload, Telegram, API, MCP) |
+| Health check retries | **5** with 3s delay |
+| Cross-machine sync | **30 seconds** |
+| GitHub polling backup | **5 minutes** |
+| Setup time | **< 5 minutes** |
+| Monthly cost | **$0** |
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repo
+npm i -g @jeffrey0117/cloudpipe
+```
+
+Or clone and run:
+
+```bash
 git clone https://github.com/Jeffrey0117/CloudPipe.git
-cd CloudPipe
-
-# 2. Install dependencies
-npm install
-
-# 3. Configure (copy example and customize)
-cp config.example.json config.json
-# Edit config.json with your domain, password, etc.
-
-# 4. Start
+cd CloudPipe && npm install
+cp config.example.json config.json  # edit with your domain
 node index.js
-# Or on Windows: start.bat
 ```
 
-Open the Dashboard after startup: `http://localhost:8787/admin`
-
-📖 **Detailed setup guide**: See [SETUP.md](SETUP.md)
-
-## API Services
-
-Inside `handle()`, you can do anything:
-
-- Return JSON data
-- Read/write local files
-- Download remote resources
-- Call external APIs
-- Store data (SQLite, JSONL...)
-- Handle POST / GET / PUT / DELETE
-- Configure CORS
-
-### Basic Structure
-
-```javascript
-// services/my-api.js
-module.exports = {
-  match(req) {
-    return req.url.startsWith('/my-api');
-  },
-
-  handle(req, res) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ hello: 'world' }));
-  }
-};
-```
-
-After upload: `https://api.yourdomain.com/my-api` is live.
-
-### Full Example: Receive and Store Data
-
-```javascript
-// services/collector.js
-const fs = require('fs');
-const path = require('path');
-
-const DATA_FILE = path.join(__dirname, '..', 'data', 'records.jsonl');
-
-module.exports = {
-  match(req) {
-    return req.url.startsWith('/collector');
-  },
-
-  handle(req, res) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    };
-
-    // POST /collector/save
-    if (req.method === 'POST' && req.url === '/collector/save') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => {
-        const data = JSON.parse(body);
-        fs.appendFileSync(DATA_FILE, JSON.stringify(data) + '\n');
-        res.writeHead(200, headers);
-        res.end(JSON.stringify({ ok: true }));
-      });
-      return;
-    }
-
-    // GET /collector/list
-    if (req.method === 'GET' && req.url === '/collector/list') {
-      const content = fs.existsSync(DATA_FILE)
-        ? fs.readFileSync(DATA_FILE, 'utf8')
-        : '';
-      const records = content.trim().split('\n').filter(Boolean).map(JSON.parse);
-      res.writeHead(200, headers);
-      res.end(JSON.stringify(records));
-      return;
-    }
-
-    res.writeHead(404, headers);
-    res.end(JSON.stringify({ error: 'Not found' }));
-  }
-};
-```
-
-## Project Deploy
-
-**Static Website**
-
-```
-apps/blog/
-└── index.html
-```
-
-Access: `https://blog.yourdomain.com`
-
-**Node.js App**
-
-```javascript
-// apps/api/server.js
-module.exports = function(req, res) {
-  res.writeHead(200, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ status: 'ok' }));
-};
-```
-
-Access: `https://api.yourdomain.com`
-
-## Directory Structure
-
-```
-cloudpipe/
-├── index.js              # Entry point
-├── config.json           # Configuration
-├── config.example.json   # Config template
-├── cloudflared.yml       # Tunnel ingress rules
-├── start.bat             # Windows quick start
-├── ecosystem.config.js   # PM2 config
-│
-├── src/core/             # Core modules
-│   ├── server.js         # Startup orchestrator
-│   ├── router.js         # HTTP router (subdomain + path)
-│   ├── deploy.js         # Git deploy engine
-│   ├── admin.js          # Admin API
-│   ├── telegram.js       # Telegram bot
-│   └── auth.js           # JWT authentication
-│
-├── services/             # API services (upload .js)
-├── projects/             # Git-deployed projects
-├── apps/                 # Uploaded projects (.zip)
-├── data/                 # Deploy records & project data
-└── public/               # Dashboard + docs frontend
-```
-
-## Configuration
-
-Copy `config.example.json` to `config.json` and customize:
-
-```json
-{
-  "domain": "yourdomain.com",
-  "port": 8787,
-  "subdomain": "api",
-  "adminPassword": "your-secure-password",
-  "jwtSecret": "random-secret-string",
-  "cloudflared": {
-    "path": "cloudflared",
-    "tunnelId": "your-tunnel-id"
-  },
-  "telegram": {
-    "enabled": false,
-    "botToken": "",
-    "chatId": ""
-  }
-}
-```
-
-## Telegram Bot
-
-Optional Telegram bot for quick project access and deploy management.
-
-**Commands:**
-- `/projects` — Inline keyboard with clickable links to all projects
-- `/status` — PM2 status overview for each project
-- `/deploy <id>` — Trigger a deploy from your phone
-- Auto-notification on deploy success/failure
-
-**Setup:** Create a bot via [@BotFather](https://t.me/BotFather), get your Chat ID, fill in `config.json` or the Admin Settings page.
+Dashboard opens at `http://localhost:8787/admin`.
 
 ---
 
-## ⚡ CloudPipe CLI
+## Architecture
 
-A powerful command-line tool for deploying full-stack applications with **zero configuration**.
-
-### Features
-
-- **🔍 Auto-detection**: Automatically detects Next.js, Vite, React, Vue, Express, Fastify, Koa, and more
-- **⚡ Hot-reload**: Watch mode for automatic rebuilds and restarts during development
-- **🌐 Public URLs**: Automatic Cloudflare Tunnel creation for instant public access
-- **📦 PM2 Management**: Reliable process management and monitoring
-- **🔐 Environment Variables**: Secure management of secrets and configuration
-- **📊 Deployment History**: Track all deployments with detailed logs
-
-### Quick Start
-
-```bash
-# Install globally
-npm install -g cloudpipe
-
-# Deploy any project instantly (auto-detects everything)
-cd my-nextjs-app
-cloudpipe deploy
-
-# Deploy with hot-reload for development
-cloudpipe deploy --watch
-
-# Deploy with custom name and port
-cloudpipe deploy --name my-api --port 4000
 ```
-
-### Available Commands
-
-```bash
-cloudpipe init              # Scan and generate config
-cloudpipe deploy [path]     # Deploy project
-cloudpipe list              # List all deployments
-cloudpipe logs <name>       # View logs
-cloudpipe stop <name>       # Stop service
-cloudpipe remove <name>     # Remove deployment
-cloudpipe env set KEY=value # Manage environment variables
-cloudpipe history           # View deployment history
+cloudpipe/
+├── src/core/
+│   ├── server.js        # Startup orchestrator
+│   ├── router.js        # Subdomain + path routing
+│   ├── deploy.js        # Git deploy engine (the brain)
+│   ├── admin.js         # 25+ REST API endpoints
+│   ├── telegram.js      # Multi-machine Telegram bot
+│   ├── heartbeat.js     # Cross-machine monitoring
+│   ├── redis.js         # Multi-machine sync layer
+│   └── auth.js          # JWT authentication
+├── mcp/                 # MCP server with auto-discovery
+├── sdk/                 # JavaScript SDK
+├── bin/                 # CLI entry point
+└── services/            # Hot-reload API services
 ```
-
-### Supported Frameworks
-
-✅ Next.js • Vite • Create React App • Vue • Angular
-✅ Express • Fastify • Koa • Static HTML
-
-[📖 Full CLI Documentation](docs/CLI.md)
 
 ---
 
 ## License
 
 MIT
+
+</content>
+</invoke>

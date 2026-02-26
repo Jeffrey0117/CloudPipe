@@ -1,12 +1,29 @@
 {
-  "name": "cloudpipe",
-  "version": "1.0.0",
+  "name": "@jeffrey0117/cloudpipe",
+  "version": "1.0.1",
   "description": "Zero-config deployment tool for full-stack apps",
   "main": "index.js",
   "bin": {
     "cloudpipe": "./bin/cloudpipe.js"
   },
   "type": "commonjs",
+  "files": [
+    "bin/",
+    "src/",
+    "mcp/*.js",
+    "mcp/package.json",
+    "sdk/",
+    "index.js",
+    "config.example.json"
+  ],
+  "keywords": ["deploy", "self-hosted", "zero-config", "pm2", "telegram", "mcp"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jeffrey0117/CloudPipe"
+  },
+  "homepage": "https://github.com/Jeffrey0117/CloudPipe",
+  "license": "MIT",
+  "author": "Jeffrey0117",
   "scripts": {
     "start": "node index.js",
     "tunnel": "node tunnel.js"

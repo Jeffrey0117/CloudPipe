@@ -8,6 +8,7 @@ logs/
 
 # Tunnels
 tunnels/*.yml
+cloudflared.yml
 
 # Environment
 .env
