@@ -141,6 +141,7 @@ async function registerCommands() {
       { command: 'machines', description: '各機器詳細資訊' },
       { command: 'deploy', description: '觸發部署（需指定專案 ID）' },
       { command: 'restart', description: '重啟服務（PM2 restart）' },
+      { command: 'envtoken', description: '生成 .env 下載 token（給新機器用）' },
       { command: 'help', description: '指令說明' },
     ],
   });
@@ -159,6 +160,7 @@ async function handleStart(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務',
+    '/envtoken — 生成 .env token（新機器用）',
     '/help — 指令列表',
     '',
     '💡 輸入 / 可以看到所有指令選單',
@@ -329,6 +331,42 @@ async function handleDeploy(chatId, projectId) {
   });
 }
 
+async function handleEnvToken(chatId) {
+  const redis = require('./redis').getClient();
+  if (!redis) {
+    return sendMessage(chatId, '❌ Redis 未設定，無法生成 token');
+  }
+
+  try {
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const key = `cloudpipe:envtoken:${token}`;
+    await redis.set(key, 'valid', 'EX', 300);
+
+    const config = JSON.parse(require('fs').readFileSync(
+      require('path').join(__dirname, '../../config.json'), 'utf8'
+    ));
+    const domain = config.domain || 'localhost';
+    const subdomain = config.subdomain || 'epi';
+
+    const text = [
+      '🔑 <b>.env 下載 Token 已生成</b>',
+      '',
+      `<b>5 分鐘內有效，用一次就作廢</b>`,
+      '',
+      'B 電腦執行：',
+      `<code>node setup-env.js ${token}</code>`,
+      '',
+      '或直接開連結：',
+      `<code>https://${subdomain}.${domain}/api/_admin/env-bundle/download?token=${token}</code>`,
+    ].join('\n');
+
+    await sendMessage(chatId, text);
+  } catch (err) {
+    await sendMessage(chatId, `❌ 生成失敗: ${err.message}`);
+  }
+}
+
 async function handleHelp(chatId) {
   const text = [
     '<b>CloudPipe Bot 指令</b>',
@@ -338,6 +376,7 @@ async function handleHelp(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務（PM2 restart）',
+    '/envtoken — 生成 .env token（給新機器）',
     '/help — 顯示此說明',
   ].join('\n');
 
@@ -436,6 +475,8 @@ async function handleUpdate(update) {
       return handleDeploy(chatId, args[0]);
     case '/restart':
       return handleRestart(chatId, args[0]);
+    case '/envtoken':
+      return handleEnvToken(chatId);
     case '/help':
       return handleHelp(chatId);
     default:
