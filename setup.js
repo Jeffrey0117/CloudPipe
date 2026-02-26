@@ -90,22 +90,22 @@ async function main() {
   // 先用 where（Windows）或 which（Linux/Mac）找 PATH 裡的
   try {
     const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
-    cfPath = execCmd(cmd, { windowsHide: true }).toString().trim().split('\n')[0].trim();
-    console.log(`  找到 cloudflared: ${cfPath}`);
+    cfPath = execCmd(cmd, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim().split('\n')[0].trim();
+    console.log('  cloudflared: ' + cfPath);
   } catch {
     // PATH 裡沒有，掃常見位置
     const found = candidates.find(p => fs.existsSync(p));
     if (found) {
       cfPath = found;
-      console.log(`  找到 cloudflared: ${cfPath}`);
+      console.log('  cloudflared: ' + cfPath);
     } else {
-      console.log('  找不到 cloudflared，請手動輸入路徑');
-      cfPath = (await ask(rl, '  cloudflared 路徑: ')).trim();
-      if (!cfPath) {
-        console.error('  需要 cloudflared 才能建立 tunnel');
-        rl.close();
-        process.exit(1);
-      }
+      cfPath = 'cloudflared';
+      console.log('');
+      console.log('  [!] cloudflared not found');
+      console.log('  [!] Install: winget install cloudflare.cloudflared');
+      console.log('  [!] Or download: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/');
+      console.log('  [!] Install it before running start.bat');
+      console.log('');
     }
   }
 
