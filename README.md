@@ -55,9 +55,45 @@ You get the convenience of a managed platform with the freedom of self-hosting.
 
 ---
 
-## The Full Picture: ClaudeBot + CloudPipe
+## The Ecosystem: From New Machine to Production
 
-Pair CloudPipe with [ClaudeBot](https://github.com/Jeffrey0117/ClaudeBot) and your entire dev workflow lives in Telegram:
+CloudPipe is part of a stack that covers your entire developer lifecycle. Each tool eliminates one layer of friction:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│   DevUp          New machine? One command.              │
+│   ↓              Every tool installed, every repo       │
+│                  cloned, every dependency resolved.     │
+│                                                         │
+│   ZeroSetup      Your project has 20 setup steps?       │
+│   ↓              Now it has one: double-click setup.bat │
+│                                                         │
+│   ClaudeBot      Write code from your phone.            │
+│   ↓              AI edits your codebase, pushes to Git. │
+│                                                         │
+│   CloudPipe      Deploys automatically.                 │
+│                  Notifies you. You manage from chat.    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Tool | What It Kills | Repo |
+|------|--------------|------|
+| [**DevUp**](https://github.com/Jeffrey0117/DevUp) | "Setting up a new machine takes a whole day" | One command rebuilds your entire workspace |
+| [**ZeroSetup**](https://github.com/Jeffrey0117/ZeroSetup) | "Read the README, install Python, configure PATH..." | `git clone` → double-click → running |
+| [**ClaudeBot**](https://github.com/Jeffrey0117/ClaudeBot) | "I need my laptop to code" | AI writes code from Telegram, voice-to-code, live streaming |
+| [**CloudPipe**](https://github.com/Jeffrey0117/CloudPipe) | "Deploying is complicated and expensive" | Git push → live. Manage from your phone. $0. |
+
+**New machine → workspace ready → code from phone → deploy automatically → manage from chat.**
+
+Zero friction at every step.
+
+---
+
+## ClaudeBot + CloudPipe
+
+Pair them and your entire dev workflow lives in Telegram:
 
 ```
 You:        "Build me a URL shortener with analytics"
@@ -80,7 +116,7 @@ CloudPipe:  "Restarted. Health check passed."
 
 ---
 
-## What Makes It Ridiculous
+## What Makes CloudPipe Ridiculous
 
 ### 6 Ways to Deploy
 

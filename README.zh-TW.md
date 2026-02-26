@@ -55,9 +55,45 @@
 
 ---
 
-## 完整場景：ClaudeBot + CloudPipe
+## 生態系：從新電腦到上線
 
-把 CloudPipe 搭配 [ClaudeBot](https://github.com/Jeffrey0117/ClaudeBot)，你的整個開發流程都在 Telegram 裡：
+CloudPipe 是一個完整工具鏈的一部分。每個工具消除一層摩擦：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│   DevUp          新電腦？一個指令。                       │
+│   ↓              所有工具裝好、所有 repo clone 好、       │
+│                  所有依賴裝好。                           │
+│                                                         │
+│   ZeroSetup      你的專案有 20 個安裝步驟？               │
+│   ↓              現在只有一個：雙擊 setup.bat             │
+│                                                         │
+│   ClaudeBot      在手機上寫程式。                         │
+│   ↓              AI 改你的程式碼，push 到 Git。           │
+│                                                         │
+│   CloudPipe      自動部署。                               │
+│                  通知你。你在聊天裡管理一切。               │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+| 工具 | 消滅什麼痛點 | Repo |
+|------|-------------|------|
+| [**DevUp**](https://github.com/Jeffrey0117/DevUp) | 「設定新電腦要搞一整天」 | 一個指令重建你的整個工作環境 |
+| [**ZeroSetup**](https://github.com/Jeffrey0117/ZeroSetup) | 「看 README、裝 Python、設 PATH...」 | `git clone` → 雙擊 → 跑起來 |
+| [**ClaudeBot**](https://github.com/Jeffrey0117/ClaudeBot) | 「我要帶筆電才能寫程式」 | AI 在 Telegram 寫程式、語音轉程式碼、即時串流 |
+| [**CloudPipe**](https://github.com/Jeffrey0117/CloudPipe) | 「部署很複雜又很貴」 | Git push → 上線。手機管理。$0。 |
+
+**新電腦 → 環境就緒 → 手機寫程式 → 自動部署 → 聊天裡管理。**
+
+每一步都零摩擦。
+
+---
+
+## ClaudeBot + CloudPipe
+
+搭在一起，你的整個開發流程都在 Telegram 裡：
 
 ```
 你：         「幫我做一個短網址服務，要有點擊分析」
