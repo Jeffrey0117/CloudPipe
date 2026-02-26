@@ -5,7 +5,7 @@
 <h1 align="center">CloudPipe</h1>
 
 <p align="center">
-  <strong>你自己的 Vercel。跑在你自己的機器上。零廠商綁定。</strong>
+  <strong>你自己的 Vercel。跑在你自己的機器。手機上就能部署。</strong>
 </p>
 
 <p align="center">
@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node 18+" />
   <img src="https://img.shields.io/badge/MCP_tools-31+-purple" alt="MCP Tools" />
-  <img src="https://img.shields.io/badge/projects_in_production-7-orange" alt="Production" />
 </p>
 
 <p align="center">
@@ -22,118 +21,135 @@
 
 ---
 
-**CloudPipe** 是一個自架部署平台，做的事跟 Vercel、Railway、Coolify 一樣 — 但跑在你自己的機器上，每月 $0，完全掌控。
+## 想像一下
 
-一個 Node.js process。Git push 就部署。Telegram 即時通知。AI 原生 MCP server。不需要 Docker。
+你在公車上，突然有個 side project 的靈感。
+
+打開 Telegram，跟 [ClaudeBot](https://github.com/Jeffrey0117/ClaudeBot) 說要寫什麼。它寫好程式碼、push 到 GitHub。CloudPipe 偵測到，自動 build、部署，然後傳訊息給你：
+
+> **部署成功。** `myapp.yourdomain.com` 已上線。32 秒。
+
+你還沒下車，app 就已經在線上了。
+
+凌晨三點掛了？CloudPipe 通知你的手機。你打 `/restart myapp`。修好了。繼續睡。
+
+想加新功能？跟 AI 說。它呼叫 CloudPipe 的 MCP 工具，部署更新，完成後通知你。你從頭到尾沒打開過終端機。
+
+**這就是 CloudPipe。** 一個自架部署平台，把你的機器變成 Vercel — 差別在你擁有它、不花錢、而且用 Telegram 就能控制一切。
 
 ---
 
-## 為什麼選 CloudPipe
+## 為什麼不用 Vercel 就好？
 
-| | Vercel / Railway | Coolify | **CloudPipe** |
+| | Vercel / Railway | Zeabur | **CloudPipe** |
 |---|---|---|---|
-| 費用 | $20+/月 | 免費（需要 Docker） | **免費（裸機直跑）** |
-| 需要 Docker | - | 要 | **不用** |
-| 部署方式 | Git push | Git push | **Git push + CLI + 上傳 + Telegram + API** |
-| AI 整合 | 無 | 無 | **31+ MCP 工具，自動發現** |
-| 多機同步 | N/A | 手動 | **Redis 自動同步** |
-| 手機部署 | 不行 | 不行 | **可以（Telegram bot）** |
-| 架設時間 | 5 分鐘 | 30 分鐘 | **5 分鐘** |
+| 費用 | $20+/月 | 按量計費 | **$0（你的機器）** |
+| 你擁有一切 | 不是 | 不是 | **是** |
+| 手機上部署 | 不行 | 不行 | **可以（Telegram bot）** |
+| AI 幫你部署 | 不行 | 不行 | **可以（31+ MCP 工具）** |
+| 多機同步 | N/A | N/A | **Redis 自動同步** |
+| Bot 通知 | 不行 | 不行 | **成功、失敗、掛掉都通知** |
+| 聊天裡管理 | 不行 | 不行 | **部署、重啟、看 log、管環境變數** |
+
+你得到的是託管平台的方便，加上自架的自由。
 
 ---
 
-## 能做什麼
+## 完整場景：ClaudeBot + CloudPipe
 
-### Git Push → 秒級上線
-
-接上 GitHub repo，CloudPipe 自動偵測框架、安裝依賴、build、PM2 啟動、設定 Cloudflare Tunnel DNS、健康檢查 — 全自動。
+把 CloudPipe 搭配 [ClaudeBot](https://github.com/Jeffrey0117/ClaudeBot)，你的整個開發流程都在 Telegram 裡：
 
 ```
-git push origin main
+你：         「幫我做一個短網址服務，要有點擊分析」
+ClaudeBot：  寫好程式碼，push 到 GitHub
+CloudPipe：  偵測到 push，build，部署
+CloudPipe：  「部署成功。short.yourdomain.com 已上線。」
+
+你：         「加一個按國家統計點擊的功能」
+ClaudeBot：  更新程式碼，push
+CloudPipe：  「部署成功。28 秒。」
+
+你：         /status
+CloudPipe：  「3 個專案運行中。全部健康。」
+
+你：         /restart short
+CloudPipe：  「已重啟。健康檢查通過。」
 ```
 
-就這樣。你的 app 已經在 `yourapp.yourdomain.com` 上線了。
+**從靈感到上線。在手機上。不用打開筆電。**
 
-**自動偵測**：Next.js、Vite、React、Vue、Angular、Express、Fastify、Koa、FastAPI、靜態網站。
+---
 
-### 從任何地方部署
+## 憑什麼這麼屌
+
+### 6 種部署方式
+
+沒有其他自架平台能做到：
 
 | 方式 | 怎麼用 |
 |------|--------|
-| **Git Push** | GitHub webhook，push 就自動部署 |
-| **CLI** | `cloudpipe deploy` — 零設定，自動偵測一切 |
-| **Dashboard** | Web 後台，一鍵部署、看 log、管環境變數 |
-| **Telegram** | `/deploy myapp` 手機上直接部署 |
-| **API** | 完整 REST API，JWT 認證 |
-| **MCP** | AI agent 幫你部署，透過 Model Context Protocol |
+| **Git Push** | push 到 GitHub，webhook 自動部署 |
+| **CLI** | `cloudpipe deploy` — 自動偵測一切 |
+| **Dashboard** | Web 後台一鍵部署 |
+| **Telegram** | `/deploy myapp` 手機上部署 |
+| **REST API** | `POST /api/_admin/deploy`，JWT 認證 |
+| **AI Agent** | AI 呼叫 MCP 工具幫你部署 |
 
-### 31+ AI 工具 via MCP
+### AI 原生：31+ MCP 工具
 
-CloudPipe 內建 **Model Context Protocol server**，把整個平台開放給 AI agent 操作。
+CloudPipe 內建 **Model Context Protocol server**。任何 AI agent（Claude、GPT、本地模型）都能管理你的整個基礎設施：
 
 ```
-「部署我的 app」        → AI 呼叫 deploy_project
-「給我看 log」         → AI 呼叫 get_logs
-「建一個新廣告」        → AI 呼叫 adman_create_ad
-「產生單字卡」          → AI 呼叫 autocard_generate_content
+「部署我的專案」              → deploy_project
+「給我看 myapp 的 log」      → get_logs
+「建一個新的廣告活動」        → adman_create_ad
+「產生學習單字卡」            → autocard_generate_content
+「列出所有使用者」            → letmeuse_list_users
 ```
 
-工具**自動發現**。部署一個有 OpenAPI docs 的 FastAPI app？CloudPipe 自動從你的 endpoint 產生 MCP 工具。零設定。
+最屌的是：工具是**自動發現**的。部署一個有 OpenAPI docs 的 FastAPI 服務？CloudPipe 自動從每個 endpoint 產生 MCP 工具。零設定。
 
-### 多機同步
+### Telegram Bot — 不只是通知
 
-在 2 台以上機器跑 CloudPipe，透過 Redis 自動同步：
+部署、重啟、監控、管理 — 全部在聊天裡：
 
-- **Leader 選舉** — 只有一台 bot 輪詢 GitHub，30 秒內自動 failover
-- **部署廣播** — A 機器部署 → B 機器 30 秒內自動同步
-- **心跳監控** — 90 秒 TTL，機器離線立刻 Telegram 通知
-- **共享狀態** — 部署狀態、process 指標，全部同步
+- `/deploy myapp` — 部署，有確認按鈕
+- `/restart myapp` — 在任何地方 PM2 重啟
+- `/status` — 所有專案的記憶體、CPU、uptime
+- `/machines` — 多機器總覽
+- `/envtoken` — 安全的一次性 `.env` 下載
 
-### Telegram Bot — 你的部署遙控器
+部署失敗？你收到錯誤通知。部署成功？你收到 URL 和耗時。機器離線？即時警報。
 
-不只是通知，是完整的控制：
+### 多機器自動同步
 
-- `/deploy myapp` — 觸發部署，有確認按鈕
-- `/status` — 所有機器的 PM2 狀態、記憶體、CPU、uptime
-- `/machines` — 哪些機器在線、各跑幾個 process
-- `/restart myapp` — 躺在沙發上重啟服務
-- `/envtoken` — 安全的一次性 `.env` 打包下載
+在多台機器跑 CloudPipe，自動協調：
 
-凌晨三點部署掛了？你會收到通知。在床上修好它。
+- A 機器部署 → B 機器 **30 秒**內同步
+- 只有一台 bot 輪詢 GitHub（**leader 選舉** + 自動 failover）
+- 機器掛掉 → **90 秒**內 Telegram 通知
+- 所有狀態透過 Redis 共享 — 零手動設定
 
-### 熱載入 API 服務
+### 熱載入 API
 
-丟一個 `.js` 檔 → 即時獲得公網 API。不用重啟。
+丟一個 `.js` 檔，直接變公網 API。不用重啟、不用重新部署：
 
 ```javascript
 // services/hello.js
 module.exports = {
   match: (req) => req.url.startsWith('/hello'),
   handle: (req, res) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ message: 'Hello from CloudPipe' }));
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ message: 'Hello from CloudPipe' }))
   }
-};
+}
 ```
 
-上傳 → `https://api.yourdomain.com/hello` 立即可用。改檔案 → 即時生效。不用重新部署。
+上傳 → `https://api.yourdomain.com/hello` 即時上線。
 
----
+### 自動偵測所有框架
 
-## 數字說話
-
-| 指標 | 數值 |
-|------|------|
-| MCP 工具 | **31+**（7 核心 + 24 自動發現）|
-| Admin API 端點 | **25+** |
-| Telegram 指令 | **13** |
-| 框架自動偵測 | **10+** 種框架 |
-| 部署方式 | **6 種**（git、CLI、上傳、Telegram、API、MCP）|
-| 健康檢查重試 | **5 次**，間隔 3 秒 |
-| 跨機器同步 | **30 秒** |
-| GitHub 輪詢備援 | **5 分鐘** |
-| 架設時間 | **< 5 分鐘** |
-| 每月費用 | **$0** |
+Next.js、Vite、React、Vue、Angular、Express、Fastify、Koa、FastAPI、靜態網站 — CloudPipe 自己判斷你跑什麼，裝依賴、build、用 PM2 啟動。你什麼都不用設定。
 
 ---
 
@@ -143,37 +159,29 @@ module.exports = {
 npm i -g @jeffrey0117/cloudpipe
 ```
 
-或 clone 直接跑：
+或 clone：
 
 ```bash
 git clone https://github.com/Jeffrey0117/CloudPipe.git
 cd CloudPipe && npm install
-cp config.example.json config.json  # 填入你的 domain
+cp config.example.json config.json
 node index.js
 ```
 
-Dashboard 開在 `http://localhost:8787/admin`。
+Dashboard 在 `http://localhost:8787/admin`。
 
 ---
 
-## 架構
+## 數字說話
 
-```
-cloudpipe/
-├── src/core/
-│   ├── server.js        # 啟動協調器
-│   ├── router.js        # 子網域 + 路徑路由
-│   ├── deploy.js        # Git 部署引擎（大腦）
-│   ├── admin.js         # 25+ REST API 端點
-│   ├── telegram.js      # 多機器 Telegram bot
-│   ├── heartbeat.js     # 跨機器監控
-│   ├── redis.js         # 多機器同步層
-│   └── auth.js          # JWT 認證
-├── mcp/                 # MCP server + 自動發現
-├── sdk/                 # JavaScript SDK
-├── bin/                 # CLI 入口
-└── services/            # 熱載入 API 服務
-```
+| | |
+|---|---|
+| MCP 工具 | **31+**（從你的 app 自動發現）|
+| 部署方式 | **6 種** |
+| 框架偵測 | **10+** 種 |
+| Admin API 端點 | **25+** |
+| 跨機器同步 | **30 秒** |
+| 每月費用 | **$0** |
 
 ---
 
