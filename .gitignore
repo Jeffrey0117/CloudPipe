@@ -23,6 +23,7 @@ data/
 # Services (keep only examples)
 services/*
 !services/_example.js
+!services/monitor.js
 !services/.gitkeep
 
 # Apps (user-specific projects)

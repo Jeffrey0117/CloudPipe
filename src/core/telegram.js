@@ -18,6 +18,7 @@ const API_BASE = 'https://api.telegram.org/bot';
 
 let polling = false;
 let pollTimeout = null;
+let pollInFlight = false;
 let lastUpdateId = 0;
 
 // ==================== Config ====================
@@ -321,8 +322,21 @@ async function handleUpdate(update) {
 
 // ==================== Long Polling ====================
 
+async function clearStaleConnections() {
+  try {
+    await apiCall('deleteWebhook', { drop_pending_updates: false });
+    const flush = await apiCall('getUpdates', { offset: -1, timeout: 0 });
+    if (flush?.result?.length > 0) {
+      lastUpdateId = flush.result[flush.result.length - 1].update_id;
+    }
+    console.log('[Telegram] Cleared stale connections');
+  } catch (err) {
+    console.error('[Telegram] clearStaleConnections error:', err.message);
+  }
+}
+
 async function poll() {
-  if (!polling) return;
+  if (!polling || pollInFlight) return;
 
   const { botToken } = getConfig();
   if (!botToken) {
@@ -330,13 +344,18 @@ async function poll() {
     return;
   }
 
+  pollInFlight = true;
+  let nextDelay = 1000;
+
   try {
     const data = await apiCall('getUpdates', {
       offset: lastUpdateId + 1,
       timeout: 30,
     });
 
-    if (data?.result?.length > 0) {
+    if (!data) {
+      nextDelay = 5000;
+    } else if (data.result?.length > 0) {
       for (const update of data.result) {
         lastUpdateId = update.update_id;
         handleUpdate(update).catch((err) => {
@@ -346,10 +365,13 @@ async function poll() {
     }
   } catch (err) {
     console.error('[Telegram] Poll error:', err.message);
+    nextDelay = 5000;
+  } finally {
+    pollInFlight = false;
   }
 
   if (polling) {
-    pollTimeout = setTimeout(poll, 1000);
+    pollTimeout = setTimeout(poll, nextDelay);
   }
 }
 
@@ -383,7 +405,7 @@ function onDeployComplete({ project, deployment }) {
 
 // ==================== Lifecycle ====================
 
-function startBot() {
+async function startBot() {
   const config = getConfig();
 
   if (!config.enabled) {
@@ -401,6 +423,8 @@ function startBot() {
     return;
   }
 
+  await clearStaleConnections();
+
   polling = true;
   poll();
 
@@ -412,6 +436,7 @@ function startBot() {
 
 function stopBot() {
   polling = false;
+  pollInFlight = false;
   if (pollTimeout) {
     clearTimeout(pollTimeout);
     pollTimeout = null;
@@ -423,4 +448,6 @@ function stopBot() {
 module.exports = {
   startBot,
   stopBot,
+  sendMessage,
+  getConfig: getConfig,
 };
