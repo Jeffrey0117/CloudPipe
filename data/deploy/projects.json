@@ -100,10 +100,10 @@
       "buildCommand": "npm run build",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-02-13T00:00:00.000Z",
-      "lastDeployAt": "2026-02-26T08:26:34.822Z",
+      "lastDeployAt": "2026-02-26T18:59:19.296Z",
       "lastDeployStatus": "success",
-      "lastDeployCommit": "21e69f7",
-      "runningCommit": "21e69f7",
+      "lastDeployCommit": "96ea66c",
+      "runningCommit": "96ea66c",
       "webhookId": 595985399
     },
     {
@@ -132,7 +132,7 @@
       "name": "upimg",
       "description": "Image hosting service (duk.tw)",
       "deployMethod": "github",
-      "repoUrl": "https://github.com/Jeffrey0117/upimg-nextjs",
+      "repoUrl": "https://github.com/Jeffrey0117/Imgup.git",
       "branch": "main",
       "directory": "projects/upimg",
       "entryFile": "index.js",
@@ -141,7 +141,10 @@
       "webhookSecret": "",
       "envFile": "",
       "buildCommand": "npm run build",
-      "customDomains": ["duk.tw", "*.duk.tw"],
+      "customDomains": [
+        "duk.tw",
+        "*.duk.tw"
+      ],
       "healthEndpoint": "/",
       "createdAt": "2026-02-26T00:00:00.000Z",
       "lastDeployAt": null,
