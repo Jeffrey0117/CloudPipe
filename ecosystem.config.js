@@ -60,10 +60,10 @@ module.exports = {
       }
     },
 
-    // ── Adman ── port 4003
+    // ── Adman ── port 4003 (Next.js)
     {
       name: 'adman',
-      script: 'node_modules/.bin/next',
+      script: 'node_modules/next/dist/bin/next',
       args: 'start -p 4003',
       cwd: './projects/adman',
       autorestart: true,
@@ -76,6 +76,61 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 4003
+      }
+    },
+
+    // ── AutoCard ── port 4004
+    {
+      name: 'autocard',
+      script: './server.js',
+      cwd: './projects/autocard',
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '5s',
+      error_file: '../../logs/autocard-error.log',
+      out_file: '../../logs/autocard-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4004
+      }
+    },
+
+    // ── ReelScript ── port 4005 (ESM, spawns Python FastAPI backend)
+    {
+      name: 'reelscript',
+      script: './server.js',
+      cwd: './projects/reelscript',
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '10s',
+      error_file: '../../logs/reelscript-error.log',
+      out_file: '../../logs/reelscript-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4005
+      }
+    },
+
+    // ── LetMeUse ── port 4006 (Next.js)
+    {
+      name: 'letmeuse',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 4006',
+      cwd: './projects/letmeuse',
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '5s',
+      error_file: '../../logs/letmeuse-error.log',
+      out_file: '../../logs/letmeuse-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4006
       }
     }
   ]
