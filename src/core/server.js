@@ -7,6 +7,8 @@ const path = require('path');
 const ServiceRegistry = require('./registry');
 const deploy = require('./deploy');
 const telegram = require('./telegram');
+const heartbeat = require('./heartbeat');
+const redis = require('./redis');
 
 // 專案根目錄
 const rootDir = path.join(__dirname, '..', '..');
@@ -34,12 +36,18 @@ if (!registry.startAll()) {
   process.exit(1);
 }
 
-// 啟動 GitHub 輪詢（Backup 機制，每 5 分鐘）
+// 啟動 Heartbeat（多機監控）
+heartbeat.startHeartbeat();
+
+// 啟動 GitHub 輪詢 + Redis sync（每 5 分鐘 GitHub / 每 30 秒 Redis）
 deploy.startPolling(5 * 60 * 1000);
 
-// 啟動 Telegram Bot（respect polling flag）
+// 啟動 Telegram Bot（有 Redis → leader election / 沒有 → 看 config）
+const redisClient = redis.getClient();
 const tgConfig = telegram.getConfig();
-if (tgConfig.polling !== false) {
+if (redisClient && tgConfig.enabled) {
+  telegram.startWithLeaderElection();
+} else if (tgConfig.polling !== false) {
   telegram.startBot();
 } else {
   console.log('[Telegram] polling=false, notification-only mode');
@@ -66,6 +74,7 @@ const shutdown = async () => {
   console.log('[*] Shutting down...');
 
   try {
+    await heartbeat.stopHeartbeat();
     deploy.stopPolling();
     telegram.stopBot();
     if (xcardBot) xcardBot.stopBot();
@@ -73,6 +82,7 @@ const shutdown = async () => {
     // 等待伺服器完全關閉（給 3 秒時間）
     registry.stopAll();
 
+    await redis.shutdown();
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     console.log('[*] Shutdown complete');

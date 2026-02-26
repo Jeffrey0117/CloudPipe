@@ -3,8 +3,11 @@
  *
  * 功能：
  * - /projects — 列出所有專案（inline keyboard 直接開啟）
- * - /status — 專案狀態總覽
+ * - /status — 多機狀態總覽（有 Redis）/ 本機狀態（無 Redis）
+ * - /machines — 各機器詳細資訊
  * - /deploy <id> — 觸發部署（需確認）
+ * - /restart <id> — 重啟服務
+ * - Leader Election — 多台機器自動選出一台跑 polling
  * - 部署完成自動通知
  */
 
@@ -20,6 +23,12 @@ let polling = false;
 let pollTimeout = null;
 let pollInFlight = false;
 let lastUpdateId = 0;
+
+// Leader election state
+const LEADER_KEY = 'cloudpipe:telegram:leader';
+const LEADER_TTL = 60;
+let leaderInterval = null;
+let isLeader = false;
 
 // ==================== Config ====================
 
@@ -111,6 +120,17 @@ function getPm2Status() {
   }
 }
 
+// ==================== Utility ====================
+
+function formatUptime(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 // ==================== Command Handlers ====================
 
 async function handleStart(chatId) {
@@ -121,6 +141,7 @@ async function handleStart(chatId) {
     '',
     '/projects — 專案列表（點擊直接開啟）',
     '/status — 狀態總覽',
+    '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務',
     '/help — 指令列表',
@@ -142,7 +163,6 @@ async function handleProjects(chatId) {
     url: `https://${p.id}.${domain}`,
   }]));
 
-  // Admin dashboard as last button
   keyboard.push([{
     text: 'CloudPipe Admin',
     url: `https://epi.${domain}/_admin`,
@@ -155,26 +175,95 @@ async function handleProjects(chatId) {
 
 async function handleStatus(chatId) {
   const projects = deploy.getAllProjects();
-  const pm2Status = getPm2Status();
   const domain = getDomain();
 
-  if (projects.length === 0) {
-    return sendMessage(chatId, '目前沒有任何專案。');
+  // 嘗試多機視圖
+  let machines = [];
+  try {
+    const heartbeat = require('./heartbeat');
+    machines = await heartbeat.getAllMachines();
+  } catch {
+    // heartbeat 未載入
   }
 
-  const lines = projects.map((p) => {
-    const status = pm2Status[p.pm2Name] || 'stopped';
-    const icon = status === 'online' ? '🟢' : '🔴';
-    const lastDeploy = p.lastDeployAt
-      ? new Date(p.lastDeployAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-      : '尚未部署';
-    const commit = p.runningCommit || '-';
+  if (machines.length > 0) {
+    // 多機狀態
+    const lines = [];
 
+    for (const machine of machines) {
+      const icon = machine.status === 'online' ? '🟢' : '🔴';
+      const uptimeStr = formatUptime(machine.uptime);
+      lines.push(`${icon} <b>${machine.machineId}</b> (${uptimeStr})`);
+
+      for (const proc of machine.processes) {
+        const procIcon = proc.status === 'online' ? '✅' : '❌';
+        const mem = (proc.memory / 1024 / 1024).toFixed(0);
+        lines.push(`   ${procIcon} ${proc.name}: ${proc.status} (${mem}MB)`);
+      }
+      lines.push('');
+    }
+
+    lines.push('<b>Projects:</b>');
+    for (const p of projects) {
+      const commit = p.runningCommit || '-';
+      lines.push(`  🔗 <b>${p.name || p.id}</b> (${commit}) https://${p.id}.${domain}`);
+    }
+
+    await sendMessage(chatId, lines.join('\n'));
+  } else {
+    // Fallback: 本機視圖
+    const pm2Status = getPm2Status();
+
+    if (projects.length === 0) {
+      return sendMessage(chatId, '目前沒有任何專案。');
+    }
+
+    const lines = projects.map((p) => {
+      const status = pm2Status[p.pm2Name] || 'stopped';
+      const icon = status === 'online' ? '🟢' : '🔴';
+      const lastDeploy = p.lastDeployAt
+        ? new Date(p.lastDeployAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+        : '尚未部署';
+      const commit = p.runningCommit || '-';
+
+      return [
+        `${icon} <b>${p.name || p.id}</b>`,
+        `   狀態: ${status} | Commit: ${commit}`,
+        `   上次部署: ${lastDeploy}`,
+        `   🔗 https://${p.id}.${domain}`,
+      ].join('\n');
+    });
+
+    await sendMessage(chatId, lines.join('\n\n'));
+  }
+}
+
+async function handleMachines(chatId) {
+  let machines = [];
+  try {
+    const heartbeat = require('./heartbeat');
+    machines = await heartbeat.getAllMachines();
+  } catch {
+    // heartbeat 未載入
+  }
+
+  if (machines.length === 0) {
+    return sendMessage(chatId, 'No machines connected (Redis not configured).');
+  }
+
+  const redisMod = require('./redis');
+  const myId = redisMod.getMachineId();
+
+  const lines = machines.map(m => {
+    const icon = m.status === 'online' ? '🟢' : '🔴';
+    const uptimeStr = formatUptime(m.uptime);
+    const isMe = m.machineId === myId ? ' (this)' : '';
+    const leaderTag = isLeader && m.machineId === myId ? ' 👑' : '';
     return [
-      `${icon} <b>${p.name || p.id}</b>`,
-      `   狀態: ${status} | Commit: ${commit}`,
-      `   上次部署: ${lastDeploy}`,
-      `   🔗 https://${p.id}.${domain}`,
+      `${icon} <b>${m.machineId}</b>${isMe}${leaderTag}`,
+      `   Uptime: ${uptimeStr}`,
+      `   Processes: ${m.processCount}/${m.processTotal} online`,
+      `   Platform: ${m.platform} (${m.nodeVersion})`,
     ].join('\n');
   });
 
@@ -228,7 +317,8 @@ async function handleHelp(chatId) {
     '<b>CloudPipe Bot 指令</b>',
     '',
     '/projects — 專案列表（點擊開啟）',
-    '/status — 狀態總覽（PM2 + 部署資訊）',
+    '/status — 狀態總覽（多機 + 部署資訊）',
+    '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務（PM2 restart）',
     '/help — 顯示此說明',
@@ -309,6 +399,8 @@ async function handleUpdate(update) {
       return handleProjects(chatId);
     case '/status':
       return handleStatus(chatId);
+    case '/machines':
+      return handleMachines(chatId);
     case '/deploy':
       return handleDeploy(chatId, args[0]);
     case '/restart':
@@ -375,6 +467,81 @@ async function poll() {
   }
 }
 
+// ==================== Leader Election ====================
+
+async function tryAcquireLeadership() {
+  const redis = require('./redis').getClient();
+  const machineId = require('./redis').getMachineId();
+  if (!redis) return false;
+
+  try {
+    // SET NX: 只在 key 不存在時設定
+    const result = await redis.set(LEADER_KEY, machineId, 'EX', LEADER_TTL, 'NX');
+    if (result === 'OK') {
+      return true;
+    }
+
+    // 檢查是不是自己持有
+    const current = await redis.get(LEADER_KEY);
+    if (current === machineId) {
+      await redis.expire(LEADER_KEY, LEADER_TTL);
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('[Telegram] Leader election error:', err.message);
+    return false;
+  }
+}
+
+async function startWithLeaderElection() {
+  const config = getConfig();
+  if (!config.enabled || !config.botToken || !config.chatId) {
+    console.log('[Telegram] Not configured, skipping');
+    return;
+  }
+
+  // 先訂閱部署通知（所有機器都要）
+  deploy.events.on('deploy:complete', onDeployComplete);
+
+  // 嘗試成為 leader
+  const gotLeadership = await tryAcquireLeadership();
+  if (gotLeadership) {
+    console.log('[Telegram] This machine is the bot leader 👑');
+    isLeader = true;
+    await clearStaleConnections();
+    polling = true;
+    poll();
+  } else {
+    console.log('[Telegram] Another machine is bot leader, notification-only');
+    isLeader = false;
+  }
+
+  // 每 30 秒檢查 leadership
+  leaderInterval = setInterval(async () => {
+    const wasLeader = isLeader;
+    isLeader = await tryAcquireLeadership();
+
+    if (!wasLeader && isLeader) {
+      console.log('[Telegram] Acquired bot leadership 👑');
+      await clearStaleConnections();
+      polling = true;
+      poll();
+    } else if (wasLeader && !isLeader) {
+      console.log('[Telegram] Lost bot leadership, notification-only');
+      polling = false;
+      if (pollTimeout) {
+        clearTimeout(pollTimeout);
+        pollTimeout = null;
+      }
+    }
+  }, 30000);
+
+  const redisMod = require('./redis');
+  console.log(`[Telegram] Leader election active (${redisMod.getMachineId()})`);
+}
+
 // ==================== Deploy Notification ====================
 
 function onDeployComplete({ project, deployment }) {
@@ -383,19 +550,21 @@ function onDeployComplete({ project, deployment }) {
 
   const domain = getDomain();
   const duration = deployment.duration ? `${(deployment.duration / 1000).toFixed(1)}s` : '?';
+  const redisMod = require('./redis');
+  const machineTag = redisMod.getMachineId() || '';
 
   const text = deployment.status === 'success'
     ? [
         `✅ <b>[部署成功] ${project.name || project.id}</b>`,
         `Commit: <code>${deployment.commit || '-'}</code>`,
         deployment.commitMessage ? `${deployment.commitMessage}` : '',
-        `耗時: ${duration}`,
+        `耗時: ${duration} | 機器: ${machineTag}`,
         `🔗 https://${project.id}.${domain}`,
       ].filter(Boolean).join('\n')
     : [
         `❌ <b>[部署失敗] ${project.name || project.id}</b>`,
         `錯誤: ${deployment.error || '未知'}`,
-        `觸發: ${deployment.triggeredBy || 'unknown'}`,
+        `觸發: ${deployment.triggeredBy || 'unknown'} | 機器: ${machineTag}`,
       ].join('\n');
 
   sendMessage(config.chatId, text).catch((err) => {
@@ -428,7 +597,6 @@ async function startBot() {
   polling = true;
   poll();
 
-  // Listen for deploy events
   deploy.events.on('deploy:complete', onDeployComplete);
 
   console.log(`[Telegram] Bot 已啟動 (chatId: ${config.chatId})`);
@@ -437,18 +605,36 @@ async function startBot() {
 function stopBot() {
   polling = false;
   pollInFlight = false;
+  isLeader = false;
+
   if (pollTimeout) {
     clearTimeout(pollTimeout);
     pollTimeout = null;
   }
+  if (leaderInterval) {
+    clearInterval(leaderInterval);
+    leaderInterval = null;
+  }
+
+  // 釋放 leadership
+  try {
+    const redis = require('./redis').getClient();
+    const machineId = require('./redis').getMachineId();
+    if (redis) {
+      redis.get(LEADER_KEY).then(current => {
+        if (current === machineId) {
+          redis.del(LEADER_KEY);
+        }
+      }).catch(() => {});
+    }
+  } catch {
+    // redis 可能還沒載入
+  }
+
   deploy.events.removeListener('deploy:complete', onDeployComplete);
   console.log('[Telegram] Bot 已停止');
 }
 
-/**
- * Notification-only mode: subscribe to deploy events without polling.
- * Used by replica machines (polling=false) to still send Telegram notifications.
- */
 function startNotificationsOnly() {
   const config = getConfig();
   if (!config.enabled || !config.botToken || !config.chatId) {
@@ -463,6 +649,7 @@ module.exports = {
   startBot,
   stopBot,
   startNotificationsOnly,
+  startWithLeaderElection,
   sendMessage,
-  getConfig: getConfig,
+  getConfig,
 };

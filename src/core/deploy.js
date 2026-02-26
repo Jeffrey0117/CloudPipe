@@ -684,6 +684,26 @@ async function deploy(projectId, options = {}) {
   // Emit deploy event for notifications (Telegram bot etc.)
   events.emit('deploy:complete', { project, deployment });
 
+  // 通知其他機器有新部署（Redis sync）
+  if (deployment.status === 'success') {
+    try {
+      const redis = require('./redis').getClient();
+      if (redis) {
+        const syncKey = `cloudpipe:deploy:${projectId}`;
+        await redis.hset(syncKey, {
+          commit: deployment.commit || '',
+          machineId: require('./redis').getMachineId(),
+          timestamp: new Date().toISOString(),
+          triggeredBy: deployment.triggeredBy || 'unknown',
+        });
+        await redis.expire(syncKey, 600);
+        log(`[sync] Redis 已通知其他機器`);
+      }
+    } catch (err) {
+      log(`[sync] Redis 通知失敗: ${err.message}`);
+    }
+  }
+
   return deployment;
 }
 
@@ -915,22 +935,66 @@ async function pollAllProjects() {
 
 // 輪詢定時器
 let pollInterval = null;
+let redisSyncInterval = null;
 
 /**
- * 啟動定時輪詢（每 5 分鐘）
+ * Redis Sync Check — 檢查其他機器是否有新部署（每 30 秒）
+ */
+async function pollRedisSync() {
+  let redis, machineId;
+  try {
+    redis = require('./redis').getClient();
+    machineId = require('./redis').getMachineId();
+  } catch {
+    return;
+  }
+  if (!redis) return;
+
+  const projects = getAllProjects();
+
+  for (const project of projects) {
+    try {
+      const syncKey = `cloudpipe:deploy:${project.id}`;
+      const syncData = await redis.hgetall(syncKey);
+
+      if (!syncData || !syncData.commit) continue;
+      if (syncData.machineId === machineId) continue; // 自己部署的，跳過
+
+      // 檢查是否比本機新
+      if (syncData.commit !== project.runningCommit) {
+        console.log(`[sync] ${project.id}: ${syncData.machineId} deployed ${syncData.commit} (local: ${project.runningCommit || 'none'})`);
+        await deploy(project.id, { triggeredBy: `sync:${syncData.machineId}` });
+      }
+    } catch (e) {
+      console.error(`[sync] ${project.id} check failed:`, e.message);
+    }
+  }
+}
+
+/**
+ * 啟動定時輪詢（GitHub 每 5 分鐘 + Redis sync 每 30 秒）
  */
 function startPolling(intervalMs = 5 * 60 * 1000) {
   if (pollInterval) {
     clearInterval(pollInterval);
   }
 
-  console.log(`[poll] 啟動定時輪詢 (間隔: ${intervalMs / 1000}s)`);
+  console.log(`[poll] 啟動定時輪詢 (GitHub: ${intervalMs / 1000}s)`);
 
-  // 立即執行一次
+  // GitHub 輪詢
   setTimeout(() => pollAllProjects(), 10000);
-
-  // 設定定時輪詢
   pollInterval = setInterval(pollAllProjects, intervalMs);
+
+  // Redis sync（每 30 秒，輕量級）
+  try {
+    const redis = require('./redis').getClient();
+    if (redis) {
+      redisSyncInterval = setInterval(pollRedisSync, 30000);
+      console.log('[poll] Redis sync check every 30s');
+    }
+  } catch {
+    // redis 未設定
+  }
 }
 
 /**
@@ -940,8 +1004,12 @@ function stopPolling() {
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;
-    console.log(`[poll] 已停止定時輪詢`);
   }
+  if (redisSyncInterval) {
+    clearInterval(redisSyncInterval);
+    redisSyncInterval = null;
+  }
+  console.log(`[poll] 已停止定時輪詢`);
 }
 
 // ==================== 匯出 ====================

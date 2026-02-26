@@ -75,6 +75,12 @@ module.exports = {
       return res.end(JSON.stringify({ error: 'Unauthorized' }));
     }
 
+    // GET /api/_admin/env-bundle/download - 一次性 token 下載 .env（不需 JWT）
+    if (req.method === 'GET' && pathname === '/api/_admin/env-bundle/download') {
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      return handleDownloadEnvBundle(req, res, url);
+    }
+
     // ===== 以下需要驗證 =====
     if (!requireAuth(req)) {
       res.writeHead(401, { 'content-type': 'application/json' });
@@ -229,6 +235,11 @@ module.exports = {
         subdomain: cfg.subdomain || 'epi',
         telegram: cfg.telegram || { enabled: false, botToken: '', chatId: '' }
       }));
+    }
+
+    // POST /api/_admin/env-bundle/generate - 生成一次性 .env 下載 token
+    if (req.method === 'POST' && pathname === '/api/_admin/env-bundle/generate') {
+      return handleGenerateEnvToken(req, res);
     }
 
     // GET /api/_admin/setup-bundle - 給其他機器用的設定包
@@ -740,6 +751,84 @@ function handleGetPM2Logs(req, res, pm2Name) {
   }
 }
 
+// 生成一次性 .env 下載 token
+async function handleGenerateEnvToken(req, res) {
+  try {
+    const redis = require('./redis').getClient();
+    if (!redis) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Redis not configured' }));
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const key = `cloudpipe:envtoken:${token}`;
+
+    await redis.set(key, 'valid', 'EX', 300); // 5 分鐘 TTL
+
+    const config = getConfig();
+    const domain = config.domain || 'localhost';
+    const downloadUrl = `https://${config.subdomain || 'epi'}.${domain}/api/_admin/env-bundle/download?token=${token}`;
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ token, downloadUrl, expiresIn: 300 }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// 一次性 token 下載 .env bundle
+async function handleDownloadEnvBundle(req, res, url) {
+  try {
+    const token = url.searchParams.get('token');
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Invalid token' }));
+    }
+
+    const redis = require('./redis').getClient();
+    if (!redis) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Redis not configured' }));
+    }
+
+    const key = `cloudpipe:envtoken:${token}`;
+    const value = await redis.get(key);
+
+    if (!value) {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Token expired or already used' }));
+    }
+
+    // 立刻刪除（一次性）
+    await redis.del(key);
+
+    // 收集所有 projects/*/.env
+    const projectsDir = path.join(ROOT, 'projects');
+    const envBundle = {};
+
+    if (fs.existsSync(projectsDir)) {
+      const dirs = fs.readdirSync(projectsDir).filter(d => {
+        const full = path.join(projectsDir, d);
+        return fs.statSync(full).isDirectory();
+      });
+
+      for (const dir of dirs) {
+        const envPath = path.join(projectsDir, dir, '.env');
+        if (fs.existsSync(envPath)) {
+          envBundle[dir] = fs.readFileSync(envPath, 'utf8');
+        }
+      }
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ envBundle, downloadedAt: new Date().toISOString() }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
 // Setup Bundle（給其他機器用）
 function handleSetupBundle(req, res) {
   try {
@@ -752,6 +841,8 @@ function handleSetupBundle(req, res) {
     }
 
     const bundle = {
+      machineId: '',  // replica 需自行設定
+      redis: config.redis || { url: '' },
       domain: config.domain || '',
       port: config.port || 8787,
       subdomain: config.subdomain || 'epi',
@@ -762,7 +853,7 @@ function handleSetupBundle(req, res) {
       tunnelCredentials,
       telegram: {
         ...(config.telegram || {}),
-        polling: false,  // replica 不做 polling
+        polling: false,  // replica 不做 polling（leader election 會自動處理）
       },
       projects: deploy.getAllProjects(),
     };
