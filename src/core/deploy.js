@@ -466,8 +466,7 @@ async function deploy(projectId, options = {}) {
     }
     if (buildCmd) {
       log(`執行 build: ${buildCmd}`);
-      const buildEnv = { ...process.env, NODE_ENV: 'development' };
-      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000, env: buildEnv });
+      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
       log(`Build 完成`);
     }
 
