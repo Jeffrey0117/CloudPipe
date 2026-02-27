@@ -12,7 +12,7 @@
   <a href="https://www.npmjs.com/package/@jeffrey0117/cloudpipe"><img src="https://img.shields.io/npm/v/@jeffrey0117/cloudpipe?color=blue" alt="npm" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node 18+" />
-  <img src="https://img.shields.io/badge/MCP_tools-31+-purple" alt="MCP Tools" />
+  <img src="https://img.shields.io/badge/MCP_tools-70+-purple" alt="MCP Tools" />
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ Want to add a feature? Tell the AI. It calls CloudPipe's MCP tools, deploys the 
 | Cost | $20+/mo | Pay per use | **$0 (your machine)** |
 | You own everything | No | No | **Yes** |
 | Deploy from phone | No | No | **Yes (Telegram bot)** |
-| AI deploys for you | No | No | **Yes (31+ MCP tools)** |
+| AI deploys for you | No | No | **Yes (70+ MCP tools)** |
 | Multi-machine sync | N/A | N/A | **Auto via Redis** |
 | Bot notifications | No | No | **Success, failure, crash** |
 | Manage from chat | No | No | **Deploy, restart, logs, env** |
@@ -136,19 +136,36 @@ No other self-hosted platform gives you this many options:
 | **REST API** | `POST /api/_admin/deploy` with JWT |
 | **AI Agent** | AI calls MCP tools to deploy for you |
 
-### AI-Native: 31+ MCP Tools
+### AI-Native: 70+ MCP Tools
 
 CloudPipe has a built-in **Model Context Protocol server**. Any AI agent (Claude, GPT, local LLMs) can manage your entire infrastructure:
 
 ```
 "Deploy my project"           → deploy_project
 "Show the logs for myapp"     → get_logs
-"Create a new ad campaign"    → adman_create_ad
 "Generate study flashcards"   → autocard_generate_content
-"List all users"              → letmeuse_list_users
+"Search YouTube for React"    → meetube_search
+"Run the full pipeline"       → pipeline_youtube-to-flashcards
 ```
 
-The magic: tools are **auto-discovered** from your deployed apps. Deploy a FastAPI service with OpenAPI docs? CloudPipe instantly creates MCP tools from every endpoint. Zero configuration.
+Tools are **auto-discovered** from your deployed apps. Deploy a FastAPI service with OpenAPI docs? CloudPipe instantly creates MCP tools from every endpoint. Zero configuration.
+
+### API Gateway + Pipeline Engine
+
+Every deployed app's API becomes a **gateway tool**. Chain them into pipelines:
+
+```json
+{
+  "id": "youtube-to-flashcards",
+  "steps": [
+    { "tool": "meetube_search",             "params": { "q": "{{input.query}}" } },
+    { "tool": "autocard_generate_content",  "params": { "topic": "{{steps.search.data.results[0].title}}" } },
+    { "tool": "upimg_shorten_url",          "params": { "url": "{{steps.cards.data.cover}}" } }
+  ]
+}
+```
+
+One pipeline call chains multiple services. Output flows automatically via `{{steps.id.data}}` templates. Call via HTTP, Telegram (`/pipe`), or MCP.
 
 ### Telegram Bot — Not Just Notifications
 
@@ -197,16 +214,18 @@ Next.js, Vite, React, Vue, Angular, Express, Fastify, Koa, FastAPI, static sites
 ## Quick Start
 
 ```bash
-npm i -g @jeffrey0117/cloudpipe
+npx @jeffrey0117/cloudpipe
 ```
 
-Or clone:
+The setup wizard walks you through configuration (port, password, domain, Telegram). Done in under 2 minutes.
+
+Or clone manually:
 
 ```bash
 git clone https://github.com/Jeffrey0117/CloudPipe.git
 cd CloudPipe && npm install
-cp config.example.json config.json
-node index.js
+cloudpipe setup
+cloudpipe start
 ```
 
 Dashboard at `http://localhost:8787/admin`.
@@ -217,8 +236,10 @@ Dashboard at `http://localhost:8787/admin`.
 
 | | |
 |---|---|
-| MCP tools | **31+** (auto-discovered from your apps) |
+| MCP tools | **70+** (auto-discovered from your apps) |
 | Deploy methods | **6** |
+| Gateway tools | **All APIs unified** |
+| Pipeline engine | **Chain any tools together** |
 | Frameworks detected | **10+** |
 | Admin API endpoints | **25+** |
 | Cross-machine sync | **30 seconds** |
