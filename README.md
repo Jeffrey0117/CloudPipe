@@ -50,6 +50,7 @@ Want to add a feature? Tell the AI. It calls CloudPipe's MCP tools, deploys the 
 | Multi-machine sync | N/A | N/A | **Auto via Redis** |
 | Bot notifications | No | No | **Success, failure, crash** |
 | Manage from chat | No | No | **Deploy, restart, logs, env** |
+| Apps call each other | Manual wiring | No | **SDK: 2 lines, auto-discovery** |
 
 You get the convenience of a managed platform with the freedom of self-hosting.
 
@@ -167,6 +168,61 @@ Every deployed app's API becomes a **gateway tool**. Chain them into pipelines:
 
 One pipeline call chains multiple services. Output flows automatically via `{{steps.id.data}}` templates. Call via HTTP, Telegram (`/pipe`), or MCP.
 
+### Shared Capabilities SDK — Every Project Powers Every Other
+
+Deploy 5 apps on CloudPipe. Now each one can use the other 4. Two lines of code:
+
+```javascript
+const gw = require('@jeffrey0117/cloudpipe/sdk/gateway')
+const tg = require('@jeffrey0117/cloudpipe/sdk/telegram')
+
+// Your flashcard app can search YouTube
+const videos = await gw.call('meetube_search', { q: 'React hooks' })
+
+// Your screenshot tool can upload to your image CDN
+const img = await gw.call('upimg_upload', { url: screenshotUrl })
+
+// Any app can send you a Telegram notification
+await tg.send('Job complete!')
+```
+
+No hardcoded ports. No manual auth. No reimplementation. The Gateway auto-discovers every API, and the SDK handles the rest. **The more you deploy, the more powerful every app becomes.**
+
+| Capability | One-liner |
+|-----------|-----------|
+| YouTube search | `gw.call('meetube_search', { q: '...' })` |
+| Image hosting | `gw.call('upimg_upload', { url: '...' })` |
+| Job queue | `gw.call('workr_create_job', { type: '...' })` |
+| Auth service | `gw.call('letmeuse_verify_session', { token })` |
+| AI flashcards | `gw.call('autocard_generate_content', { topic })` |
+| Telegram notify | `tg.send('message')` |
+| Any tool | `gw.call('{projectId}_{endpoint}', params)` |
+
+### The Kirby Architecture — One Bot Swallows All
+
+Most platforms make each app build its own bot. Image host needs a bot? Write one. Flashcard app needs a bot? Write another. Five apps, five bots, five polling loops, five auth systems.
+
+CloudPipe takes the opposite approach: **one bot eats every app's abilities.**
+
+```
+┌──────────────────────────────────────────────┐
+│           CloudPipe Telegram Bot             │
+│                                              │
+│   /upload photo  →  Upimg (duk.tw)           │
+│   /call meetube_search q=React  →  MeeTube   │
+│   /call autocard_generate ...   →  AutoCard  │
+│   /pipe youtube-to-flashcards   →  Pipeline  │
+│   /deploy myapp                 →  Deploy    │
+│                                              │
+│   New project onboarded?                     │
+│   Bot automatically gains all its abilities. │
+└──────────────────────────────────────────────┘
+```
+
+Sub-projects stay pure API services. They don't import Telegram libraries, don't handle polling, don't manage auth. They just expose HTTP endpoints. CloudPipe's bot discovers them via the Gateway and absorbs every capability — like Kirby swallowing enemies and gaining their powers.
+
+**Deploy a new app → bot instantly knows how to use it. Zero bot code in the app.**
+
 ### Telegram Bot — Not Just Notifications
 
 Deploy, restart, monitor, and manage — all from chat:
@@ -175,6 +231,7 @@ Deploy, restart, monitor, and manage — all from chat:
 - `/restart myapp` — PM2 restart from anywhere
 - `/status` — all projects, memory, CPU, uptime
 - `/machines` — multi-machine overview
+- `/upload` — send a photo, get a duk.tw short URL
 - `/envtoken` — secure one-time `.env` download
 
 Deploy fails? You get a notification with the error. Deploy succeeds? You get the URL and duration. A machine goes offline? Instant alert.
@@ -243,6 +300,7 @@ Dashboard at `http://localhost:8787/admin`.
 | Frameworks detected | **10+** |
 | Admin API endpoints | **25+** |
 | Cross-machine sync | **30 seconds** |
+| Shared SDK | **2 lines → full ecosystem access** |
 | Monthly cost | **$0** |
 
 ---
@@ -250,6 +308,3 @@ Dashboard at `http://localhost:8787/admin`.
 ## License
 
 MIT
-
-</content>
-</invoke>
