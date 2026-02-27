@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const admin = require('./admin');
+const gateway = require('./gateway');
 const hotloader = require('./hotloader');
 const deploy = require('./deploy');
 
@@ -119,6 +120,11 @@ module.exports = function(config) {
     if (ext && MIME[ext] && fs.existsSync(filePath)) {
       res.writeHead(200, { 'content-type': MIME[ext] });
       return res.end(fs.readFileSync(filePath));
+    }
+
+    // Gateway API
+    if (gateway.match(req)) {
+      return gateway.handle(req, res);
     }
 
     // Admin API

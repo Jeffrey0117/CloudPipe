@@ -1,0 +1,185 @@
+{
+  "name": "ReelScript",
+  "version": "1.0.0",
+  "description": "Video learning platform — download, transcribe, translate, and analyze video content",
+  "endpoints": [
+    {
+      "name": "process_video",
+      "description": "Download and process a video from URL (YouTube, Instagram, Bilibili, TikTok). Triggers async pipeline: download → transcribe → translate → analyze",
+      "method": "POST",
+      "path": "/api/videos/process",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Video URL from supported platforms (YouTube, Instagram, Bilibili, TikTok)" }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "get_video",
+      "description": "Get video details with full transcript, translations, and vocabulary",
+      "method": "GET",
+      "path": "/api/videos/{video_id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "translate_video",
+      "description": "Translate video transcript segments to Traditional Chinese",
+      "method": "POST",
+      "path": "/api/videos/{video_id}/translate",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "analyze_vocabulary",
+      "description": "Extract useful English vocabulary (phrasal verbs, idioms, collocations) with Chinese translations",
+      "method": "POST",
+      "path": "/api/videos/{video_id}/analyze-vocabulary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "appreciate_video",
+      "description": "Generate content appreciation: theme, key points, and golden quotes (en + zh)",
+      "method": "POST",
+      "path": "/api/videos/{video_id}/appreciate",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "get_article",
+      "description": "Get blog-ready article: theme, key points, golden quotes, bilingual segments, vocabulary",
+      "method": "GET",
+      "path": "/api/public/videos/{video_id}/article",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "get_learning_cards",
+      "description": "Get all segments as ordered bilingual learning cards with vocabulary",
+      "method": "GET",
+      "path": "/api/public/videos/{video_id}/cards",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "get_audio",
+      "description": "Extract MP3 audio with bilingual timeline from a video",
+      "method": "GET",
+      "path": "/api/public/videos/{video_id}/audio",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": { "type": "string", "description": "Video ID" }
+        },
+        "required": ["video_id"]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search across all video content (keyword or AI semantic search)",
+      "method": "GET",
+      "path": "/api/public/search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": { "type": "string", "description": "Search query (1-200 chars)" },
+          "mode": { "type": "string", "description": "Search mode: keyword (fast) or semantic (AI-powered, slower)" },
+          "limit": { "type": "number", "description": "Max results (1-50, default 20)" }
+        },
+        "required": ["q"]
+      }
+    },
+    {
+      "name": "list_videos",
+      "description": "List public videos with pagination and optional featured filter",
+      "method": "GET",
+      "path": "/api/public/videos",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "number", "description": "Results per page (1-100, default 20)" },
+          "offset": { "type": "number", "description": "Pagination offset (default 0)" },
+          "featured": { "type": "boolean", "description": "Filter to featured videos only" }
+        }
+      }
+    },
+    {
+      "name": "random_snippet",
+      "description": "Get a random bilingual learning snippet (one complete sentence with translation and vocabulary)",
+      "method": "GET",
+      "path": "/api/public/snippet/random"
+    },
+    {
+      "name": "daily_snippet",
+      "description": "Get today's featured learning snippet (deterministic per day)",
+      "method": "GET",
+      "path": "/api/public/snippet/daily"
+    },
+    {
+      "name": "list_vocabulary",
+      "description": "Get aggregated vocabulary across all videos with pagination",
+      "method": "GET",
+      "path": "/api/public/vocabulary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "number", "description": "Words per page (1-200, default 50)" },
+          "offset": { "type": "number", "description": "Pagination offset (default 0)" }
+        }
+      }
+    },
+    {
+      "name": "list_quotes",
+      "description": "Get golden quotes (en + zh) from all video appreciations",
+      "method": "GET",
+      "path": "/api/public/quotes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "number", "description": "Max quotes (1-100, default 20)" }
+        }
+      }
+    },
+    {
+      "name": "get_quota",
+      "description": "Get current monthly usage quota (plan, used, remaining, bonus)",
+      "method": "GET",
+      "path": "/api/quota",
+      "auth": "bearer"
+    }
+  ]
+}

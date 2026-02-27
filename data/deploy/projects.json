@@ -149,6 +149,27 @@
       "createdAt": "2026-02-26T00:00:00.000Z",
       "lastDeployAt": null,
       "lastDeployStatus": null
+    },
+    {
+      "id": "meetube",
+      "name": "meetube",
+      "description": "",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/MeeTube",
+      "branch": "master",
+      "directory": "projects/meetube",
+      "entryFile": "server/index.js",
+      "port": 4008,
+      "pm2Name": "meetube",
+      "webhookSecret": "8bd15ac101f2f7e06284dedafc6ce7a4ef18966b",
+      "envFile": "",
+      "buildCommand": "cd client && npm install && npm run build",
+      "createdAt": "2026-02-27T00:40:36.982Z",
+      "lastDeployAt": "2026-02-27T00:51:40.201Z",
+      "lastDeployStatus": "success",
+      "webhookId": 598173949,
+      "lastDeployCommit": "95acf5f",
+      "runningCommit": "95acf5f"
     }
   ]
 }

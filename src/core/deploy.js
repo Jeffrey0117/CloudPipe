@@ -426,6 +426,31 @@ async function deploy(projectId, options = {}) {
         fs.writeFileSync(hashFile, currentHash);
         log(`依賴安裝完成`);
       }
+
+      // Monorepo 偵測：檢查 build script 或 buildCommand 中的 cd <dir>，自動安裝子目錄依賴
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        const buildScript = project.buildCommand || pkg.scripts?.build || '';
+        const cdMatch = buildScript.match(/cd\s+([^\s&|;]+)/);
+        if (cdMatch) {
+          const subDir = cdMatch[1];
+          const subDirPath = path.join(projectDir, subDir);
+          const subPkgPath = path.join(subDirPath, 'package.json');
+          const subNodeModules = path.join(subDirPath, 'node_modules');
+          if (fs.existsSync(subPkgPath) && !fs.existsSync(subNodeModules)) {
+            const subHasPnpmLock = fs.existsSync(path.join(subDirPath, 'pnpm-lock.yaml'));
+            const subHasYarnLock = fs.existsSync(path.join(subDirPath, 'yarn.lock'));
+            const subPm = subHasPnpmLock ? 'pnpm' : subHasYarnLock ? 'yarn' : 'npm';
+            const subInstallCmd = subPm === 'pnpm' ? 'pnpm install' : subPm === 'yarn' ? 'yarn install' : 'npm install';
+            log(`偵測到 monorepo 子目錄: ${subDir}/, 執行 ${subInstallCmd}...`);
+            const subInstallEnv = { ...process.env, NODE_ENV: 'development' };
+            execSync(subInstallCmd, { cwd: subDirPath, stdio: 'pipe', windowsHide: true, env: subInstallEnv });
+            log(`${subDir}/ 依賴安裝完成`);
+          }
+        }
+      } catch (e) {
+        // ignore monorepo detection errors
+      }
     }
 
     // 執行 build command（手動設定或自動偵測）
@@ -444,7 +469,8 @@ async function deploy(projectId, options = {}) {
     }
     if (buildCmd) {
       log(`執行 build: ${buildCmd}`);
-      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+      const buildEnv = { ...process.env, NODE_ENV: 'development' };
+      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000, env: buildEnv });
       log(`Build 完成`);
     }
 

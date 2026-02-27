@@ -11,6 +11,7 @@ const { z } = require('zod')
 const CloudPipe = require('../sdk')
 const { registerCoreTools } = require('./core-tools')
 const McpDiscovery = require('./discovery')
+const { loadAuthConfig, getAuthToken, resolvePath, buildFetchOptions } = require('../src/core/gateway-fetch')
 
 const CLOUDPIPE_URL = process.env.CLOUDPIPE_URL
 const CLOUDPIPE_PASSWORD = process.env.CLOUDPIPE_PASSWORD
@@ -76,64 +77,8 @@ function buildZodSchema(params) {
   return schema
 }
 
-// --- Load per-project auth config ---
-function loadAuthConfig() {
-  try {
-    const raw = readFileSync(join(__dirname, '..', 'data', 'manifests', 'auth.json'), 'utf-8')
-    return JSON.parse(raw)
-  } catch {
-    return {}
-  }
-}
-
+// --- Auth config (shared via gateway-fetch) ---
 const authConfig = loadAuthConfig()
-
-function getAuthToken(projectId) {
-  const config = authConfig[projectId]
-  if (!config || config.type === 'none') return null
-  if (config.token) return config.token
-  if (config.env) return process.env[config.env] || null
-  return null
-}
-
-// --- Build fetch options for a discovered tool ---
-function buildFetchOptions(tool, params) {
-  const headers = { 'content-type': 'application/json' }
-
-  // Inject auth token if needed
-  if (tool.auth === 'bearer') {
-    const token = getAuthToken(tool.project)
-    if (token) {
-      headers['authorization'] = `Bearer ${token}`
-    }
-  }
-
-  const opts = { method: tool.method, headers }
-
-  if (tool.method === 'POST' || tool.method === 'PUT' || tool.method === 'PATCH') {
-    // Separate path params from body params
-    const pathParamNames = (tool.path.match(/\{(\w+)\}/g) || []).map(p => p.slice(1, -1))
-    const bodyParams = {}
-    for (const [key, val] of Object.entries(params)) {
-      if (!pathParamNames.includes(key)) {
-        bodyParams[key] = val
-      }
-    }
-    if (Object.keys(bodyParams).length > 0) {
-      opts.body = JSON.stringify(bodyParams)
-    }
-  }
-
-  return opts
-}
-
-// --- Resolve path parameters ---
-function resolvePath(pathTemplate, params) {
-  return pathTemplate.replace(/\{(\w+)\}/g, (_, key) => {
-    const val = params[key]
-    return val !== undefined ? encodeURIComponent(val) : `{${key}}`
-  })
-}
 
 // --- Register auto-discovered project tools ---
 async function registerDiscoveredTools() {
@@ -152,7 +97,7 @@ async function registerDiscoveredTools() {
       try {
         const path = resolvePath(tool.path, params || {})
         const url = `${tool.baseUrl}${path}`
-        const opts = buildFetchOptions(tool, params || {})
+        const opts = buildFetchOptions(tool, params || {}, authConfig)
 
         // Add query params for GET requests
         let fetchUrl = url
@@ -195,13 +140,79 @@ async function registerDiscoveredTools() {
   return tools.length
 }
 
+// --- Register pipeline tools ---
+function registerPipelineTools() {
+  let pipelineModule
+  try {
+    pipelineModule = require('../src/core/pipeline')
+  } catch {
+    console.error('[mcp] Pipeline module not found, skipping pipeline tools')
+    return 0
+  }
+
+  const pipelines = pipelineModule.listPipelines()
+  let count = 0
+
+  for (const p of pipelines) {
+    const toolName = `pipeline_${p.id}`
+    const description = `[Pipeline] ${p.name}: ${p.description}`
+
+    // Build Zod schema from pipeline input definition
+    let pipelineDef
+    try {
+      pipelineDef = pipelineModule.getPipeline(p.id)
+    } catch {
+      continue
+    }
+    if (!pipelineDef) continue
+
+    const zodSchema = {}
+    if (pipelineDef.input) {
+      for (const [key, spec] of Object.entries(pipelineDef.input)) {
+        let field = z.string()
+        if (spec.description) field = field.describe(spec.description)
+        if (!spec.required) field = field.optional()
+        zodSchema[key] = field
+      }
+    }
+
+    const handler = async (params) => {
+      try {
+        const gateway = require('../src/core/gateway')
+        // Ensure gateway is initialized
+        if (gateway.getTools().length === 0) {
+          await gateway.refreshTools()
+        }
+        const result = await pipelineModule.execute(pipelineDef, params || {})
+        const formatted = JSON.stringify(result, null, 2)
+        if (!result.success) {
+          return { content: [{ type: 'text', text: `Pipeline failed: ${formatted}` }], isError: true }
+        }
+        return { content: [{ type: 'text', text: formatted }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Pipeline error: ${err.message}` }], isError: true }
+      }
+    }
+
+    if (Object.keys(zodSchema).length > 0) {
+      server.tool(toolName, description, zodSchema, handler)
+    } else {
+      server.tool(toolName, description, handler)
+    }
+    count++
+  }
+
+  return count
+}
+
 // --- Start ---
 async function main() {
   const discoveredCount = await registerDiscoveredTools()
+  const pipelineCount = registerPipelineTools()
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error(`CloudPipe MCP server started (7 core + ${discoveredCount} discovered tools)`)
+  console.error(`CloudPipe MCP server started (7 core + ${discoveredCount} discovered + ${pipelineCount} pipeline tools)`)
 }
 
 main().catch((err) => {

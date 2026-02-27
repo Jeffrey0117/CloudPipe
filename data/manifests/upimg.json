@@ -1,0 +1,150 @@
+{
+  "name": "Upimg",
+  "version": "1.0.0",
+  "description": "Image hosting service (duk.tw) with upload, short URLs, and album management",
+  "endpoints": [
+    {
+      "name": "upload_image",
+      "description": "Upload an image file",
+      "method": "POST",
+      "path": "/api/upload",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "Image file (multipart form data)" }
+        },
+        "required": ["file"]
+      }
+    },
+    {
+      "name": "shorten_url",
+      "description": "Create a short URL from external image URL",
+      "method": "POST",
+      "path": "/api/shorten",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "External image URL to shorten" },
+          "filename": { "type": "string", "description": "Filename for the shortened image" }
+        },
+        "required": ["url", "filename"]
+      }
+    },
+    {
+      "name": "get_mapping",
+      "description": "Get image metadata by hash",
+      "method": "GET",
+      "path": "/api/mapping/{hash}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hash": { "type": "string", "description": "Image hash ID" }
+        },
+        "required": ["hash"]
+      }
+    },
+    {
+      "name": "get_admin_stats",
+      "description": "Get upload statistics (total, today, active, 7-day stats)",
+      "method": "GET",
+      "path": "/api/admin/stats",
+      "auth": "bearer"
+    },
+    {
+      "name": "list_mappings",
+      "description": "Query images with filters (search, status, date, file type, pagination)",
+      "method": "GET",
+      "path": "/api/admin/mappings",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "number", "description": "Page number" },
+          "limit": { "type": "number", "description": "Results per page" },
+          "search": { "type": "string", "description": "Search by filename" },
+          "status": { "type": "string", "description": "Filter by status" },
+          "fileType": { "type": "string", "description": "Filter by file type" }
+        }
+      }
+    },
+    {
+      "name": "delete_mapping",
+      "description": "Delete an image by hash",
+      "method": "DELETE",
+      "path": "/api/admin/mappings/{hash}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hash": { "type": "string", "description": "Image hash ID" }
+        },
+        "required": ["hash"]
+      }
+    },
+    {
+      "name": "list_albums",
+      "description": "Get all albums with item counts",
+      "method": "GET",
+      "path": "/api/admin/albums",
+      "auth": "bearer"
+    },
+    {
+      "name": "create_album",
+      "description": "Create a new album",
+      "method": "POST",
+      "path": "/api/admin/albums",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Album name" },
+          "description": { "type": "string", "description": "Album description" }
+        },
+        "required": ["name"]
+      }
+    },
+    {
+      "name": "delete_album",
+      "description": "Delete an album and all its items",
+      "method": "DELETE",
+      "path": "/api/admin/albums/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Album ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_settings",
+      "description": "Get system settings",
+      "method": "GET",
+      "path": "/api/admin/settings",
+      "auth": "bearer"
+    },
+    {
+      "name": "update_settings",
+      "description": "Update system settings (file size, rate limits, security, providers)",
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "maxFileSize": { "type": "number", "description": "Max upload file size in bytes" },
+          "rateLimit": { "type": "object", "description": "Rate limit configuration" },
+          "securityChecks": { "type": "object", "description": "Security check settings" }
+        }
+      }
+    },
+    {
+      "name": "export_data",
+      "description": "Export all mappings as CSV or Excel",
+      "method": "GET",
+      "path": "/api/admin/export",
+      "auth": "bearer"
+    }
+  ]
+}

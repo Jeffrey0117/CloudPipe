@@ -141,6 +141,9 @@ async function registerCommands() {
       { command: 'machines', description: '各機器詳細資訊' },
       { command: 'deploy', description: '觸發部署（需指定專案 ID）' },
       { command: 'restart', description: '重啟服務（PM2 restart）' },
+      { command: 'tools', description: '列出可用工具（Gateway）' },
+      { command: 'call', description: '呼叫工具 /call <tool> key=value' },
+      { command: 'pipe', description: '執行 pipeline /pipe <id> key=value' },
       { command: 'envtoken', description: '生成 .env 下載 token（給新機器用）' },
       { command: 'help', description: '指令說明' },
     ],
@@ -160,6 +163,9 @@ async function handleStart(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務',
+    '/tools [project] — 列出可用工具',
+    '/call &lt;tool&gt; key=value — 呼叫工具',
+    '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/envtoken — 生成 .env token（新機器用）',
     '/help — 指令列表',
     '',
@@ -366,6 +372,149 @@ async function handleEnvToken(chatId) {
   }
 }
 
+// ==================== Gateway Commands ====================
+
+async function handleTools(chatId, projectFilter) {
+  let gateway
+  try {
+    gateway = require('./gateway')
+  } catch {
+    return sendMessage(chatId, 'Gateway module not available.')
+  }
+
+  const allTools = gateway.getTools()
+  if (allTools.length === 0) {
+    await gateway.refreshTools()
+  }
+
+  let tools = gateway.getTools()
+  if (projectFilter) {
+    tools = tools.filter(t => t.project === projectFilter)
+  }
+
+  if (tools.length === 0) {
+    const msg = projectFilter
+      ? `No tools found for project <code>${projectFilter}</code>.`
+      : 'No tools discovered. Check that projects are running.'
+    return sendMessage(chatId, msg)
+  }
+
+  // Group by project
+  const byProject = {}
+  for (const t of tools) {
+    const key = t.project || 'unknown'
+    if (!byProject[key]) byProject[key] = []
+    byProject[key].push(t)
+  }
+
+  const lines = []
+  for (const [project, projectTools] of Object.entries(byProject)) {
+    lines.push(`<b>${project}</b> (${projectTools.length})`)
+    for (const t of projectTools) {
+      lines.push(`  <code>${t.name}</code> — ${t.method} ${t.path}`)
+    }
+    lines.push('')
+  }
+
+  lines.push(`Total: ${tools.length} tools`)
+  await sendMessage(chatId, lines.join('\n'))
+}
+
+async function handleCall(chatId, args) {
+  if (args.length === 0) {
+    return sendMessage(chatId, 'Usage: /call &lt;tool_name&gt; key=value key=value\n\nExample: <code>/call meetube_search q=React</code>')
+  }
+
+  const toolName = args[0]
+  const params = {}
+  for (let i = 1; i < args.length; i++) {
+    const eqIdx = args[i].indexOf('=')
+    if (eqIdx > 0) {
+      const key = args[i].slice(0, eqIdx)
+      const val = args[i].slice(eqIdx + 1)
+      params[key] = val
+    }
+  }
+
+  let gateway
+  try {
+    gateway = require('./gateway')
+  } catch {
+    return sendMessage(chatId, 'Gateway module not available.')
+  }
+
+  await sendMessage(chatId, `Calling <code>${toolName}</code>...`)
+
+  try {
+    const result = await gateway.callToolByName(toolName, params)
+
+    if (!result.ok) {
+      return sendMessage(chatId, `HTTP ${result.status}: <pre>${JSON.stringify(result.data, null, 2).slice(0, 3000)}</pre>`)
+    }
+
+    const output = typeof result.data === 'string'
+      ? result.data.slice(0, 3000)
+      : JSON.stringify(result.data, null, 2).slice(0, 3000)
+
+    await sendMessage(chatId, `<pre>${output}</pre>`)
+  } catch (err) {
+    await sendMessage(chatId, `Error: ${err.message}`)
+  }
+}
+
+async function handlePipe(chatId, args) {
+  if (args.length === 0) {
+    return sendMessage(chatId, 'Usage: /pipe &lt;pipeline_id&gt; key=value\n\nExample: <code>/pipe youtube-to-flashcards query=React</code>')
+  }
+
+  const pipelineId = args[0]
+  const input = {}
+  for (let i = 1; i < args.length; i++) {
+    const eqIdx = args[i].indexOf('=')
+    if (eqIdx > 0) {
+      const key = args[i].slice(0, eqIdx)
+      const val = args[i].slice(eqIdx + 1)
+      input[key] = val
+    }
+  }
+
+  let pipeline
+  try {
+    pipeline = require('./pipeline')
+  } catch {
+    return sendMessage(chatId, 'Pipeline module not available.')
+  }
+
+  const def = pipeline.getPipeline(pipelineId)
+  if (!def) {
+    const available = pipeline.listPipelines()
+    const ids = available.map(p => `<code>${p.id}</code>`).join(', ')
+    return sendMessage(chatId, `Pipeline not found: <code>${pipelineId}</code>\n\nAvailable: ${ids || 'none'}`)
+  }
+
+  await sendMessage(chatId, `Running pipeline <b>${def.name || pipelineId}</b>...`)
+
+  try {
+    const result = await pipeline.execute(def, input)
+
+    if (!result.success) {
+      return sendMessage(chatId, `Pipeline failed at step <code>${result.failedAt}</code>:\n${result.error}`)
+    }
+
+    const output = typeof result.result === 'string'
+      ? result.result.slice(0, 3000)
+      : JSON.stringify(result.result, null, 2).slice(0, 3000)
+
+    const stepSummary = Object.entries(result.steps)
+      .map(([id, s]) => `  ${s.ok ? '✅' : '❌'} ${id} (${s.tool})`)
+      .join('\n')
+
+    await sendMessage(chatId, `<b>Pipeline complete</b>\n\nSteps:\n${stepSummary}\n\nResult:\n<pre>${output}</pre>`)
+  } catch (err) {
+    await sendMessage(chatId, `Pipeline error: ${err.message}`)
+  }
+}
+
 async function handleHelp(chatId) {
   const text = [
     '<b>CloudPipe Bot 指令</b>',
@@ -375,6 +524,9 @@ async function handleHelp(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務（PM2 restart）',
+    '/tools [project] — 列出可用工具',
+    '/call &lt;tool&gt; key=value — 呼叫工具',
+    '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/envtoken — 生成 .env token（給新機器）',
     '/help — 顯示此說明',
   ].join('\n');
@@ -459,7 +611,8 @@ async function handleUpdate(update) {
   if (!isAuthorized(chatId)) return;
 
   const text = message.text.trim();
-  const [command, ...args] = text.split(/\s+/);
+  const [rawCommand, ...args] = text.split(/\s+/);
+  const command = rawCommand.toLowerCase();
 
   switch (command) {
     case '/start':
@@ -474,6 +627,12 @@ async function handleUpdate(update) {
       return handleDeploy(chatId, args[0]);
     case '/restart':
       return handleRestart(chatId, args[0]);
+    case '/tools':
+      return handleTools(chatId, args[0]);
+    case '/call':
+      return handleCall(chatId, args);
+    case '/pipe':
+      return handlePipe(chatId, args);
     case '/envtoken':
       return handleEnvToken(chatId);
     case '/help':

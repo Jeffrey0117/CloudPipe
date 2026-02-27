@@ -6,6 +6,7 @@
 const path = require('path');
 const ServiceRegistry = require('./registry');
 const deploy = require('./deploy');
+const gateway = require('./gateway');
 const telegram = require('./telegram');
 const heartbeat = require('./heartbeat');
 const redis = require('./redis');
@@ -55,6 +56,13 @@ heartbeat.startHeartbeat();
 
 // 啟動 GitHub 輪詢 + Redis sync（每 5 分鐘 GitHub / 每 30 秒 Redis）
 deploy.startPolling(5 * 60 * 1000);
+
+// 部署完成後重新載入 gateway tool cache
+deploy.events.on('deploy:complete', () => {
+  gateway.refreshTools().catch(err => {
+    console.error('[gateway] Failed to refresh after deploy:', err.message);
+  });
+});
 
 // 啟動 Telegram Bot（有 Redis → leader election / 沒有 → 看 config）
 const redisClient = redis.getClient();

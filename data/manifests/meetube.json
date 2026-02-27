@@ -1,0 +1,152 @@
+{
+  "name": "MeeTube",
+  "version": "1.0.0",
+  "description": "Private YouTube client with search, video streaming, and user management",
+  "endpoints": [
+    {
+      "name": "search",
+      "description": "Search YouTube videos",
+      "method": "GET",
+      "path": "/api/v1/search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": { "type": "string", "description": "Search query" },
+          "continuation": { "type": "string", "description": "Pagination token for next page" }
+        },
+        "required": ["q"]
+      }
+    },
+    {
+      "name": "search_suggestions",
+      "description": "Get search autocomplete suggestions",
+      "method": "GET",
+      "path": "/api/v1/search/suggestions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": { "type": "string", "description": "Search query" }
+        },
+        "required": ["q"]
+      }
+    },
+    {
+      "name": "get_trending",
+      "description": "Get trending/popular videos (cached 5 min)",
+      "method": "GET",
+      "path": "/api/v1/trending"
+    },
+    {
+      "name": "get_video",
+      "description": "Get full video details (info, streams, captions, related)",
+      "method": "GET",
+      "path": "/api/v1/videos/{id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "YouTube video ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_channel",
+      "description": "Get channel metadata (avatar, banner, subscriber count, videos)",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "YouTube channel ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_captions",
+      "description": "List available caption tracks for a video",
+      "method": "GET",
+      "path": "/api/v1/captions/{videoId}/list",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "videoId": { "type": "string", "description": "YouTube video ID" }
+        },
+        "required": ["videoId"]
+      }
+    },
+    {
+      "name": "translate_text",
+      "description": "Translate text to target language",
+      "method": "POST",
+      "path": "/api/v1/translate",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "description": "Text to translate" },
+          "targetLang": { "type": "string", "description": "Target language code (default: zh-TW)" }
+        },
+        "required": ["text"]
+      }
+    },
+    {
+      "name": "translate_batch",
+      "description": "Batch translate multiple texts",
+      "method": "POST",
+      "path": "/api/v1/translate/batch",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "texts": { "type": "array", "description": "Array of texts to translate" },
+          "targetLang": { "type": "string", "description": "Target language code (default: zh-TW)" }
+        },
+        "required": ["texts"]
+      }
+    },
+    {
+      "name": "list_favorites",
+      "description": "Get all favorite videos for current user",
+      "method": "GET",
+      "path": "/api/favorites",
+      "auth": "session"
+    },
+    {
+      "name": "add_favorite",
+      "description": "Add video to favorites",
+      "method": "POST",
+      "path": "/api/favorites",
+      "auth": "session",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "videoId": { "type": "string", "description": "YouTube video ID" },
+          "title": { "type": "string", "description": "Video title" },
+          "author": { "type": "string", "description": "Channel name" },
+          "authorId": { "type": "string", "description": "Channel ID" },
+          "lengthSeconds": { "type": "number", "description": "Video duration in seconds" }
+        },
+        "required": ["videoId", "title"]
+      }
+    },
+    {
+      "name": "remove_favorite",
+      "description": "Remove video from favorites",
+      "method": "DELETE",
+      "path": "/api/favorites/{videoId}",
+      "auth": "session",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "videoId": { "type": "string", "description": "YouTube video ID" }
+        },
+        "required": ["videoId"]
+      }
+    },
+    {
+      "name": "get_stats",
+      "description": "Get server stats (version, usage)",
+      "method": "GET",
+      "path": "/api/v1/stats"
+    }
+  ]
+}

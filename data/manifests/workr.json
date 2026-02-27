@@ -1,0 +1,83 @@
+{
+  "name": "Workr",
+  "version": "1.0.0",
+  "description": "Job queue with video processing, image conversion, proxy, and deployment",
+  "endpoints": [
+    {
+      "name": "list_jobs",
+      "description": "List jobs with optional filters",
+      "method": "GET",
+      "path": "/api/jobs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "description": "Filter by status (queued/running/completed/failed)" },
+          "type": { "type": "string", "description": "Filter by job type (thumbnail/webp/hls/download/proxy/deploy)" },
+          "limit": { "type": "number", "description": "Max results to return" }
+        }
+      }
+    },
+    {
+      "name": "get_job",
+      "description": "Get job status and details",
+      "method": "GET",
+      "path": "/api/jobs/{id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Job ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "submit_job",
+      "description": "Submit a new job (thumbnail/webp/hls/download/proxy/deploy)",
+      "method": "POST",
+      "path": "/api/jobs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "description": "Job type: thumbnail, webp, hls, download, proxy, deploy" },
+          "payload": { "type": "object", "description": "Job-specific payload data" },
+          "priority": { "type": "number", "description": "Job priority (higher = sooner)" },
+          "callback": { "type": "string", "description": "Callback URL for completion notification" },
+          "maxRetries": { "type": "number", "description": "Max retry attempts on failure" }
+        },
+        "required": ["type", "payload"]
+      }
+    },
+    {
+      "name": "cancel_job",
+      "description": "Cancel a queued job",
+      "method": "DELETE",
+      "path": "/api/jobs/{id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Job ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_stats",
+      "description": "Get queue statistics (queued, running, completed, failed counts)",
+      "method": "GET",
+      "path": "/api/stats"
+    },
+    {
+      "name": "proxy_request",
+      "description": "HTTP proxy - forward request to target URL",
+      "method": "GET",
+      "path": "/proxy",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Target URL to proxy" }
+        },
+        "required": ["url"]
+      }
+    }
+  ]
+}

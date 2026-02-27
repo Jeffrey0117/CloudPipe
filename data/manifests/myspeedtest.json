@@ -1,0 +1,35 @@
+{
+  "name": "MySpeedTest",
+  "version": "1.0.0",
+  "description": "Internet speed test service",
+  "endpoints": [
+    {
+      "name": "get_targets",
+      "description": "Get available speed test server nodes",
+      "method": "GET",
+      "path": "/api/mst/targets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "count": { "type": "number", "description": "Number of targets (default: 3, max: 5)" },
+          "country": { "type": "string", "description": "Country code filter (default: TW)" }
+        }
+      }
+    },
+    {
+      "name": "save_result",
+      "description": "Save a speed test result",
+      "method": "POST",
+      "path": "/api/mst/results",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "speed": { "type": "object", "description": "Speed data with raw value" },
+          "bytes": { "type": "number", "description": "Total bytes transferred" },
+          "duration": { "type": "number", "description": "Test duration in ms" }
+        },
+        "required": ["speed"]
+      }
+    }
+  ]
+}

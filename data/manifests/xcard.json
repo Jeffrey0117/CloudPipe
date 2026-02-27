@@ -1,0 +1,46 @@
+{
+  "name": "XCard",
+  "version": "1.0.0",
+  "description": "Tweet to translated card PNG + AI social post generator",
+  "endpoints": [
+    {
+      "name": "generate_card",
+      "description": "Generate a translated card PNG from a tweet URL. Returns base64-encoded PNG image + metadata",
+      "method": "POST",
+      "path": "/api/generate",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tweetUrl": { "type": "string", "description": "X/Twitter status URL (e.g. https://x.com/user/status/123)" }
+        },
+        "required": ["tweetUrl"]
+      }
+    },
+    {
+      "name": "fetch_tweet",
+      "description": "Fetch tweet data (text, author, metrics, images) without generating a card",
+      "method": "POST",
+      "path": "/api/fetch",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tweetUrl": { "type": "string", "description": "X/Twitter status URL" }
+        },
+        "required": ["tweetUrl"]
+      }
+    },
+    {
+      "name": "generate_social_post",
+      "description": "Generate an AI social media post (Traditional Chinese) from a tweet URL",
+      "method": "POST",
+      "path": "/api/social",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tweetUrl": { "type": "string", "description": "X/Twitter status URL" }
+        },
+        "required": ["tweetUrl"]
+      }
+    }
+  ]
+}
