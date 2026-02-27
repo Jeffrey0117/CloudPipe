@@ -20,7 +20,8 @@ ingress:
   - hostname: duk.tw
     service: http://localhost:4007
   - hostname: "*.duk.tw"
-    service: http://localhost:4007  - hostname: meetube.isnowfriend.com
+    service: http://localhost:4007
+  - hostname: meetube.isnowfriend.com
     service: http://localhost:4008
 
 

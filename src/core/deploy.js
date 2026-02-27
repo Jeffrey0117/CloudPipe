@@ -219,7 +219,7 @@ function updateTunnelIngress(hostname, port) {
     // 在 "*.<domain>" 之前插入新規則
     const domain = (getConfig().domain || 'isnowfriend.com').replace(/\./g, '\\.');
     const wildcardPattern = new RegExp(`(\\s*- hostname: "\\*\\.${domain}")`);
-    const newRule = `  - hostname: ${hostname}\n    service: http://localhost:${port}\n`;
+    const newRule = `\n  - hostname: ${hostname}\n    service: http://localhost:${port}`;
 
     if (wildcardPattern.test(content)) {
       content = content.replace(wildcardPattern, newRule + '$1');
