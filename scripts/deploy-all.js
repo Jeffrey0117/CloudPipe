@@ -52,8 +52,13 @@ async function main() {
 
     console.log(`[${projects.indexOf(p) + 1}/${projects.length}] deploy ${p.id}...`);
     try {
-      await deploy.deploy(p.id);
-      deployed++;
+      const result = await deploy.deploy(p.id);
+      if (result.status === 'success') {
+        deployed++;
+      } else {
+        console.error(`[fail] ${p.id}: ${result.error || 'deploy failed'}`);
+        failed++;
+      }
     } catch (e) {
       console.error(`[fail] ${p.id}: ${e.message}`);
       failed++;

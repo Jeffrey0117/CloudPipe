@@ -15,11 +15,11 @@
       "envFile": "",
       "buildCommand": "npm run build",
       "createdAt": "2026-01-20T08:25:39.451Z",
-      "lastDeployAt": "2026-02-26T08:26:50.443Z",
+      "lastDeployAt": "2026-02-27T21:25:01.459Z",
       "lastDeployStatus": "failed",
       "runningCommit": "6701653",
       "webhookId": 592630084,
-      "lastDeployCommit": "dd0bd6e"
+      "lastDeployCommit": "8c04c6d"
     },
     {
       "id": "workr",
@@ -36,10 +36,10 @@
       "envFile": "",
       "buildCommand": "",
       "createdAt": "2026-01-21T18:28:35.283Z",
-      "lastDeployAt": "2026-01-28T14:59:44.516Z",
+      "lastDeployAt": "2026-02-27T21:25:08.446Z",
       "lastDeployStatus": "success",
-      "runningCommit": "91a0028",
-      "lastDeployCommit": "91a0028",
+      "runningCommit": "c382837",
+      "lastDeployCommit": "c382837",
       "webhookId": 594521278
     },
     {
@@ -57,9 +57,9 @@
       "envFile": "",
       "buildCommand": "",
       "createdAt": "2026-02-02T15:29:29.210Z",
-      "lastDeployAt": "2026-02-26T08:26:37.232Z",
-      "lastDeployStatus": "success",
-      "lastDeployCommit": "38d1786",
+      "lastDeployAt": "2026-02-27T21:25:25.503Z",
+      "lastDeployStatus": "failed",
+      "lastDeployCommit": "46729d0",
       "runningCommit": "38d1786",
       "webhookId": 594520959
     },
@@ -78,11 +78,11 @@
       "envFile": "",
       "buildCommand": "npm run build",
       "createdAt": "2026-02-12T17:00:11.263Z",
-      "lastDeployAt": "2026-02-26T08:26:36.221Z",
+      "lastDeployAt": "2026-02-27T21:25:37.224Z",
       "lastDeployStatus": "success",
       "webhookId": 595981100,
-      "lastDeployCommit": "0d06104",
-      "runningCommit": "0d06104"
+      "lastDeployCommit": "87009ed",
+      "runningCommit": "87009ed"
     },
     {
       "id": "reelscript",
@@ -100,10 +100,10 @@
       "buildCommand": "npm run build",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-02-13T00:00:00.000Z",
-      "lastDeployAt": "2026-02-26T18:59:19.296Z",
+      "lastDeployAt": "2026-02-27T21:26:05.582Z",
       "lastDeployStatus": "success",
-      "lastDeployCommit": "96ea66c",
-      "runningCommit": "96ea66c",
+      "lastDeployCommit": "ebde89c",
+      "runningCommit": "ebde89c",
       "webhookId": 595985399
     },
     {
@@ -121,10 +121,10 @@
       "envFile": "",
       "buildCommand": "pnpm run build",
       "createdAt": "2026-02-23T11:19:23.015Z",
-      "lastDeployAt": "2026-02-26T08:26:38.242Z",
-      "lastDeployStatus": "success",
+      "lastDeployAt": "2026-02-27T21:26:24.312Z",
+      "lastDeployStatus": "failed",
       "webhookId": 597583064,
-      "lastDeployCommit": "a425b61",
+      "lastDeployCommit": "2dd3bab",
       "runningCommit": "a425b61"
     },
     {
@@ -147,8 +147,9 @@
       ],
       "healthEndpoint": "/",
       "createdAt": "2026-02-26T00:00:00.000Z",
-      "lastDeployAt": null,
-      "lastDeployStatus": null
+      "lastDeployAt": "2026-02-27T21:27:42.642Z",
+      "lastDeployStatus": "failed",
+      "lastDeployCommit": "62df13f"
     },
     {
       "id": "meetube",
@@ -164,12 +165,13 @@
       "webhookSecret": "8bd15ac101f2f7e06284dedafc6ce7a4ef18966b",
       "envFile": "",
       "buildCommand": "cd client && npm install && npm run build",
+      "healthEndpoint": "/api/health",
       "createdAt": "2026-02-27T00:40:36.982Z",
-      "lastDeployAt": "2026-02-27T00:51:40.201Z",
-      "lastDeployStatus": "success",
+      "lastDeployAt": "2026-02-27T21:28:15.343Z",
+      "lastDeployStatus": "failed",
       "webhookId": 598173949,
-      "lastDeployCommit": "95acf5f",
-      "runningCommit": "95acf5f"
+      "lastDeployCommit": "554ba5d",
+      "runningCommit": "554ba5d"
     }
   ]
 }

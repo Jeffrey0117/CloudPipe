@@ -124,3 +124,6 @@ async function handleResponse(res) {
 }
 
 module.exports = CloudPipe
+module.exports.CloudPipe = CloudPipe
+module.exports.gateway = require('./gateway')
+module.exports.telegram = require('./telegram')
