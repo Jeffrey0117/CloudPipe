@@ -20,8 +20,7 @@ module.exports = {
       listen_timeout: 15000,
       restart_delay: 5000,
       env: {
-        NODE_ENV: 'production',
-        UPLOAD_API_KEY: 'duk_Ph8Wjvw6KEq9rUSfE9lQFUJPgaDA5bRQ'
+        NODE_ENV: 'production'
       }
     },
 
