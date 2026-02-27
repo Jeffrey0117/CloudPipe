@@ -17,7 +17,18 @@ const fs = require('fs');
 const deploy = require('./deploy');
 
 const CONFIG_PATH = path.join(__dirname, '../../config.json');
-const API_BASE = 'https://api.telegram.org/bot';
+function getFullConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function getApiBase() {
+  const { telegramProxy } = getFullConfig();
+  return telegramProxy ? `${telegramProxy.replace(/\/+$/, '')}/bot` : 'https://api.telegram.org/bot';
+}
 
 let polling = false;
 let pollTimeout = null;
@@ -55,7 +66,7 @@ async function apiCall(method, body = {}) {
   const { botToken } = getConfig();
   if (!botToken) return null;
 
-  const res = await fetch(`${API_BASE}${botToken}/${method}`, {
+  const res = await fetch(`${getApiBase()}${botToken}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

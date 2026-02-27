@@ -82,7 +82,7 @@ const xcardConfig = registry.config?.xcard;
 if (xcardConfig?.enabled && xcardConfig?.botPath) {
   try {
     xcardBot = require(xcardConfig.botPath);
-    xcardBot.startBot(xcardConfig);
+    xcardBot.startBot({ ...xcardConfig, telegramProxy: registry.config?.telegramProxy });
   } catch (e) {
     console.log('[XCard] Bot not found, skipping:', e.message);
   }
