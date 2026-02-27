@@ -35,6 +35,9 @@ let pollTimeout = null;
 let pollInFlight = false;
 let lastUpdateId = 0;
 
+// Upload mode state (per-chat)
+let uploadMode = false;
+
 // Leader election state
 const LEADER_KEY = 'cloudpipe:telegram:leader';
 const LEADER_TTL = 60;
@@ -155,6 +158,7 @@ async function registerCommands() {
       { command: 'tools', description: '列出可用工具（Gateway）' },
       { command: 'call', description: '呼叫工具 /call <tool> key=value' },
       { command: 'pipe', description: '執行 pipeline /pipe <id> key=value' },
+      { command: 'upload', description: '開關上傳模式（傳圖自動上傳到 duk.tw）' },
       { command: 'envtoken', description: '生成 .env 下載 token（給新機器用）' },
       { command: 'help', description: '指令說明' },
     ],
@@ -177,6 +181,7 @@ async function handleStart(chatId) {
     '/tools [project] — 列出可用工具',
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
+    '/upload — 開關上傳模式（傳圖自動上傳 duk.tw）',
     '/envtoken — 生成 .env token（新機器用）',
     '/help — 指令列表',
     '',
@@ -538,6 +543,7 @@ async function handleHelp(chatId) {
     '/tools [project] — 列出可用工具',
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
+    '/upload — 圖片 caption 加 /upload → 上傳到 duk.tw',
     '/envtoken — 生成 .env token（給新機器）',
     '/help — 顯示此說明',
   ].join('\n');
@@ -591,6 +597,13 @@ async function handleCallback(callbackQuery) {
     return;
   }
 
+  // Upload mode off button
+  if (data === 'upload:off') {
+    uploadMode = false;
+    await answerCallback(queryId, '已關閉');
+    return editMessage(chatId, messageId, '📸 上傳模式已關閉');
+  }
+
   // Quick action buttons
   if (data === 'quick:status') {
     await answerCallback(queryId);
@@ -608,6 +621,73 @@ async function handleCallback(callbackQuery) {
   await answerCallback(queryId);
 }
 
+// ==================== Photo Upload ====================
+
+async function handlePhoto(chatId, message) {
+  // 1. Get file_id (photo = array of sizes, take largest; document = single file)
+  const fileId = message.photo
+    ? message.photo[message.photo.length - 1].file_id
+    : message.document.file_id
+  const fileName = message.document?.file_name || `photo_${Date.now()}.jpg`
+
+  // 2. Send "uploading..." feedback
+  const statusMsg = await sendMessage(chatId, '⏳ 上傳中...')
+  if (!statusMsg?.result?.message_id) {
+    return sendMessage(chatId, '❌ 無法傳送狀態訊息')
+  }
+  const statusMsgId = statusMsg.result.message_id
+
+  try {
+    // 3. Get file path from Telegram
+    const fileInfo = await apiCall('getFile', { file_id: fileId })
+    if (!fileInfo?.result?.file_path) {
+      return editMessage(chatId, statusMsgId, '❌ 無法取得檔案')
+    }
+
+    // 4. Download from Telegram (through tg-proxy)
+    const config = getFullConfig()
+    const { botToken } = getConfig()
+    const proxyBase = config.telegramProxy
+      ? config.telegramProxy.replace(/\/+$/, '')
+      : 'https://api.telegram.org'
+    const fileUrl = `${proxyBase}/file/bot${botToken}/${fileInfo.result.file_path}`
+
+    const fileRes = await fetch(fileUrl)
+    if (!fileRes.ok) {
+      return editMessage(chatId, statusMsgId, '❌ 下載失敗')
+    }
+
+    // 5. Upload to Upimg via multipart form-data
+    const buffer = Buffer.from(await fileRes.arrayBuffer())
+    const blob = new Blob([buffer], { type: message.document?.mime_type || 'image/jpeg' })
+
+    const formData = new FormData()
+    formData.append('image', blob, fileName)
+
+    const upimgPort = 4007
+    const uploadRes = await fetch(`http://localhost:${upimgPort}/api/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.text().catch(() => 'unknown')
+      return editMessage(chatId, statusMsgId, `❌ 上傳失敗: ${err}`)
+    }
+
+    // 6. Parse result and reply
+    const data = await uploadRes.json()
+    const shortUrl = data.shortUrl || `https://duk.tw/${data.result}`
+
+    return editMessage(chatId, statusMsgId,
+      `✅ <a href="${shortUrl}">${shortUrl}</a>`,
+      { disable_web_page_preview: false }
+    )
+  } catch (err) {
+    return editMessage(chatId, statusMsgId, `❌ 上傳失敗: ${err.message}`)
+  }
+}
+
 // ==================== Update Handler ====================
 
 async function handleUpdate(update) {
@@ -616,6 +696,15 @@ async function handleUpdate(update) {
   }
 
   const message = update.message;
+
+  // Photo upload: when upload mode is active
+  const hasImage = message && (message.photo || (message.document && message.document.mime_type?.startsWith('image/')))
+  if (hasImage && uploadMode) {
+    const chatId = message.chat.id
+    if (!isAuthorized(chatId)) return
+    return handlePhoto(chatId, message)
+  }
+
   if (!message || !message.text) return;
 
   const chatId = message.chat.id;
@@ -644,6 +733,19 @@ async function handleUpdate(update) {
       return handleCall(chatId, args);
     case '/pipe':
       return handlePipe(chatId, args);
+    case '/upload': {
+      uploadMode = !uploadMode
+      if (uploadMode) {
+        return sendMessage(chatId, '📸 <b>上傳模式已開啟</b>\n直接傳圖片就會上傳到 duk.tw', {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '關閉上傳模式', callback_data: 'upload:off' },
+            ]],
+          },
+        })
+      }
+      return sendMessage(chatId, '📸 上傳模式已關閉')
+    }
     case '/envtoken':
       return handleEnvToken(chatId);
     case '/help':
