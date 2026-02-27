@@ -665,8 +665,15 @@ async function handlePhoto(chatId, message) {
     formData.append('image', blob, fileName)
 
     const upimgPort = 4007
+    const uploadHeaders = {}
+    const upimgKey = process.env.UPLOAD_API_KEY
+    if (upimgKey) {
+      uploadHeaders['x-api-key'] = upimgKey
+    }
+
     const uploadRes = await fetch(`http://localhost:${upimgPort}/api/upload`, {
       method: 'POST',
+      headers: uploadHeaders,
       body: formData,
     })
 
@@ -734,6 +741,14 @@ async function handleUpdate(update) {
     case '/pipe':
       return handlePipe(chatId, args);
     case '/upload': {
+      // Reply to a photo → upload that photo directly
+      const reply = message.reply_to_message
+      const replyHasImage = reply && (reply.photo || (reply.document && reply.document.mime_type?.startsWith('image/')))
+      if (replyHasImage) {
+        return handlePhoto(chatId, reply)
+      }
+
+      // Otherwise toggle upload mode
       uploadMode = !uploadMode
       if (uploadMode) {
         return sendMessage(chatId, '📸 <b>上傳模式已開啟</b>\n直接傳圖片就會上傳到 duk.tw', {
