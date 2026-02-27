@@ -69,6 +69,17 @@ if not exist node_modules (
   call npm install >nul 2>&1
 )
 echo   Dependencies OK
+
+REM --- config.json ---
+if not exist config.json (
+  echo.
+  echo   [ERROR] config.json not found!
+  echo   Run first:  node setup.js
+  echo.
+  pause
+  exit /b 1
+)
+echo   config.json OK
 echo.
 
 REM ============================================================
@@ -109,6 +120,15 @@ if errorlevel 1 (
 echo   All services running!
 echo.
 echo [4/4] Starting tunnel...
+
+if not exist cloudflared.yml (
+  echo.
+  echo   [WARN] cloudflared.yml not found, skipping tunnel
+  echo   Re-run: node setup.js
+  echo.
+  goto :SKIP_TUNNEL
+)
+
 echo   Press Ctrl+C to stop tunnel
 echo.
 
@@ -116,6 +136,8 @@ REM Read cloudflared path from config.json dynamically
 FOR /F "delims=" %%i IN ('node -e "console.log(require('./config.json').cloudflared?.path||'cloudflared')" 2^>nul') DO SET CF_CMD=%%i
 if "%CF_CMD%"=="" set CF_CMD=cloudflared
 "%CF_CMD%" tunnel --config cloudflared.yml run cloudpipe
+
+:SKIP_TUNNEL
 
 echo.
 echo Tunnel stopped.

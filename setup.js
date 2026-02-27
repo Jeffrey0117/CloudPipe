@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const readline = require('readline');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
@@ -17,25 +18,82 @@ function ask(rl, question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
+function stepOk(msg) {
+  console.log(`  ${msg}`);
+}
+
+function stepFail(msg) {
+  console.error(`  ${msg}`);
+}
+
+/**
+ * Generate cloudflared.yml from scratch using bundle data.
+ */
+function generateCloudflaredYml(bundle, credentialsFile) {
+  const lines = [];
+  lines.push(`tunnel: ${bundle.tunnelId}`);
+  lines.push(`credentials-file: ${credentialsFile}`);
+  lines.push('');
+  lines.push('ingress:');
+
+  const domain = bundle.domain || 'localhost';
+  const subdomain = bundle.subdomain || 'epi';
+
+  // Main CloudPipe hostname
+  lines.push(`  - hostname: "${subdomain}.${domain}"`);
+  lines.push(`    service: http://localhost:${bundle.port || 8787}`);
+
+  // Each project → {id}.{domain} + customDomains
+  const projects = bundle.projects || [];
+  for (const proj of projects) {
+    if (!proj.port) continue;
+
+    lines.push(`  - hostname: "${proj.id}.${domain}"`);
+    lines.push(`    service: http://localhost:${proj.port}`);
+
+    if (Array.isArray(proj.customDomains)) {
+      for (const cd of proj.customDomains) {
+        lines.push(`  - hostname: "${cd}"`);
+        lines.push(`    service: http://localhost:${proj.port}`);
+      }
+    }
+  }
+
+  // Wildcard → CloudPipe core
+  lines.push(`  - hostname: "*.${domain}"`);
+  lines.push(`    service: http://localhost:${bundle.port || 8787}`);
+
+  // Fallback
+  lines.push('  - service: http_status:404');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
 async function main() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
   console.log('\n  CloudPipe Remote Setup');
   console.log('  =====================\n');
 
-  // 1. 問主機網址
-  const serverUrl = (await ask(rl, '主機 Admin URL (例如 https://epi.yourdomain.com): ')).trim().replace(/\/+$/, '');
+  // ──────────────────────────────────────
+  // [1/7] Login
+  // ──────────────────────────────────────
+  const serverUrl = (await ask(rl, '  Primary URL (e.g. https://epi.yourdomain.com): ')).trim().replace(/\/+$/, '');
   if (!serverUrl) {
-    console.error('需要提供主機 URL');
+    stepFail('[ERROR] URL is required');
+    rl.close();
+    process.exit(1);
+  }
+  if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+    stepFail('[ERROR] URL must start with http:// or https://');
     rl.close();
     process.exit(1);
   }
 
-  // 2. 問密碼
-  const password = (await ask(rl, 'Admin 密碼: ')).trim();
+  const password = (await ask(rl, '  Admin password: ')).trim();
 
-  // 3. 登入取 token
-  console.log('\n  登入中...');
+  console.log('');
   let token;
   try {
     const loginRes = await fetch(`${serverUrl}/api/_admin/login`, {
@@ -45,20 +103,23 @@ async function main() {
     });
     const loginData = await loginRes.json();
     if (!loginData.success || !loginData.token) {
-      console.error('  登入失敗:', loginData.error || '密碼錯誤');
+      stepFail('[1/7] Login...               FAIL');
+      stepFail(`      ${loginData.error || 'Wrong password'}`);
       rl.close();
       process.exit(1);
     }
     token = loginData.token;
-    console.log('  登入成功!');
+    stepOk('[1/7] Login...               OK');
   } catch (err) {
-    console.error('  連線失敗:', err.message);
+    stepFail('[1/7] Login...               FAIL');
+    stepFail(`      ${err.message}`);
     rl.close();
     process.exit(1);
   }
 
-  // 4. 拉 setup bundle
-  console.log('  下載設定...');
+  // ──────────────────────────────────────
+  // [2/7] Download config bundle
+  // ──────────────────────────────────────
   let bundle;
   try {
     const bundleRes = await fetch(`${serverUrl}/api/_admin/setup-bundle`, {
@@ -66,18 +127,22 @@ async function main() {
     });
     bundle = await bundleRes.json();
     if (bundle.error) {
-      console.error('  下載失敗:', bundle.error);
+      stepFail('[2/7] Download config...     FAIL');
+      stepFail(`      ${bundle.error}`);
       rl.close();
       process.exit(1);
     }
-    console.log('  設定已下載!');
+    stepOk('[2/7] Download config...     OK');
   } catch (err) {
-    console.error('  下載失敗:', err.message);
+    stepFail('[2/7] Download config...     FAIL');
+    stepFail(`      ${err.message}`);
     rl.close();
     process.exit(1);
   }
 
-  // 5. 自動偵測 cloudflared 路徑
+  // ──────────────────────────────────────
+  // [3/7] Install cloudflared
+  // ──────────────────────────────────────
   const { execSync: execCmd } = require('child_process');
   let cfPath = 'cloudflared';
   const candidates = [
@@ -87,7 +152,6 @@ async function main() {
     path.join(process.env.USERPROFILE || '', '.cloudflared', 'cloudflared.exe'),
   ];
 
-  // 先用 where（Windows）或 which（Linux/Mac）找 PATH 裡的
   function findCloudflared() {
     try {
       const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
@@ -99,8 +163,7 @@ async function main() {
 
   let found = findCloudflared();
   if (!found) {
-    // 自動安裝
-    console.log('  cloudflared not found, installing...');
+    console.log('  [3/7] Install cloudflared... (downloading)');
     try {
       if (process.platform === 'win32') {
         execCmd('winget install cloudflare.cloudflared --accept-source-agreements --accept-package-agreements', {
@@ -114,47 +177,58 @@ async function main() {
           timeout: 120000,
         });
       }
-      // 裝完重新偵測
       found = findCloudflared();
     } catch (e) {
-      console.error('  auto-install failed:', e.message);
+      stepFail(`  [3/7] Install cloudflared... FAIL (${e.message})`);
     }
   }
 
   if (found) {
     cfPath = found;
-    console.log('  cloudflared: ' + cfPath);
+    stepOk(`[3/7] Install cloudflared... OK (${cfPath})`);
   } else {
-    console.error('  cloudflared install failed, please install manually and re-run setup');
+    stepFail('[3/7] Install cloudflared... FAIL');
+    stepFail('      Please install manually and re-run setup');
     rl.close();
     process.exit(1);
   }
 
-  // 6. 建立 credentials file
+  // ──────────────────────────────────────
+  // [4/7] Tunnel credentials
+  // ──────────────────────────────────────
   let credentialsFile = '';
   if (bundle.tunnelCredentials && bundle.tunnelId) {
-    const cfDir = path.join(process.env.USERPROFILE || process.env.HOME, '.cloudflared');
+    const cfDir = path.join(process.env.USERPROFILE || process.env.HOME || os.homedir(), '.cloudflared');
     if (!fs.existsSync(cfDir)) {
       fs.mkdirSync(cfDir, { recursive: true });
     }
     credentialsFile = path.join(cfDir, `${bundle.tunnelId}.json`);
     fs.writeFileSync(credentialsFile, JSON.stringify(bundle.tunnelCredentials, null, 2));
-    console.log(`\n  Tunnel credentials 已寫入: ${credentialsFile}`);
+    stepOk(`[4/7] Tunnel credentials...  OK (${credentialsFile})`);
+  } else {
+    stepOk('[4/7] Tunnel credentials...  SKIP (no tunnel configured)');
   }
 
-  // 7. 建立 config.json（telegram polling=false for replica）
+  // ──────────────────────────────────────
+  // [5/7] config.json (with machineId, redis, telegramProxy)
+  // ──────────────────────────────────────
+  const machineId = `${os.hostname().toLowerCase()}-${Date.now().toString(36).slice(-4)}`;
+
   const telegramConfig = {
     ...(bundle.telegram || { enabled: false, botToken: '', chatId: '' }),
-    polling: false,  // replica 不做 polling，僅發通知
+    polling: false,
   };
 
   const config = {
+    machineId,
     domain: bundle.domain,
     port: bundle.port,
     subdomain: bundle.subdomain,
     adminPassword: bundle.adminPassword,
     jwtSecret: bundle.jwtSecret,
     serviceToken: bundle.serviceToken || '',
+    redis: bundle.redis || { url: '' },
+    telegramProxy: bundle.telegramProxy || '',
     supabase: { url: '', anonKey: '', serviceRoleKey: '', logRequests: false },
     cloudflared: {
       path: cfPath,
@@ -165,20 +239,25 @@ async function main() {
   };
 
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-  console.log(`  config.json 已建立!`);
+  stepOk(`[5/7] config.json...         OK (machineId: ${machineId})`);
 
-  // 8. 複製 cloudflared.yml（替換 credentials-file 路徑）
-  const ymlSrc = path.join(__dirname, 'cloudflared.yml');
-  if (fs.existsSync(ymlSrc)) {
-    let yml = fs.readFileSync(ymlSrc, 'utf8');
-    // 替換 tunnel ID 和 credentials-file
-    yml = yml.replace(/tunnel:\s*.+/, `tunnel: ${bundle.tunnelId}`);
-    yml = yml.replace(/credentials-file:\s*.+/, `credentials-file: ${credentialsFile}`);
-    fs.writeFileSync(ymlSrc, yml);
-    console.log('  cloudflared.yml 已更新!');
+  // ──────────────────────────────────────
+  // [6/7] cloudflared.yml (generated from scratch)
+  // ──────────────────────────────────────
+  if (bundle.tunnelId) {
+    const ymlContent = generateCloudflaredYml(bundle, credentialsFile);
+    const ymlPath = path.join(__dirname, 'cloudflared.yml');
+    fs.writeFileSync(ymlPath, ymlContent);
+
+    const ingressCount = (ymlContent.match(/- hostname:/g) || []).length + 1; // +1 for fallback
+    stepOk(`[6/7] cloudflared.yml...     OK (${ingressCount} ingress rules)`);
+  } else {
+    stepOk('[6/7] cloudflared.yml...     SKIP (no tunnel configured)');
   }
 
-  // 9. 儲存 projects.json（從主機同步專案清單）
+  // ──────────────────────────────────────
+  // [7/7] Sync projects.json
+  // ──────────────────────────────────────
   if (bundle.projects && bundle.projects.length > 0) {
     const deployDir = path.join(__dirname, 'data', 'deploy');
     if (!fs.existsSync(deployDir)) {
@@ -186,31 +265,68 @@ async function main() {
     }
     const projectsPath = path.join(deployDir, 'projects.json');
     fs.writeFileSync(projectsPath, JSON.stringify({ projects: bundle.projects }, null, 2));
-    console.log(`  projects.json 已同步! (${bundle.projects.length} 個專案)`);
+    stepOk(`[7/7] Sync projects.json...  OK (${bundle.projects.length} projects)`);
+  } else {
+    stepOk('[7/7] Sync projects.json...  SKIP (no projects)');
+  }
 
-    // 10. 詢問是否部署全部專案
-    const deployAnswer = (await ask(rl, '\n  要現在部署全部專案嗎？(Y/n): ')).trim().toLowerCase();
+  console.log('');
+
+  // ──────────────────────────────────────
+  // Deploy all projects?
+  // ──────────────────────────────────────
+  if (bundle.projects && bundle.projects.length > 0) {
+    const deployAnswer = (await ask(rl, '  Deploy all projects? (Y/n): ')).trim().toLowerCase();
     if (deployAnswer !== 'n' && deployAnswer !== 'no') {
-      console.log('\n  開始部署全部專案...\n');
-      const { execSync: exec } = require('child_process');
+      console.log('');
       try {
-        exec('node scripts/deploy-all.js', {
+        execCmd('node scripts/deploy-all.js', {
           cwd: __dirname,
           stdio: 'inherit',
           windowsHide: true,
         });
       } catch (e) {
-        console.error('  部署過程中有錯誤:', e.message);
+        console.error('  Deploy errors:', e.message);
       }
     }
   }
 
+  // ──────────────────────────────────────
+  // Pull .env files?
+  // ──────────────────────────────────────
+  const envAnswer = (await ask(rl, '  Pull .env files from primary? (Y/n): ')).trim().toLowerCase();
+  if (envAnswer !== 'n' && envAnswer !== 'no') {
+    try {
+      const envRes = await fetch(`${serverUrl}/api/_admin/env-bundle/direct`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const envData = await envRes.json();
+
+      if (envData.error) {
+        stepFail(`  .env pull failed: ${envData.error}`);
+      } else if (envData.envBundle) {
+        const entries = Object.entries(envData.envBundle);
+        let written = 0;
+        for (const [projectId, envContent] of entries) {
+          const envDir = path.join(__dirname, 'projects', projectId);
+          if (!fs.existsSync(envDir)) {
+            fs.mkdirSync(envDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(envDir, '.env'), envContent);
+          written++;
+        }
+        stepOk(`.env files pulled: ${written} project(s)`);
+      } else {
+        stepOk('No .env files on primary');
+      }
+    } catch (err) {
+      stepFail(`.env pull failed: ${err.message}`);
+    }
+  }
+
   console.log('\n  ============================');
-  console.log('  設定完成! 啟動方式：');
-  console.log('');
-  console.log('    start.bat');
-  console.log('    # 或');
-  console.log('    pm2 start ecosystem.config.js');
+  console.log('  Setup complete!');
+  console.log('  Run:  start.bat');
   console.log('  ============================\n');
 
   rl.close();

@@ -247,6 +247,11 @@ module.exports = {
       return handleSetupBundle(req, res);
     }
 
+    // GET /api/_admin/env-bundle/direct - JWT-authenticated .env download (no Redis token)
+    if (req.method === 'GET' && pathname === '/api/_admin/env-bundle/direct') {
+      return handleDirectEnvBundle(req, res);
+    }
+
     // PUT /api/_admin/config/telegram - 更新 Telegram 設定
     if (req.method === 'PUT' && pathname === '/api/_admin/config/telegram') {
       if (!requireAuth(req)) {
@@ -803,24 +808,42 @@ async function handleDownloadEnvBundle(req, res, url) {
     // 立刻刪除（一次性）
     await redis.del(key);
 
-    // 收集所有 projects/*/.env
-    const projectsDir = path.join(ROOT, 'projects');
-    const envBundle = {};
+    const envBundle = collectEnvBundle();
 
-    if (fs.existsSync(projectsDir)) {
-      const dirs = fs.readdirSync(projectsDir).filter(d => {
-        const full = path.join(projectsDir, d);
-        return fs.statSync(full).isDirectory();
-      });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ envBundle, downloadedAt: new Date().toISOString() }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
 
-      for (const dir of dirs) {
-        const envPath = path.join(projectsDir, dir, '.env');
-        if (fs.existsSync(envPath)) {
-          envBundle[dir] = fs.readFileSync(envPath, 'utf8');
-        }
+// Collect all .env files from projects/ directory
+function collectEnvBundle() {
+  const projectsDir = path.join(ROOT, 'projects');
+  const envBundle = {};
+
+  if (fs.existsSync(projectsDir)) {
+    const dirs = fs.readdirSync(projectsDir).filter(d => {
+      const full = path.join(projectsDir, d);
+      return fs.statSync(full).isDirectory();
+    });
+
+    for (const dir of dirs) {
+      const envPath = path.join(projectsDir, dir, '.env');
+      if (fs.existsSync(envPath)) {
+        envBundle[dir] = fs.readFileSync(envPath, 'utf8');
       }
     }
+  }
 
+  return envBundle;
+}
+
+// JWT-authenticated .env bundle download (no Redis token needed)
+function handleDirectEnvBundle(req, res) {
+  try {
+    const envBundle = collectEnvBundle();
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ envBundle, downloadedAt: new Date().toISOString() }));
   } catch (err) {
@@ -849,6 +872,7 @@ function handleSetupBundle(req, res) {
       adminPassword: config.adminPassword || '',
       jwtSecret: config.jwtSecret || '',
       serviceToken: config.serviceToken || '',
+      telegramProxy: config.telegramProxy || '',
       tunnelId: config.cloudflared?.tunnelId || '',
       tunnelCredentials,
       telegram: {
