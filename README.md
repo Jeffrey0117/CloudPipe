@@ -73,7 +73,11 @@ CloudPipe is part of a stack that covers your entire developer lifecycle. Each t
 │   ↓              AI edits your codebase, pushes to Git. │
 │                                                         │
 │   CloudPipe      Deploys automatically.                 │
-│                  Notifies you. You manage from chat.    │
+│   ↓              Notifies you. You manage from chat.    │
+│                                                         │
+│   MemoryGuy      7 services running, 8GB+ RAM.          │
+│                  Leak detection. Safe optimization.     │
+│                  Never accidentally kill everything.    │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -84,8 +88,9 @@ CloudPipe is part of a stack that covers your entire developer lifecycle. Each t
 | [**ZeroSetup**](https://github.com/Jeffrey0117/ZeroSetup) | "Read the README, install Python, configure PATH..." | `git clone` → double-click → running |
 | [**ClaudeBot**](https://github.com/Jeffrey0117/ClaudeBot) | "I need my laptop to code" | AI writes code from Telegram, voice-to-code, live streaming |
 | [**CloudPipe**](https://github.com/Jeffrey0117/CloudPipe) | "Deploying is complicated and expensive" | Git push → live. Manage from your phone. $0. |
+| [**MemoryGuy**](https://github.com/Jeffrey0117/MemoryGuy) | "Which node.exe is which? Is something leaking?" | Memory leak detection, safe optimization, port dashboard |
 
-**New machine → workspace ready → code from phone → deploy automatically → manage from chat.**
+**New machine → workspace ready → code from phone → deploy automatically → manage from chat → keep it all running.**
 
 Zero friction at every step.
 

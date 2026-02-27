@@ -1,6 +1,6 @@
 {
   "name": "@jeffrey0117/cloudpipe",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Zero-config deployment tool for full-stack apps",
   "main": "index.js",
   "bin": {

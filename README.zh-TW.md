@@ -73,7 +73,11 @@ CloudPipe 是一個完整工具鏈的一部分。每個工具消除一層摩擦�
 │   ↓              AI 改你的程式碼，push 到 Git。           │
 │                                                         │
 │   CloudPipe      自動部署。                               │
-│                  通知你。你在聊天裡管理一切。               │
+│   ↓              通知你。你在聊天裡管理一切。               │
+│                                                         │
+│   MemoryGuy      7 個服務跑著，8GB+ RAM。                 │
+│                  洩漏偵測。安全優化。                      │
+│                  永遠不會誤殺所有進程。                    │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -84,8 +88,9 @@ CloudPipe 是一個完整工具鏈的一部分。每個工具消除一層摩擦�
 | [**ZeroSetup**](https://github.com/Jeffrey0117/ZeroSetup) | 「看 README、裝 Python、設 PATH...」 | `git clone` → 雙擊 → 跑起來 |
 | [**ClaudeBot**](https://github.com/Jeffrey0117/ClaudeBot) | 「我要帶筆電才能寫程式」 | AI 在 Telegram 寫程式、語音轉程式碼、即時串流 |
 | [**CloudPipe**](https://github.com/Jeffrey0117/CloudPipe) | 「部署很複雜又很貴」 | Git push → 上線。手機管理。$0。 |
+| [**MemoryGuy**](https://github.com/Jeffrey0117/MemoryGuy) | 「哪個 node.exe 是哪個？有東西在漏記憶體嗎？」 | 記憶體洩漏偵測、安全優化、port 管理 |
 
-**新電腦 → 環境就緒 → 手機寫程式 → 自動部署 → 聊天裡管理。**
+**新電腦 → 環境就緒 → 手機寫程式 → 自動部署 → 聊天裡管理 → 穩穩跑著不爆炸。**
 
 每一步都零摩擦。
 
