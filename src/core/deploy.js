@@ -268,12 +268,9 @@ async function performHealthCheck(port, endpoint = '/health', log, retries = 5, 
     try {
       const result = await new Promise((resolve, reject) => {
         const req = http.get(url, { timeout: 5000 }, (res) => {
-          // 2xx 或 3xx 都算成功
-          if (res.statusCode >= 200 && res.statusCode < 400) {
-            resolve(true);
-          } else {
-            reject(new Error(`HTTP ${res.statusCode}`));
-          }
+          // 任何 HTTP 回應都代表服務已啟動（404、401 等只是沒有該路由，不代表沒跑）
+          res.resume();
+          resolve(true);
         });
         req.on('error', reject);
         req.on('timeout', () => {
