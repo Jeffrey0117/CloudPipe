@@ -21,6 +21,7 @@ config.json
 # Data (user-specific)
 data/*
 !data/manifests/
+!data/pipelines/
 !data/.gitkeep
 
 # Services (keep only examples)

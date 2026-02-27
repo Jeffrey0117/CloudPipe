@@ -1,0 +1,28 @@
+{
+  "id": "youtube-to-flashcards",
+  "name": "YouTube → Flashcards",
+  "description": "Search YouTube, generate AI flashcards, and upload thumbnail to duk.tw",
+  "input": {
+    "query": { "type": "string", "required": true, "description": "Search query" }
+  },
+  "steps": [
+    {
+      "id": "search",
+      "tool": "meetube_search",
+      "params": { "q": "{{input.query}}" }
+    },
+    {
+      "id": "cards",
+      "tool": "autocard_generate_content",
+      "params": { "topic": "{{steps.search.data.results[0].title}}" }
+    },
+    {
+      "id": "cover",
+      "tool": "upimg_shorten_url",
+      "params": {
+        "url": "https://i.ytimg.com{{steps.search.data.results[0].videoThumbnails[0].url}}",
+        "filename": "{{steps.search.data.results[0].videoId}}.jpg"
+      }
+    }
+  ]
+}
