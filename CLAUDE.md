@@ -292,3 +292,40 @@ const tg = require('@jeffrey0117/cloudpipe/sdk/telegram')
 | YouTube search | `gw.call('meetube_search', ...)` | YouTube proxy |
 | AI flashcards | `gw.call('autocard_generate_content', ...)` | DeepSeek-powered |
 | Ad serving | `gw.call('adman_list_ads', ...)` | Ad management |
+
+## Companion Processes
+
+Projects can define companion processes (bots, workers, background tasks) that run alongside the main PM2 process. Companions auto-start on deploy and are managed by PM2.
+
+### Config
+
+Add a `companions` array to the project in `data/deploy/projects.json`:
+
+```json
+{
+  "companions": [
+    {
+      "name": "bot",
+      "command": "python",
+      "args": ["-m", "services.telegram_bot"],
+      "cwd": "backend",
+      "delay": 5
+    }
+  ]
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | PM2 name becomes `{projectId}-{name}` (e.g. `reelscript-bot`) |
+| `command` | yes | Executable (`python`, `node`, etc.) |
+| `args` | no | Command arguments array |
+| `cwd` | no | Working directory relative to project root (defaults to project root) |
+| `delay` | no | Seconds to wait after main process starts before launching (default 0) |
+
+### Lifecycle
+
+- **Deploy**: After main process health check passes, each companion is spawned as a separate PM2 process
+- **Redeploy**: Old companions are deleted before the main process, then re-created after health check
+- **Environment**: Companions inherit the same env vars as the main process (`.env` + CloudPipe injected vars)
+- **Logs**: `pm2 logs {projectId}-{name}`

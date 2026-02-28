@@ -587,6 +587,13 @@ async function deploy(projectId, options = {}) {
       const spawnEnv = { ...process.env, ...pm2Env };
 
       // 先刪除舊的（如果有）
+      if (project.companions && Array.isArray(project.companions)) {
+        for (const companion of project.companions) {
+          try {
+            execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true });
+          } catch {}
+        }
+      }
       try {
         execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
       } catch (delErr) {
@@ -629,6 +636,34 @@ async function deploy(projectId, options = {}) {
           throw new Error(`Health Check 失敗：服務未能在 port ${project.port} 啟動`);
         }
         log(`Health Check 通過`);
+      }
+
+      // Spawn companion processes (bots, workers, etc.)
+      if (project.companions && Array.isArray(project.companions)) {
+        for (const companion of project.companions) {
+          const compName = `${project.pm2Name}-${companion.name}`;
+          const compCwd = companion.cwd
+            ? path.join(projectDir, companion.cwd)
+            : projectDir;
+
+          if (companion.delay) {
+            log(`等待 ${companion.delay}s 後啟動 ${compName}...`);
+            await new Promise(r => setTimeout(r, companion.delay * 1000));
+          }
+
+          const compArgs = companion.args ? companion.args.join(' ') : '';
+          log(`啟動 companion: ${compName} (${companion.command} ${compArgs})`);
+
+          execSync(
+            `pm2 start "${companion.command}" --name ${compName} --cwd "${compCwd}" -- ${compArgs}`,
+            {
+              stdio: 'pipe',
+              env: spawnEnv,
+              windowsHide: true
+            }
+          );
+          log(`Companion ${compName} 已啟動`);
+        }
       }
     }
 
