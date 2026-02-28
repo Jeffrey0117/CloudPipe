@@ -578,6 +578,12 @@ async function deploy(projectId, options = {}) {
         log(`.env 已載入 (${Object.keys(pm2Env).length} 個變數)`);
       }
 
+      // Inject shared CloudPipe env vars (e.g. TELEGRAM_PROXY)
+      const fullConfig = getConfig();
+      if (fullConfig.telegramProxy && !pm2Env.TELEGRAM_PROXY) {
+        pm2Env.TELEGRAM_PROXY = fullConfig.telegramProxy;
+      }
+
       const spawnEnv = { ...process.env, ...pm2Env };
 
       // 先刪除舊的（如果有）

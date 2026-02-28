@@ -191,6 +191,43 @@ Template syntax:
 - `{{steps.stepId.data.field}}` — previous step result
 - `{{steps.stepId.data.arr[0].field}}` — array indexing
 
+## Auto-injected Environment Variables
+
+CloudPipe automatically injects shared env vars into all sub-projects (both static in `ecosystem.config.js` and dynamic via `deploy.js`).
+
+| Variable | Source | Value |
+|----------|--------|-------|
+| `TELEGRAM_PROXY` | `config.json → telegramProxy` | Cloudflare Workers reverse proxy for `api.telegram.org` |
+
+### Using `TELEGRAM_PROXY` in sub-projects
+
+**JS** (via `sdk/telegram.js` — already handled):
+```javascript
+const tg = require('../../sdk/telegram')
+await tg.send('Hello')  // uses TELEGRAM_PROXY automatically
+```
+
+**Python** (`python-telegram-bot`):
+```python
+import os
+proxy = os.environ.get('TELEGRAM_PROXY')  # e.g. https://tg-proxy.jeffby8.workers.dev
+bot = Bot(
+    token=TOKEN,
+    base_url=f"{proxy}/bot" if proxy else "https://api.telegram.org/bot",
+    base_file_url=f"{proxy}/file/bot" if proxy else "https://api.telegram.org/file/bot",
+)
+```
+
+**Raw HTTP** (any language):
+```
+# Replace:
+https://api.telegram.org/bot{TOKEN}/sendMessage
+# With:
+${TELEGRAM_PROXY}/bot{TOKEN}/sendMessage
+```
+
+A project's own `.env` takes priority — if `TELEGRAM_PROXY` is set in `.env`, the injected value is skipped.
+
 ## Shared Capabilities SDK
 
 Sub-projects use `sdk/gateway.js` and `sdk/telegram.js` to access shared ecosystem capabilities without reimplementing anything.

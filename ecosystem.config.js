@@ -1,3 +1,14 @@
+const fs = require('fs');
+const path = require('path');
+
+let sharedEnv = {};
+try {
+  const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+  if (config.telegramProxy) {
+    sharedEnv.TELEGRAM_PROXY = config.telegramProxy;
+  }
+} catch {}
+
 module.exports = {
   apps: [
     // ── CloudPipe (LurlHub) ── port 8787
@@ -20,7 +31,8 @@ module.exports = {
       listen_timeout: 15000,
       restart_delay: 5000,
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        ...sharedEnv
       }
     },
 
@@ -38,7 +50,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4002
+        PORT: 4002,
+        ...sharedEnv
       }
     },
 
@@ -56,7 +69,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4001
+        PORT: 4001,
+        ...sharedEnv
       }
     },
 
@@ -75,7 +89,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4003
+        PORT: 4003,
+        ...sharedEnv
       }
     },
 
@@ -93,7 +108,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4004
+        PORT: 4004,
+        ...sharedEnv
       }
     },
 
@@ -111,7 +127,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4005
+        PORT: 4005,
+        ...sharedEnv
       }
     },
 
@@ -130,7 +147,8 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 4006
+        PORT: 4006,
+        ...sharedEnv
       }
     },
 
@@ -150,7 +168,8 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 4007,
-        HOSTNAME: '0.0.0.0'
+        HOSTNAME: '0.0.0.0',
+        ...sharedEnv
       }
     }
   ]
