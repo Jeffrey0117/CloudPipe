@@ -324,9 +324,10 @@ async function main() {
     }
   }
 
+  const startCmd = process.platform === 'win32' ? 'start.bat' : 'bash start.sh';
   console.log('\n  ============================');
   console.log('  Setup complete!');
-  console.log('  Run:  start.bat');
+  console.log(`  Run:  ${startCmd}`);
   console.log('  ============================\n');
 
   rl.close();
