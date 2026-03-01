@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
+// ── Shared env from config.json ──
 let sharedEnv = {};
 try {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
@@ -9,9 +10,42 @@ try {
   }
 } catch {}
 
+// ── Load .env file for a project directory ──
+function loadEnv(relativeDir) {
+  const envPath = path.join(__dirname, relativeDir, '.env');
+  const env = {};
+  try {
+    const content = fs.readFileSync(envPath, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx);
+        const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '');
+        env[key] = val;
+      }
+    }
+  } catch {}
+  return env;
+}
+
+// ── PM2 defaults for sub-projects ──
+function projectDefaults(name, opts = {}) {
+  return {
+    autorestart: true,
+    max_restarts: 5,
+    min_uptime: opts.min_uptime || '5s',
+    error_file: `../../logs/${name}-error.log`,
+    out_file: `../../logs/${name}-out.log`,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    merge_logs: true
+  };
+}
+
 module.exports = {
   apps: [
-    // ── CloudPipe (LurlHub) ── port 8787
+    // ── CloudPipe (core) ── port 8787
     {
       name: 'cloudpipe',
       script: './index.js',
@@ -36,61 +70,46 @@ module.exports = {
       }
     },
 
-    // ── Workr ── port 4002
-    {
-      name: 'workr',
-      script: './server.js',
-      cwd: './projects/workr',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/workr-error.log',
-      out_file: '../../logs/workr-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4002,
-        ...sharedEnv
-      }
-    },
-
     // ── MySpeedTest ── port 4001
     {
       name: 'myspeedtest',
       script: './server.js',
       cwd: './projects/myspeedtest',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/myspeedtest-error.log',
-      out_file: '../../logs/myspeedtest-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('myspeedtest'),
       env: {
         NODE_ENV: 'production',
         PORT: 4001,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/myspeedtest')
       }
     },
 
-    // ── Adman ── port 4003 (Next.js)
+    // ── Workr ── port 4002
+    {
+      name: 'workr',
+      script: './server.js',
+      cwd: './projects/workr',
+      ...projectDefaults('workr'),
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4002,
+        ...sharedEnv,
+        ...loadEnv('projects/workr')
+      }
+    },
+
+    // ── AdMan ── port 4003 (Next.js)
     {
       name: 'adman',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 4003',
       cwd: './projects/adman',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/adman-error.log',
-      out_file: '../../logs/adman-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('adman'),
       env: {
         NODE_ENV: 'production',
         PORT: 4003,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/adman')
       }
     },
 
@@ -99,36 +118,40 @@ module.exports = {
       name: 'autocard',
       script: './server.js',
       cwd: './projects/autocard',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/autocard-error.log',
-      out_file: '../../logs/autocard-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('autocard'),
       env: {
         NODE_ENV: 'production',
         PORT: 4004,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/autocard')
       }
     },
 
-    // ── ReelScript ── port 4005 (ESM, spawns Python FastAPI backend)
+    // ── ReelScript ── port 4005
     {
       name: 'reelscript',
       script: './server.js',
       cwd: './projects/reelscript',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '10s',
-      error_file: '../../logs/reelscript-error.log',
-      out_file: '../../logs/reelscript-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('reelscript', { min_uptime: '10s' }),
       env: {
         NODE_ENV: 'production',
         PORT: 4005,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/reelscript')
+      }
+    },
+
+    // ── ReelScript Bot (companion) ──
+    {
+      name: 'reelscript-bot',
+      script: 'python',
+      args: '-m services.telegram_bot',
+      cwd: './projects/reelscript/backend',
+      ...projectDefaults('reelscript-bot', { min_uptime: '10s' }),
+      env: {
+        ...sharedEnv,
+        ...loadEnv('projects/reelscript'),
+        ...loadEnv('projects/reelscript/backend')
       }
     },
 
@@ -138,58 +161,57 @@ module.exports = {
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 4006',
       cwd: './projects/letmeuse',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/letmeuse-error.log',
-      out_file: '../../logs/letmeuse-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('letmeuse'),
       env: {
         NODE_ENV: 'production',
         PORT: 4006,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/letmeuse')
       }
     },
 
-    // ── upimg (duk.tw) ── port 4007 (Next.js)
+    // ── Upimg (duk.tw) ── port 4007 (Next.js)
     {
       name: 'upimg',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 4007',
       cwd: './projects/upimg',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '10s',
-      error_file: '../../logs/upimg-error.log',
-      out_file: '../../logs/upimg-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('upimg', { min_uptime: '10s' }),
       env: {
         NODE_ENV: 'production',
         PORT: 4007,
         HOSTNAME: '0.0.0.0',
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/upimg')
       }
     },
 
-    // ── Pokkit ── port 4009 (file storage for MemoryGuy)
+    // ── MeeTube ── port 4008
+    {
+      name: 'meetube',
+      script: './server/index.js',
+      cwd: './projects/meetube',
+      ...projectDefaults('meetube'),
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4008,
+        ...sharedEnv,
+        ...loadEnv('projects/meetube')
+      }
+    },
+
+    // ── Pokkit ── port 4009
     {
       name: 'pokkit',
       script: 'node_modules/tsx/dist/cli.mjs',
       args: 'src/index.ts',
       cwd: './projects/pokkit',
-      autorestart: true,
-      max_restarts: 5,
-      min_uptime: '5s',
-      error_file: '../../logs/pokkit-error.log',
-      out_file: '../../logs/pokkit-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
+      ...projectDefaults('pokkit'),
       env: {
         NODE_ENV: 'production',
         PORT: 4009,
-        ...sharedEnv
+        ...sharedEnv,
+        ...loadEnv('projects/pokkit')
       }
     }
   ]

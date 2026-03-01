@@ -23,7 +23,12 @@ ingress:
     service: http://localhost:4007
   - hostname: meetube.isnowfriend.com
     service: http://localhost:4008
-
+  - hostname: upimg.isnowfriend.com
+    service: http://localhost:4007
+  - hostname: *.duk.tw
+    service: http://localhost:4007
+  - hostname: pokkit.isnowfriend.com
+    service: http://localhost:4009
 
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787
