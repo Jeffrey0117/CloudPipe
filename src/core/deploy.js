@@ -496,8 +496,26 @@ async function deploy(projectId, options = {}) {
         }
       }
     }
+    // TypeScript 入口：Node.js 無法直接執行 .ts，改用 scripts.start wrapper
+    if (entryFile.endsWith('.ts') && fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.scripts?.start) {
+          const wrapperPath = path.join(projectDir, '.pm2-start.cjs');
+          fs.writeFileSync(wrapperPath, [
+            `const { spawn } = require('child_process');`,
+            `const child = spawn(${JSON.stringify(pm)}, ['start'], { stdio: 'inherit', cwd: __dirname, shell: true });`,
+            `child.on('exit', (code) => process.exit(code || 0));`,
+          ].join('\n'));
+          startCommand = { script: wrapperPath, args: '' };
+          log(`TypeScript 入口 (${entryFile})，使用 ${pm} start (wrapper)`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     // 框架偵測：如果仍找不到入口檔案，偵測框架啟動方式
-    if (!fs.existsSync(path.join(projectDir, entryFile)) && fs.existsSync(pkgPath)) {
+    if (!startCommand && !fs.existsSync(path.join(projectDir, entryFile)) && fs.existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
         const isNextjs = !!(pkg.dependencies?.next || pkg.devDependencies?.next);
