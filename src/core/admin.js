@@ -658,18 +658,36 @@ function handleRestartProject(req, res, id) {
 }
 
 // 手動觸發部署
+// ?sync=true — 等待部署完成並回傳真實結果（Electron/API 用）
+// 預設 — 立即回應，背景執行（webhook/快速觸發用）
 async function handleManualDeploy(req, res, id) {
   try {
-    console.log(`[deploy] 手動觸發部署: ${id}`);
+    const url = new URL(req.url, 'http://localhost');
+    const sync = url.searchParams.get('sync') === 'true';
 
-    // 立即回應，部署在背景執行
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: '部署已觸發' }));
+    console.log(`[deploy] 手動觸發部署: ${id}${sync ? ' (sync)' : ''}`);
 
-    // 背景執行部署
-    deploy.deploy(id, { triggeredBy: 'manual' }).catch(err => {
-      console.error(`[deploy] 部署失敗: ${err.message}`);
-    });
+    if (sync) {
+      const result = await deploy.deploy(id, { triggeredBy: 'manual' });
+      res.writeHead(result.status === 'success' ? 200 : 500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        success: result.status === 'success',
+        deployment: {
+          id: result.id,
+          status: result.status,
+          commit: result.commit,
+          duration: result.duration,
+          error: result.error,
+        },
+      }));
+    } else {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: '部署已觸發' }));
+
+      deploy.deploy(id, { triggeredBy: 'manual' }).catch(err => {
+        console.error(`[deploy] 部署失敗: ${err.message}`);
+      });
+    }
   } catch (err) {
     res.writeHead(400, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));

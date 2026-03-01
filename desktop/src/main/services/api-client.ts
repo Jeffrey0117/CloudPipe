@@ -19,7 +19,7 @@ export class ApiClient {
     this.token = token;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, timeoutMs = 30_000): Promise<T> {
     const url = new URL(path, this.serverUrl);
     const isHttps = url.protocol === 'https:';
     const mod = isHttps ? https : http;
@@ -64,7 +64,7 @@ export class ApiClient {
       );
 
       req.on('error', reject);
-      req.setTimeout(30_000, () => {
+      req.setTimeout(timeoutMs, () => {
         req.destroy(new Error('Request timeout'));
       });
 
@@ -92,6 +92,10 @@ export class ApiClient {
     return this.request('POST', `/api/_admin/deploy/projects/${id}/deploy`);
   }
 
+  async deployProjectSync(id: string): Promise<{ success: boolean; error?: string; deployment?: unknown }> {
+    return this.request('POST', `/api/_admin/deploy/projects/${id}/deploy?sync=true`, undefined, 5 * 60_000);
+  }
+
   async restartProject(id: string): Promise<{ success: boolean; error?: string }> {
     return this.request('POST', `/api/_admin/deploy/projects/${id}/restart`);
   }
@@ -109,6 +113,11 @@ export class ApiClient {
         timestamp: new Date(p.lastDeployAt as string).getTime(),
       }))
       .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  // --- Register project ---
+  async registerProject(data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
+    return this.request('POST', '/api/_admin/deploy/projects', data);
   }
 
   // --- Logs ---
