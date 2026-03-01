@@ -329,3 +329,76 @@ Add a `companions` array to the project in `data/deploy/projects.json`:
 - **Redeploy**: Old companions are deleted before the main process, then re-created after health check
 - **Environment**: Companions inherit the same env vars as the main process (`.env` + CloudPipe injected vars)
 - **Logs**: `pm2 logs {projectId}-{name}`
+- **Python deps**: If companion uses `python`/`python3`, deploy.js auto-runs `pip install -r requirements.txt`
+
+## Multi-Machine Deployment
+
+CloudPipe supports running on multiple machines. All machines connect to the same Cloudflare Tunnel — if one goes down, traffic routes to the others.
+
+### Quick Start
+
+**Windows (Machine B):**
+```batch
+git clone https://github.com/Jeffrey0117/CloudPipe.git
+cd CloudPipe
+start.bat
+```
+
+**Linux/Ubuntu (Machine C):**
+```bash
+git clone https://github.com/Jeffrey0117/CloudPipe.git
+cd CloudPipe
+bash start.sh
+```
+
+Both scripts auto-install prerequisites, run `setup.js` on first boot, and start all services.
+
+### Setup Flow
+
+1. `start.bat` / `start.sh` auto-installs: Node.js, Git, PM2, dependencies
+2. Detects no `config.json` → runs `setup.js`
+3. `setup.js` prompts for primary URL + password → pulls config bundle from Machine A
+4. Installs cloudflared, writes tunnel credentials + `cloudflared.yml`
+5. Syncs `projects.json` (all project definitions)
+6. Asks to deploy all projects (clone + build)
+7. Asks to pull `.env` files from primary
+8. `ecosystem.config.js` dynamically reads `projects.json` — only starts projects with cloned code
+
+### .env Sync
+
+Two methods:
+- **During setup**: Automatic (setup.js pulls from primary)
+- **After setup**: Send `/envtoken` to Telegram bot → run `node setup-env.js <url>` on target machine
+
+### Runner Field
+
+`projects.json` supports a `runner` field for PM2 startup method:
+
+| Runner | PM2 Script | Use Case |
+|--------|-----------|----------|
+| `"node"` (default) | `node {entryFile}` | Standard Node.js |
+| `"next"` | `next start -p {port}` | Next.js projects |
+| `"tsx"` | `tsx {entryFile}` | TypeScript projects |
+
+Deploy auto-detects and writes `runner` on first deploy.
+
+### Ubuntu Prerequisites
+
+```bash
+sudo apt update && sudo apt install -y git build-essential python3 python3-pip ffmpeg redis-server
+```
+
+| Package | Why |
+|---------|-----|
+| `build-essential` | Native npm module compilation (node-gyp) |
+| `python3` + `pip` | Companion processes (e.g. reelscript-bot) |
+| `ffmpeg` | ReelScript video processing (yt-dlp) |
+| `redis-server` | `/envtoken` one-time tokens, optional but recommended |
+
+### Resource Requirements
+
+- **RAM**: 2GB minimum, 4GB recommended. All services ≈ 1-2GB
+- **Swap**: Add 2GB swap on small VPS to survive Next.js builds
+- **GPU**: Optional. ReelScript's Whisper transcription uses GPU if available, falls back to CPU (slow)
+- **Ports**: Not needed — Cloudflare Tunnel uses outbound connections only
+- **Architecture**: `setup.js` downloads `cloudflared-linux-amd64`. ARM machines need manual cloudflared install
