@@ -1,0 +1,13 @@
+{
+  "serverUrl": "http://localhost:8787",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYWRtaW4iLCJzZXJ2aWNlIjoiY2xvdWRwaXBlIiwiaWF0IjoxNzcyMjU2Nzg3LCJleHAiOjE3NzI4NjE1ODd9.HDoxs5OBtQm90DQac8ngqONR0D7oxHsJQie5lmm9Ck4",
+  "theme": "light",
+  "pollIntervals": {
+    "projects": 5000,
+    "logs": 3000,
+    "system": 10000
+  },
+  "machines": [],
+  "activeMachineId": "",
+  "locale": "zh"
+}

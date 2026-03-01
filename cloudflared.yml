@@ -29,6 +29,10 @@ ingress:
     service: http://localhost:4007
   - hostname: pokkit.isnowfriend.com
     service: http://localhost:4009
+  - hostname: canweback.isnowfriend.com
+    service: http://localhost:4010
+  - hostname: gitloop.isnowfriend.com
+    service: http://localhost:4012
 
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787

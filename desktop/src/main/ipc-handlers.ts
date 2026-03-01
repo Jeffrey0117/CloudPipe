@@ -8,8 +8,9 @@ import { TunnelManager } from './services/tunnel-manager';
 import { ConfigStore } from './services/config-store';
 import { scanFolder, scanWorkspace } from './services/folder-scanner';
 import { validateToken, getRepos, searchRepos, getStarred } from './services/github-client';
+import { SetupService } from './services/setup-service';
 import { TrayManager } from './tray';
-import type { Machine, RegisterProjectData, StartupProgress } from '@shared/types';
+import type { Machine, RegisterProjectData, StartupProgress, SetupProgress } from '@shared/types';
 
 function readCloudPipeConfig(root: string): { domain?: string } {
   try {
@@ -279,6 +280,26 @@ export function setupIpcHandlers({ getMainWindow, trayManager }: HandlerDeps): {
 
   ipcMain.handle(IPC.GITHUB_GET_STARRED, async (_e, pat: string) => {
     return getStarred(pat);
+  });
+
+  // --- Setup ---
+  const setupService = new SetupService();
+
+  ipcMain.handle(IPC.CHECK_NEEDS_SETUP, () => {
+    return setupService.needsSetup();
+  });
+
+  ipcMain.handle(IPC.SETUP, async (_e, serverUrl: string, password: string) => {
+    return setupService.run(serverUrl, password, (progress: SetupProgress) => {
+      try {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC.ON_SETUP_PROGRESS, progress);
+        }
+      } catch {
+        // Window may have been destroyed during setup
+      }
+    });
   });
 
   // --- Tunnel ---

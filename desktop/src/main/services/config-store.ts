@@ -1,18 +1,21 @@
 import fs from 'fs';
 import path from 'path';
-import type { AppConfig } from '@shared/types';
+import type { AppConfig, Machine } from '@shared/types';
 
 const CONFIG_PATH = path.resolve(__dirname, '..', '..', '..', 'config.local.json');
 
 const DEFAULTS: AppConfig = {
   serverUrl: 'http://localhost:8787',
   token: '',
-  theme: 'dark',
+  theme: 'light',
+  locale: 'zh',
   pollIntervals: {
     projects: 5_000,
     logs: 3_000,
     system: 10_000,
   },
+  machines: [],
+  activeMachineId: '',
 };
 
 export class ConfigStore {
@@ -36,11 +39,45 @@ export class ConfigStore {
   }
 
   get(): AppConfig {
-    return { ...this.config };
+    return { ...this.config, machines: [...this.config.machines] };
   }
 
   set(updates: Partial<AppConfig> | Record<string, unknown>): void {
     this.config = { ...this.config, ...updates } as AppConfig;
     this.save();
+  }
+
+  getMachines(): Machine[] {
+    return [...this.config.machines];
+  }
+
+  addMachine(machine: Machine): void {
+    this.config = {
+      ...this.config,
+      machines: [...this.config.machines, machine],
+    };
+    this.save();
+  }
+
+  removeMachine(id: string): void {
+    this.config = {
+      ...this.config,
+      machines: this.config.machines.filter((m) => m.id !== id),
+      activeMachineId: this.config.activeMachineId === id ? '' : this.config.activeMachineId,
+    };
+    this.save();
+  }
+
+  switchMachine(id: string): AppConfig {
+    const machine = this.config.machines.find((m) => m.id === id);
+    if (!machine) return this.get();
+    this.config = {
+      ...this.config,
+      activeMachineId: id,
+      serverUrl: machine.serverUrl,
+      token: machine.token,
+    };
+    this.save();
+    return this.get();
   }
 }

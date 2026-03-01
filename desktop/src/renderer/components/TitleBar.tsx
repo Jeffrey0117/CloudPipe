@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/app-store';
-import type { CloudPipeAPI } from '@shared/types';
+import type { CloudPipeAPI, Machine } from '@shared/types';
 
 const api = (window as unknown as { cloudpipe: CloudPipeAPI }).cloudpipe;
 
@@ -11,21 +11,78 @@ export function TitleBar() {
   const locale = useAppStore((s) => s.locale);
   const toggleLocale = useAppStore((s) => s.toggleLocale);
 
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [activeMachineId, setActiveMachineId] = useState('');
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     api.windowIsMaximized().then(setMaximized);
+    api.getConfig().then((c) => {
+      setMachines(c.machines || []);
+      setActiveMachineId(c.activeMachineId || '');
+    });
   }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setShowSwitcher(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const activeMachine = machines.find((m) => m.id === activeMachineId);
+
+  const handleSwitch = async (id: string) => {
+    const config = await api.switchMachine(id);
+    setActiveMachineId(config.activeMachineId);
+    setShowSwitcher(false);
+    window.location.reload();
+  };
 
   return (
     <div className="drag-region flex items-center justify-between h-10 bg-cp-bg border-b border-cp-border px-3 select-none">
       <div className="flex items-center gap-2 no-drag">
         <span className="text-[10px] font-bold tracking-wider text-cp-muted uppercase">CloudPipe</span>
+        {/* Machine switcher */}
+        {machines.length > 0 && (
+          <div className="relative" ref={switcherRef}>
+            <button
+              onClick={() => setShowSwitcher(!showSwitcher)}
+              className="px-2 py-0.5 rounded bg-cp-border/30 hover:bg-cp-border/50 transition-colors text-[10px] text-cp-muted hover:text-cp-text flex items-center gap-1"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-cp-success inline-block" />
+              {activeMachine?.name || 'Local'}
+              <span className="text-[8px] ml-0.5">{showSwitcher ? '\u25B2' : '\u25BC'}</span>
+            </button>
+            {showSwitcher && (
+              <div className="absolute top-full left-0 mt-1 bg-cp-surface border border-cp-border rounded-lg shadow-lg py-1 min-w-[140px] z-50">
+                {machines.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => handleSwitch(m.id)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-cp-border/30 transition-colors flex items-center gap-2 ${
+                      m.id === activeMachineId ? 'text-cp-primary' : 'text-cp-text'
+                    }`}
+                  >
+                    {m.id === activeMachineId && <span className="w-1.5 h-1.5 rounded-full bg-cp-primary inline-block" />}
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1 no-drag">
         {/* Locale toggle */}
         <button
           onClick={toggleLocale}
           className="px-2 py-1 rounded hover:bg-cp-border/50 transition-colors text-xs text-cp-muted hover:text-cp-text"
-          title={locale === 'en' ? 'Switch to Chinese' : '切換為英文'}
+          title={locale === 'en' ? 'Switch to Chinese' : '\u5207\u63DB\u70BA\u82F1\u6587'}
         >
           {locale === 'en' ? 'ZH' : 'EN'}
         </button>
@@ -38,7 +95,7 @@ export function TitleBar() {
           {theme === 'dark' ? '\u2600' : '\u263E'}
         </button>
         {/* Version */}
-        <span className="text-[10px] text-cp-muted px-1">v0.1.0</span>
+        <span className="text-[10px] text-cp-muted px-1">v0.2.0</span>
         {/* Separator */}
         <div className="w-px h-4 bg-cp-border mx-1" />
         {/* Window controls */}

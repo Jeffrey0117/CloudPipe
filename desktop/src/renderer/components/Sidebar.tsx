@@ -4,11 +4,12 @@ import { StatusDot } from './StatusDot';
 import { t } from '../i18n';
 import type { Page } from '@shared/types';
 
-const NAV_ITEMS: { id: Page; key: 'nav.dashboard' | 'nav.projects' | 'nav.logs' | 'nav.gateway' | 'nav.settings'; icon: string }[] = [
+const NAV_ITEMS: { id: Page; key: 'nav.dashboard' | 'nav.projects' | 'nav.logs' | 'nav.gateway' | 'nav.deploy' | 'nav.settings'; icon: string }[] = [
   { id: 'dashboard', key: 'nav.dashboard', icon: '\u25A3' },
   { id: 'projects', key: 'nav.projects', icon: '\u2630' },
   { id: 'logs', key: 'nav.logs', icon: '\u25B6' },
   { id: 'gateway', key: 'nav.gateway', icon: '\u2194' },
+  { id: 'deploy', key: 'nav.deploy', icon: '\u2B06' },
   { id: 'settings', key: 'nav.settings', icon: '\u2699' },
 ];
 

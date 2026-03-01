@@ -206,9 +206,9 @@
       "buildCommand": "npm install",
       "healthEndpoint": "/status",
       "createdAt": "2026-03-01T08:10:00.000Z",
-      "lastDeployAt": "2026-03-01T09:00:24.146Z",
-      "lastDeployStatus": "success",
-      "lastDeployCommit": "f60d2ed",
+      "lastDeployAt": "2026-03-01T18:57:38.251Z",
+      "lastDeployStatus": "failed",
+      "lastDeployCommit": "eae3411",
       "runningCommit": "f60d2ed"
     },
     {
@@ -226,11 +226,32 @@
       "envFile": "",
       "buildCommand": "",
       "createdAt": "2026-03-01T09:29:00.567Z",
-      "lastDeployAt": "2026-03-01T17:41:30.001Z",
+      "lastDeployAt": "2026-03-01T18:24:30.639Z",
       "lastDeployStatus": "success",
       "webhookId": 598523403,
-      "lastDeployCommit": "27fe2c3",
-      "runningCommit": "27fe2c3"
+      "lastDeployCommit": "3285ceb",
+      "runningCommit": "3285ceb"
+    },
+    {
+      "id": "gitloop",
+      "name": "GitLoop",
+      "description": "AI-native Git platform",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/GitLoop.git",
+      "branch": "master",
+      "directory": "projects/gitloop",
+      "entryFile": "dist/index.js",
+      "port": 4012,
+      "pm2Name": "gitloop",
+      "webhookSecret": "cae2ef4a6e417b2eaf6a6537358ad87055c7c867",
+      "envFile": "",
+      "buildCommand": "npm run build",
+      "createdAt": "2026-03-01T18:36:44.446Z",
+      "lastDeployAt": "2026-03-01T20:41:59.996Z",
+      "lastDeployStatus": "success",
+      "webhookId": 598573124,
+      "lastDeployCommit": "aede1bd",
+      "runningCommit": "aede1bd"
     }
   ]
 }

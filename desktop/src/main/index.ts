@@ -1,7 +1,10 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, globalShortcut } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { setupIpcHandlers } from './ipc-handlers';
+import { TrayManager } from './tray';
+import { TunnelManager } from './services/tunnel-manager';
+import { IPC } from '@shared/constants';
 
 function log(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}`;
@@ -28,6 +31,9 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 declare const MAIN_WINDOW_PRELOAD_VITE_ENTRY: string;
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
+let tunnelManager: TunnelManager | null = null;
+const trayManager = new TrayManager();
 
 function getPreloadPath(): string {
   if (typeof MAIN_WINDOW_PRELOAD_VITE_ENTRY === 'string' && MAIN_WINDOW_PRELOAD_VITE_ENTRY) {
@@ -46,6 +52,38 @@ function getPreloadPath(): string {
   }
   log('No preload found!');
   return candidates[0];
+}
+
+const PAGES = ['dashboard', 'projects', 'logs', 'gateway', 'deploy', 'settings'] as const;
+
+function registerShortcuts(): void {
+  // Ctrl+1~5: navigate pages
+  for (let i = 0; i < PAGES.length; i++) {
+    globalShortcut.register(`CommandOrControl+${i + 1}`, () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.webContents.send(IPC.ON_NAVIGATE_PAGE, PAGES[i]);
+      }
+    });
+  }
+
+  // Ctrl+D: deploy all
+  globalShortcut.register('CommandOrControl+D', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.webContents.send(IPC.ON_NAVIGATE_PAGE, 'dashboard');
+      // Trigger deploy-all via a custom event the renderer listens for
+      mainWindow.webContents.send('trigger-deploy-all');
+    }
+  });
+
+  // Ctrl+Shift+S: start all (avoid Ctrl+S which is "save" in many contexts)
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.webContents.send('trigger-start-all');
+    }
+  });
 }
 
 async function createWindow(): Promise<void> {
@@ -74,20 +112,50 @@ async function createWindow(): Promise<void> {
     await mainWindow.loadFile(filePath);
   }
 
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
   mainWindow.show();
   mainWindow.focus();
   log('Window visible!');
 
+  // Close = hide to tray (not quit)
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Tray
+  trayManager.create(mainWindow, {
+    onStartAll: () => {
+      mainWindow?.webContents.send('trigger-start-all');
+    },
+    onStopAll: () => {
+      mainWindow?.webContents.send('trigger-stop-all');
+    },
+    onToggleTunnel: async () => {
+      if (!tunnelManager) return;
+      const info = tunnelManager.getStatus();
+      if (info.status === 'running') {
+        await tunnelManager.stop();
+        trayManager.setTunnelRunning(false);
+      } else {
+        await tunnelManager.start();
+        trayManager.setTunnelRunning(tunnelManager.getStatus().status === 'running');
+      }
+    },
   });
 }
 
 async function initialize(): Promise<void> {
   log('--- App initializing ---');
-  setupIpcHandlers({ getMainWindow: () => mainWindow });
+  const handlers = setupIpcHandlers({ getMainWindow: () => mainWindow, trayManager });
+  tunnelManager = handlers.tunnelManager;
   await createWindow();
+  registerShortcuts();
 }
 
 app.whenReady().then(initialize).catch((err) => {
@@ -95,6 +163,17 @@ app.whenReady().then(initialize).catch((err) => {
   app.quit();
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  app.quit();
+  // On Windows, keep app running in tray
+  // Only quit when tray "Quit" is clicked (sets isQuitting = true)
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  tunnelManager?.destroy();
+  trayManager.destroy();
 });
