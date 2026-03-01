@@ -12,7 +12,7 @@ REM ============================================================
 REM  Step 0: Check & install prerequisites
 REM ============================================================
 
-echo [0/4] Checking prerequisites...
+echo [0] Checking prerequisites...
 
 REM --- winget ---
 winget --version >nul 2>&1
@@ -43,7 +43,7 @@ REM --- Git ---
 git --version >nul 2>&1
 if errorlevel 1 (
   echo   Installing Git...
-  winget install Git.Git --accept-source-agreements --accept-packages-agreements >nul 2>&1
+  winget install Git.Git --accept-source-agreements --accept-package-agreements >nul 2>&1
   call :REFRESH_PATH
   git --version >nul 2>&1
   if errorlevel 1 (
@@ -69,28 +69,41 @@ if not exist node_modules (
   call npm install >nul 2>&1
 )
 echo   Dependencies OK
-
-REM --- config.json ---
-if not exist config.json (
-  echo.
-  echo   [ERROR] config.json not found!
-  echo   Run first:  node setup.js
-  echo.
-  pause
-  exit /b 1
-)
-echo   config.json OK
 echo.
 
 REM ============================================================
-REM  Step 1-4: Start services
+REM  First-time setup: auto-run setup.js if no config.json
 REM ============================================================
 
-echo [1/4] Stopping old instances...
+if not exist config.json (
+  echo   ========================================
+  echo   First-time setup detected!
+  echo   ========================================
+  echo.
+  call node setup.js
+  if errorlevel 1 (
+    echo.
+    echo   [ERROR] Setup failed!
+    pause
+    exit /b 1
+  )
+  echo.
+  echo   Setup complete! Services already running.
+  echo.
+  REM setup.js already ran deploy-all.js, services are up
+  REM Skip straight to tunnel
+  goto :START_TUNNEL
+)
+
+REM ============================================================
+REM  Normal boot: fast start all services via ecosystem.config.js
+REM ============================================================
+
+echo [1/3] Stopping old instances...
 call pm2 delete all >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [2/4] Starting all services (parallel)...
+echo [2/3] Starting all services (parallel)...
 call pm2 start ecosystem.config.js
 if errorlevel 1 (
   echo.
@@ -101,7 +114,7 @@ if errorlevel 1 (
 timeout /t 5 /nobreak >nul
 
 echo.
-echo [3/4] Service status:
+echo [3/3] Service status:
 echo.
 call pm2 list
 
@@ -118,16 +131,20 @@ echo.
 echo   All services running!
 echo.
 
-echo [4/4] Starting tunnel...
+REM ============================================================
+REM  Start cloudflared tunnel
+REM ============================================================
+
+:START_TUNNEL
 
 if not exist cloudflared.yml (
   echo.
   echo   [WARN] cloudflared.yml not found, skipping tunnel
-  echo   Re-run: node setup.js
   echo.
-  goto :SKIP_TUNNEL
+  goto :DONE
 )
 
+echo Starting tunnel...
 echo   Press Ctrl+C to stop tunnel
 echo.
 
@@ -136,7 +153,7 @@ FOR /F "delims=" %%i IN ('node -e "console.log(require('./config.json').cloudfla
 if "%CF_CMD%"=="" set CF_CMD=cloudflared
 "%CF_CMD%" tunnel --config cloudflared.yml run cloudpipe
 
-:SKIP_TUNNEL
+:DONE
 
 echo.
 echo Tunnel stopped.
