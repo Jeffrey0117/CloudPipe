@@ -673,6 +673,34 @@ async function deploy(projectId, options = {}) {
             ? path.join(projectDir, companion.cwd)
             : projectDir;
 
+          // Auto-install Python dependencies if requirements.txt exists
+          if (companion.command === 'python' || companion.command === 'python3') {
+            const reqFile = path.join(compCwd, 'requirements.txt');
+            if (!fs.existsSync(reqFile)) {
+              // Also check parent project dir
+              const parentReq = path.join(projectDir, 'requirements.txt');
+              if (fs.existsSync(parentReq)) {
+                try {
+                  const pip = companion.command === 'python3' ? 'pip3' : 'pip';
+                  log(`安裝 Python 依賴 (${parentReq})...`);
+                  execSync(`${pip} install -r "${parentReq}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+                  log('Python 依賴安裝完成');
+                } catch (e) {
+                  log(`Python 依賴安裝失敗: ${e.message}`);
+                }
+              }
+            } else {
+              try {
+                const pip = companion.command === 'python3' ? 'pip3' : 'pip';
+                log(`安裝 Python 依賴 (${reqFile})...`);
+                execSync(`${pip} install -r "${reqFile}"`, { cwd: compCwd, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+                log('Python 依賴安裝完成');
+              } catch (e) {
+                log(`Python 依賴安裝失敗: ${e.message}`);
+              }
+            }
+          }
+
           if (companion.delay) {
             log(`等待 ${companion.delay}s 後啟動 ${compName}...`);
             await new Promise(r => setTimeout(r, companion.delay * 1000));
