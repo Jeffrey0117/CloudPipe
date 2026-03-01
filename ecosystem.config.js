@@ -171,6 +171,26 @@ module.exports = {
         HOSTNAME: '0.0.0.0',
         ...sharedEnv
       }
+    },
+
+    // ── Pokkit ── port 4009 (file storage for MemoryGuy)
+    {
+      name: 'pokkit',
+      script: 'node_modules/tsx/dist/cli.mjs',
+      args: 'src/index.ts',
+      cwd: './projects/pokkit',
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '5s',
+      error_file: '../../logs/pokkit-error.log',
+      out_file: '../../logs/pokkit-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4009,
+        ...sharedEnv
+      }
     }
   ]
 };
