@@ -43,7 +43,7 @@ REM --- Git ---
 git --version >nul 2>&1
 if errorlevel 1 (
   echo   Installing Git...
-  winget install Git.Git --accept-source-agreements --accept-package-agreements >nul 2>&1
+  winget install Git.Git --accept-source-agreements --accept-packages-agreements >nul 2>&1
   call :REFRESH_PATH
   git --version >nul 2>&1
   if errorlevel 1 (
@@ -90,23 +90,20 @@ echo [1/4] Stopping old instances...
 call pm2 delete all >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [2/4] Starting CloudPipe core...
-call pm2 start ecosystem.config.js --only cloudpipe
+echo [2/4] Starting all services (parallel)...
+call pm2 start ecosystem.config.js
 if errorlevel 1 (
   echo.
-  echo   [ERROR] PM2 failed to start CloudPipe!
+  echo   [ERROR] PM2 failed to start!
   pause
   exit /b 1
 )
 timeout /t 5 /nobreak >nul
 
-echo [3/4] Deploying projects...
-call node scripts/deploy-all.js
-timeout /t 2 /nobreak >nul
-
+echo.
+echo [3/4] Service status:
 echo.
 call pm2 list
-echo.
 
 pm2 list 2>nul | findstr "online" >nul
 if errorlevel 1 (
@@ -117,8 +114,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo.
 echo   All services running!
 echo.
+
 echo [4/4] Starting tunnel...
 
 if not exist cloudflared.yml (

@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 /**
- * Deploy All Projects
+ * Deploy All Projects (Parallel)
  *
- * 讀取 projects.json，逐一部署所有專案。
- * 跳過已經在 PM2 中 online 的專案。
+ * Reads projects.json and deploys all projects with concurrency control.
+ * Skips projects already online in PM2.
  *
- * 用法：node scripts/deploy-all.js
+ * Usage:
+ *   node scripts/deploy-all.js              # parallel (default, concurrency=3)
+ *   node scripts/deploy-all.js --seq        # sequential (old behavior)
+ *   node scripts/deploy-all.js --concurrency=5
  */
 
 const path = require('path');
 const { execSync } = require('child_process');
 const deploy = require('../src/core/deploy');
+
+// ── Parse CLI flags ──
+const args = process.argv.slice(2);
+const sequential = args.includes('--seq');
+const concurrencyFlag = args.find(a => a.startsWith('--concurrency='));
+const CONCURRENCY = sequential ? 1 : (concurrencyFlag ? parseInt(concurrencyFlag.split('=')[1], 10) : 3);
 
 function getPm2OnlineNames() {
   try {
@@ -26,6 +35,28 @@ function getPm2OnlineNames() {
   }
 }
 
+/**
+ * Run async tasks with concurrency limit
+ */
+async function runWithConcurrency(tasks, concurrency) {
+  const results = new Array(tasks.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const i = nextIndex++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, tasks.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 async function main() {
   const projects = deploy.getAllProjects();
 
@@ -34,36 +65,57 @@ async function main() {
     return;
   }
 
-  console.log(`[deploy-all] Found ${projects.length} projects`);
+  console.log(`[deploy-all] Found ${projects.length} projects (concurrency: ${CONCURRENCY})`);
 
   const onlineNames = getPm2OnlineNames();
 
-  let deployed = 0;
+  const toDeploy = [];
   let skipped = 0;
-  let failed = 0;
 
   for (const p of projects) {
     const processName = p.pm2Name || p.id;
     if (onlineNames.has(processName)) {
-      console.log(`[${projects.indexOf(p) + 1}/${projects.length}] skip ${p.id} (already online)`);
+      console.log(`  skip ${p.id} (already online)`);
       skipped++;
-      continue;
+    } else {
+      toDeploy.push(p);
     }
+  }
 
-    console.log(`[${projects.indexOf(p) + 1}/${projects.length}] deploy ${p.id}...`);
+  if (toDeploy.length === 0) {
+    console.log(`[deploy-all] All projects already online (${skipped} skipped)`);
+    return;
+  }
+
+  console.log(`[deploy-all] Deploying ${toDeploy.length} projects, skipping ${skipped}...`);
+  console.log();
+
+  let deployed = 0;
+  let failed = 0;
+  const startTime = Date.now();
+
+  const tasks = toDeploy.map((p, idx) => async () => {
+    const label = `[${idx + 1}/${toDeploy.length}]`;
+    console.log(`${label} deploying ${p.id}...`);
     try {
       const result = await deploy.deploy(p.id);
       if (result.status === 'success') {
+        console.log(`${label} ${p.id} OK (${result.duration}ms)`);
         deployed++;
+        return { id: p.id, status: 'success' };
       } else {
-        console.error(`[fail] ${p.id}: ${result.error || 'deploy failed'}`);
+        console.error(`${label} ${p.id} FAILED: ${result.error || 'deploy failed'}`);
         failed++;
+        return { id: p.id, status: 'failed', error: result.error };
       }
     } catch (e) {
-      console.error(`[fail] ${p.id}: ${e.message}`);
+      console.error(`${label} ${p.id} ERROR: ${e.message}`);
       failed++;
+      return { id: p.id, status: 'error', error: e.message };
     }
-  }
+  });
+
+  await runWithConcurrency(tasks, CONCURRENCY);
 
   // Save PM2 process list
   try {
@@ -72,7 +124,8 @@ async function main() {
     console.error('[deploy-all] pm2 save failed');
   }
 
-  console.log(`\n[deploy-all] Done: ${deployed} deployed, ${skipped} skipped, ${failed} failed`);
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n[deploy-all] Done in ${totalTime}s: ${deployed} deployed, ${skipped} skipped, ${failed} failed`);
 }
 
 main().catch(err => {
