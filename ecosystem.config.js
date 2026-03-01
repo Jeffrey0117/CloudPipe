@@ -43,179 +43,126 @@ function projectDefaults(name, opts = {}) {
   };
 }
 
-module.exports = {
-  apps: [
-    // ── CloudPipe (core) ── port 8787
-    {
-      name: 'cloudpipe',
-      script: './index.js',
-      exec_mode: 'fork',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_restarts: 10,
-      min_uptime: '10s',
-      max_memory_restart: '500M',
-      error_file: 'logs/error.log',
-      out_file: 'logs/out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
-      kill_timeout: 8000,
-      wait_ready: false,
-      listen_timeout: 15000,
-      restart_delay: 5000,
+// ── Resolve runner to PM2 script/args ──
+function resolveRunner(project) {
+  const runner = project.runner || 'node';
+
+  switch (runner) {
+    case 'next':
+      return {
+        script: 'node_modules/next/dist/bin/next',
+        args: `start -p ${project.port}`,
+      };
+    case 'tsx':
+      return {
+        script: 'node_modules/tsx/dist/cli.mjs',
+        args: project.entryFile,
+      };
+    case 'node':
+    default:
+      return {
+        script: `./${project.entryFile || 'server.js'}`,
+        args: undefined,
+      };
+  }
+}
+
+// ── Build apps list dynamically ──
+const apps = [
+  // ── CloudPipe (core) ── port 8787
+  {
+    name: 'cloudpipe',
+    script: './index.js',
+    exec_mode: 'fork',
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_restarts: 10,
+    min_uptime: '10s',
+    max_memory_restart: '500M',
+    error_file: 'logs/error.log',
+    out_file: 'logs/out.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    merge_logs: true,
+    kill_timeout: 8000,
+    wait_ready: false,
+    listen_timeout: 15000,
+    restart_delay: 5000,
+    env: {
+      NODE_ENV: 'production',
+      ...sharedEnv
+    }
+  }
+];
+
+// ── Read projects.json and generate PM2 entries ──
+try {
+  const projectsPath = path.join(__dirname, 'data', 'deploy', 'projects.json');
+  const { projects } = JSON.parse(fs.readFileSync(projectsPath, 'utf8'));
+
+  for (const project of projects) {
+    const projectDir = path.join(__dirname, 'projects', project.id);
+
+    // Skip projects that haven't been cloned yet
+    if (!fs.existsSync(projectDir)) continue;
+
+    const { script, args } = resolveRunner(project);
+    const minUptime = ['reelscript', 'upimg'].includes(project.id) ? '10s' : '5s';
+
+    const entry = {
+      name: project.pm2Name || project.id,
+      script,
+      cwd: `./projects/${project.id}`,
+      ...projectDefaults(project.pm2Name || project.id, { min_uptime: minUptime }),
       env: {
         NODE_ENV: 'production',
-        ...sharedEnv
-      }
-    },
-
-    // ── MySpeedTest ── port 4001
-    {
-      name: 'myspeedtest',
-      script: './server.js',
-      cwd: './projects/myspeedtest',
-      ...projectDefaults('myspeedtest'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4001,
+        PORT: project.port,
         ...sharedEnv,
-        ...loadEnv('projects/myspeedtest')
+        ...loadEnv(`projects/${project.id}`)
       }
-    },
+    };
 
-    // ── Workr ── port 4002
-    {
-      name: 'workr',
-      script: './server.js',
-      cwd: './projects/workr',
-      ...projectDefaults('workr'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4002,
-        ...sharedEnv,
-        ...loadEnv('projects/workr')
-      }
-    },
+    // Special env overrides
+    if (project.id === 'upimg') {
+      entry.env.HOSTNAME = '0.0.0.0';
+    }
 
-    // ── AdMan ── port 4003 (Next.js)
-    {
-      name: 'adman',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 4003',
-      cwd: './projects/adman',
-      ...projectDefaults('adman'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4003,
-        ...sharedEnv,
-        ...loadEnv('projects/adman')
-      }
-    },
+    if (args) {
+      entry.args = args;
+    }
 
-    // ── AutoCard ── port 4004
-    {
-      name: 'autocard',
-      script: './server.js',
-      cwd: './projects/autocard',
-      ...projectDefaults('autocard'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4004,
-        ...sharedEnv,
-        ...loadEnv('projects/autocard')
-      }
-    },
+    apps.push(entry);
 
-    // ── ReelScript ── port 4005
-    {
-      name: 'reelscript',
-      script: './server.js',
-      cwd: './projects/reelscript',
-      ...projectDefaults('reelscript', { min_uptime: '10s' }),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4005,
-        ...sharedEnv,
-        ...loadEnv('projects/reelscript')
-      }
-    },
+    // ── Companion processes ──
+    if (Array.isArray(project.companions)) {
+      for (const comp of project.companions) {
+        const compCwd = comp.cwd
+          ? `./projects/${project.id}/${comp.cwd}`
+          : `./projects/${project.id}`;
+        const compName = `${project.id}-${comp.name}`;
 
-    // ── ReelScript Bot (companion) ──
-    {
-      name: 'reelscript-bot',
-      script: 'python',
-      args: '-m services.telegram_bot',
-      cwd: './projects/reelscript/backend',
-      ...projectDefaults('reelscript-bot', { min_uptime: '10s' }),
-      env: {
-        ...sharedEnv,
-        ...loadEnv('projects/reelscript'),
-        ...loadEnv('projects/reelscript/backend')
-      }
-    },
-
-    // ── LetMeUse ── port 4006 (Next.js)
-    {
-      name: 'letmeuse',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 4006',
-      cwd: './projects/letmeuse',
-      ...projectDefaults('letmeuse'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4006,
-        ...sharedEnv,
-        ...loadEnv('projects/letmeuse')
-      }
-    },
-
-    // ── Upimg (duk.tw) ── port 4007 (Next.js)
-    {
-      name: 'upimg',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 4007',
-      cwd: './projects/upimg',
-      ...projectDefaults('upimg', { min_uptime: '10s' }),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4007,
-        HOSTNAME: '0.0.0.0',
-        ...sharedEnv,
-        ...loadEnv('projects/upimg')
-      }
-    },
-
-    // ── MeeTube ── port 4008
-    {
-      name: 'meetube',
-      script: './server/index.js',
-      cwd: './projects/meetube',
-      ...projectDefaults('meetube'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4008,
-        ...sharedEnv,
-        ...loadEnv('projects/meetube')
-      }
-    },
-
-    // ── Pokkit ── port 4009
-    {
-      name: 'pokkit',
-      script: 'node_modules/tsx/dist/cli.mjs',
-      args: 'src/index.ts',
-      cwd: './projects/pokkit',
-      ...projectDefaults('pokkit'),
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4009,
-        ...sharedEnv,
-        ...loadEnv('projects/pokkit')
+        apps.push({
+          name: compName,
+          script: comp.command,
+          args: comp.args,
+          cwd: compCwd,
+          ...projectDefaults(compName, { min_uptime: minUptime }),
+          env: {
+            NODE_ENV: 'production',
+            PORT: project.port,
+            ...sharedEnv,
+            ...loadEnv(`projects/${project.id}`),
+            ...(comp.cwd ? loadEnv(`projects/${project.id}/${comp.cwd}`) : {})
+          }
+        });
       }
     }
-  ]
-};
+  }
+} catch (err) {
+  console.error('[ecosystem] Failed to load projects.json:', err.message);
+}
+
+module.exports = { apps };
 
 // ── Cloudflared Tunnel (conditional) ──
 try {
@@ -239,4 +186,3 @@ try {
     });
   }
 } catch {}
-

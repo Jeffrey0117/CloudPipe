@@ -568,6 +568,15 @@ async function deploy(projectId, options = {}) {
       }
     }
 
+    // 自動標記 runner（供 ecosystem.config.js 冷啟動用）
+    if (!project.runner) {
+      if (startCommand && startCommand.script.includes('next')) {
+        updateProject(project.id, { runner: 'next' });
+      } else if (entryFile.endsWith('.ts')) {
+        updateProject(project.id, { runner: 'tsx' });
+      }
+    }
+
     // 更新專案配置
     if (entryFile !== project.entryFile) {
       updateProject(project.id, { entryFile });
