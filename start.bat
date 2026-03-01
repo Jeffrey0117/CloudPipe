@@ -88,22 +88,19 @@ if not exist config.json (
     exit /b 1
   )
   echo.
-  echo   Setup complete! Services already running.
+  echo   Setup complete!
   echo.
-  REM setup.js already ran deploy-all.js, services are up
-  REM Skip straight to tunnel
-  goto :START_TUNNEL
 )
 
 REM ============================================================
-REM  Normal boot: fast start all services via ecosystem.config.js
+REM  Start all services + tunnel via PM2
 REM ============================================================
 
 echo [1/3] Stopping old instances...
 call pm2 delete all >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [2/3] Starting all services (parallel)...
+echo [2/3] Starting all services + tunnel...
 call pm2 start ecosystem.config.js
 if errorlevel 1 (
   echo.
@@ -111,6 +108,10 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+
+REM Save process list for pm2 resurrect
+call pm2 save >nul 2>&1
+
 timeout /t 5 /nobreak >nul
 
 echo.
@@ -128,35 +129,15 @@ if errorlevel 1 (
 )
 
 echo.
-echo   All services running!
+echo   All services + tunnel running!
+echo   Managed by PM2 (survives terminal close)
 echo.
-
-REM ============================================================
-REM  Start cloudflared tunnel
-REM ============================================================
-
-:START_TUNNEL
-
-if not exist cloudflared.yml (
-  echo.
-  echo   [WARN] cloudflared.yml not found, skipping tunnel
-  echo.
-  goto :DONE
-)
-
-echo Starting tunnel...
-echo   Press Ctrl+C to stop tunnel
+echo   Commands:
+echo     pm2 list          - status
+echo     pm2 logs          - live logs
+echo     pm2 logs tunnel   - tunnel logs
+echo     pm2 stop all      - stop everything
 echo.
-
-REM Read cloudflared path from config.json dynamically
-FOR /F "delims=" %%i IN ('node -e "console.log(require('./config.json').cloudflared?.path||'cloudflared')" 2^>nul') DO SET CF_CMD=%%i
-if "%CF_CMD%"=="" set CF_CMD=cloudflared
-"%CF_CMD%" tunnel --config cloudflared.yml run cloudpipe
-
-:DONE
-
-echo.
-echo Tunnel stopped.
 pause
 exit /b 0
 

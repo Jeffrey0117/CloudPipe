@@ -216,3 +216,27 @@ module.exports = {
     }
   ]
 };
+
+// ── Cloudflared Tunnel (conditional) ──
+try {
+  const cfConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+  const cfPath = cfConfig.cloudflared?.path || 'cloudflared';
+  const cfYml = path.join(__dirname, 'cloudflared.yml');
+  if (fs.existsSync(cfYml)) {
+    module.exports.apps.push({
+      name: 'tunnel',
+      script: cfPath,
+      args: `tunnel --config ${cfYml} run cloudpipe`,
+      interpreter: 'none',
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+      restart_delay: 5000,
+      error_file: 'logs/tunnel-error.log',
+      out_file: 'logs/tunnel-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true
+    });
+  }
+} catch {}
+
