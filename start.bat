@@ -132,6 +132,21 @@ echo.
 echo   All services + tunnel running!
 echo   Managed by PM2 (survives terminal close)
 echo.
+
+REM ============================================================
+REM  Auto-start on boot (ask once, skip if already registered)
+REM ============================================================
+
+schtasks /query /tn "CloudPipe" >nul 2>&1
+if errorlevel 1 (
+  echo.
+  set /p AUTOSTART="  Enable auto-start on boot? (Y/n): "
+  if /i not "%AUTOSTART%"=="n" (
+    call node scripts/autostart.js
+    echo.
+  )
+)
+
 echo   Commands:
 echo     pm2 list          - status
 echo     pm2 logs          - live logs
