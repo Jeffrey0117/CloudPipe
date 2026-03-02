@@ -64,12 +64,13 @@ function getAllTargetUrls() {
   const domain = config.domain || '';
   const urls = [];
 
-  // Auto-discover deployed projects
+  // Auto-discover deployed projects — use healthEndpoint if available
   try {
     const projects = deploy.getAllProjects();
     for (const p of projects) {
       if (domain && p.id) {
-        urls.push(`https://${p.id}.${domain}`);
+        const health = p.healthEndpoint || '';
+        urls.push(`https://${p.id}.${domain}${health}`);
       }
     }
   } catch {
@@ -93,7 +94,7 @@ async function checkUrl(url) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
     const res = await fetch(url, {
-      method: 'HEAD',
+      method: 'GET',
       signal: controller.signal,
       redirect: 'follow',
     });
