@@ -217,6 +217,11 @@ module.exports = {
       return deleteApp(name, res);
     }
 
+    // GET /api/_admin/machines - 多機狀態 + tunnel connectors
+    if (req.method === 'GET' && pathname === '/api/_admin/machines') {
+      return handleMachines(req, res);
+    }
+
     // GET /api/_admin/system - 系統資訊
     if (req.method === 'GET' && pathname === '/api/_admin/system') {
       return handleSystemInfo(req, res);
@@ -941,6 +946,25 @@ function handleUpdateTelegram(req, res) {
       res.end(JSON.stringify({ error: e.message }));
     }
   });
+}
+
+// 多機狀態 + tunnel connectors
+async function handleMachines(req, res) {
+  try {
+    const { getAllMachines } = require('./heartbeat');
+    const { getTunnelInfo } = require('./tunnel-info');
+    const redisMod = require('./redis');
+
+    const machines = await getAllMachines();
+    const tunnel = getTunnelInfo();
+    const currentMachineId = redisMod.getMachineId();
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ machines, currentMachineId, tunnel }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
 }
 
 // 系統資訊

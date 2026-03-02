@@ -44,6 +44,10 @@ class CloudPipe {
     return this._get('/api/_admin/system')
   }
 
+  machines() {
+    return this._get('/api/_admin/machines')
+  }
+
   logs(pm2Name) {
     return this._get(`/api/_admin/deploy/logs/${enc(pm2Name)}`)
   }

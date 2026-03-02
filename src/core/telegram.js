@@ -159,6 +159,8 @@ async function registerCommands() {
       { command: 'call', description: '呼叫工具 /call <tool> key=value' },
       { command: 'pipe', description: '執行 pipeline /pipe <id> key=value' },
       { command: 'upload', description: '開關上傳模式（傳圖自動上傳到 duk.tw）' },
+      { command: 'schedules', description: '列出排程任務' },
+      { command: 'schedule', description: '排程操作 run|toggle <id>' },
       { command: 'envtoken', description: '生成 .env 下載 token（給新機器用）' },
       { command: 'help', description: '指令說明' },
     ],
@@ -182,6 +184,8 @@ async function handleStart(chatId) {
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/upload — 開關上傳模式（傳圖自動上傳 duk.tw）',
+    '/schedules — 列出排程任務',
+    '/schedule run|toggle &lt;id&gt; — 執行或開關排程',
     '/envtoken — 生成 .env token（新機器用）',
     '/help — 指令列表',
     '',
@@ -547,6 +551,72 @@ async function handlePipe(chatId, args) {
   }
 }
 
+async function handleSchedules(chatId) {
+  let scheduler
+  try {
+    scheduler = require('./scheduler')
+  } catch {
+    return sendMessage(chatId, 'Scheduler module not available.')
+  }
+
+  const list = scheduler.listSchedules()
+  if (list.length === 0) {
+    return sendMessage(chatId, 'No schedules configured.')
+  }
+
+  const lines = list.map(s => {
+    const icon = s.enabled ? '🟢' : '⚪'
+    const lastRun = s.lastRun
+      ? `Last: ${new Date(s.lastRun).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`
+      : 'Never run'
+    return `${icon} <b>${s.name}</b> (<code>${s.id}</code>)\n   ${s.cron} | ${lastRun}`
+  })
+
+  await sendMessage(chatId, lines.join('\n\n'))
+}
+
+async function handleScheduleAction(chatId, args) {
+  if (args.length < 2) {
+    return sendMessage(chatId, 'Usage:\n/schedule run &lt;id&gt; — 手動執行\n/schedule toggle &lt;id&gt; — 開關排程')
+  }
+
+  const action = args[0].toLowerCase()
+  const scheduleId = args[1]
+
+  let scheduler
+  try {
+    scheduler = require('./scheduler')
+  } catch {
+    return sendMessage(chatId, 'Scheduler module not available.')
+  }
+
+  if (action === 'run') {
+    await sendMessage(chatId, `Running schedule <code>${scheduleId}</code>...`)
+
+    try {
+      const result = await scheduler.runSchedule(scheduleId)
+      if (result.error && !result.success) {
+        return sendMessage(chatId, `❌ ${result.error}`)
+      }
+      const icon = result.success ? '✅' : '❌'
+      return sendMessage(chatId, `${icon} <b>${result.name || scheduleId}</b>\nDuration: ${result.duration}${result.error ? '\nError: ' + result.error : ''}`)
+    } catch (err) {
+      return sendMessage(chatId, `❌ Error: ${err.message}`)
+    }
+  }
+
+  if (action === 'toggle') {
+    const result = scheduler.toggleSchedule(scheduleId)
+    if (result.error) {
+      return sendMessage(chatId, `❌ ${result.error}`)
+    }
+    const icon = result.enabled ? '🟢' : '⚪'
+    return sendMessage(chatId, `${icon} Schedule <code>${scheduleId}</code> is now <b>${result.enabled ? 'enabled' : 'disabled'}</b>`)
+  }
+
+  return sendMessage(chatId, `Unknown action: <code>${action}</code>\nUse: run | toggle`)
+}
+
 async function handleHelp(chatId) {
   const text = [
     '<b>CloudPipe Bot 指令</b>',
@@ -560,6 +630,8 @@ async function handleHelp(chatId) {
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/upload — 圖片 caption 加 /upload → 上傳到 duk.tw',
+    '/schedules — 列出排程任務',
+    '/schedule run|toggle &lt;id&gt; — 執行或開關排程',
     '/envtoken — 生成 .env token（給新機器）',
     '/help — 顯示此說明',
   ].join('\n');
@@ -756,6 +828,10 @@ async function handleUpdate(update) {
       return handleCall(chatId, args);
     case '/pipe':
       return handlePipe(chatId, args);
+    case '/schedules':
+      return handleSchedules(chatId);
+    case '/schedule':
+      return handleScheduleAction(chatId, args);
     case '/upload': {
       // Reply to a photo → upload that photo directly
       const reply = message.reply_to_message

@@ -113,10 +113,10 @@
         }
       ],
       "createdAt": "2026-02-13T00:00:00.000Z",
-      "lastDeployAt": "2026-03-01T08:58:35.580Z",
+      "lastDeployAt": "2026-03-02T11:15:40.224Z",
       "lastDeployStatus": "success",
-      "lastDeployCommit": "46f1146",
-      "runningCommit": "46f1146",
+      "lastDeployCommit": "b177dca",
+      "runningCommit": "b177dca",
       "webhookId": 595985399
     },
     {
@@ -135,11 +135,11 @@
       "envFile": "",
       "buildCommand": "pnpm run build",
       "createdAt": "2026-02-23T11:19:23.015Z",
-      "lastDeployAt": "2026-03-01T08:58:58.389Z",
+      "lastDeployAt": "2026-03-02T05:44:58.532Z",
       "lastDeployStatus": "success",
       "webhookId": 597583064,
-      "lastDeployCommit": "2dd3bab",
-      "runningCommit": "2dd3bab"
+      "lastDeployCommit": "07e3ff1",
+      "runningCommit": "07e3ff1"
     },
     {
       "id": "upimg",
@@ -206,10 +206,27 @@
       "buildCommand": "npm install",
       "healthEndpoint": "/status",
       "createdAt": "2026-03-01T08:10:00.000Z",
-      "lastDeployAt": "2026-03-01T18:57:38.251Z",
+      "lastDeployAt": "2026-03-02T01:33:44.918Z",
       "lastDeployStatus": "failed",
       "lastDeployCommit": "eae3411",
       "runningCommit": "f60d2ed"
+    },
+    {
+      "id": "notebody",
+      "name": "NoteBody",
+      "description": "NotebookLM research bridge",
+      "deployMethod": "local",
+      "repoUrl": "",
+      "branch": "",
+      "directory": "projects/notebody",
+      "entryFile": "server.js",
+      "port": 4010,
+      "pm2Name": "notebody",
+      "webhookSecret": "",
+      "envFile": "",
+      "buildCommand": "npm install",
+      "healthEndpoint": "/api/health",
+      "createdAt": "2026-03-02T12:00:00.000Z"
     },
     {
       "id": "canweback",
@@ -226,11 +243,11 @@
       "envFile": "",
       "buildCommand": "",
       "createdAt": "2026-03-01T09:29:00.567Z",
-      "lastDeployAt": "2026-03-01T18:24:30.639Z",
+      "lastDeployAt": "2026-03-02T05:44:08.861Z",
       "lastDeployStatus": "success",
       "webhookId": 598523403,
-      "lastDeployCommit": "3285ceb",
-      "runningCommit": "3285ceb"
+      "lastDeployCommit": "63ab025",
+      "runningCommit": "63ab025"
     },
     {
       "id": "gitloop",
@@ -247,11 +264,11 @@
       "envFile": "",
       "buildCommand": "npm run build",
       "createdAt": "2026-03-01T18:36:44.446Z",
-      "lastDeployAt": "2026-03-01T20:41:59.996Z",
+      "lastDeployAt": "2026-03-01T21:28:33.704Z",
       "lastDeployStatus": "success",
       "webhookId": 598573124,
-      "lastDeployCommit": "aede1bd",
-      "runningCommit": "aede1bd"
+      "lastDeployCommit": "419d13f",
+      "runningCommit": "419d13f"
     }
   ]
 }

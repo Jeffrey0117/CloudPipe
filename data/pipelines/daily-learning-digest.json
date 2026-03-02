@@ -1,0 +1,19 @@
+{
+  "id": "daily-learning-digest",
+  "name": "Daily Learning Digest",
+  "description": "Get today's learning snippet and a golden quote from ReelScript",
+  "input": {},
+  "steps": [
+    {
+      "id": "snippet",
+      "tool": "reelscript_daily_snippet",
+      "params": {}
+    },
+    {
+      "id": "quotes",
+      "tool": "reelscript_list_quotes",
+      "params": { "limit": 1 },
+      "continueOnError": true
+    }
+  ]
+}

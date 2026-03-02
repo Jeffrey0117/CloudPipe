@@ -1,0 +1,16 @@
+{
+  "name": "notebody",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "NotebookLM HTTP bridge for CloudPipe",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "notebooklm-mcp": "^1.2.1",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "patchright": "^1.49.1",
+    "env-paths": "^3.0.0"
+  }
+}

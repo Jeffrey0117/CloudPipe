@@ -1,0 +1,28 @@
+{
+  "id": "content-pool-refresh",
+  "name": "Content Pool Refresh",
+  "description": "AI suggests topics for a category, generates flashcard content, and saves to pool",
+  "input": {
+    "category": { "type": "string", "required": true, "description": "Category to generate content for (e.g. English Grammar)" }
+  },
+  "steps": [
+    {
+      "id": "topics",
+      "tool": "autocard_suggest_topics",
+      "params": { "category": "{{input.category}}" }
+    },
+    {
+      "id": "cards",
+      "tool": "autocard_generate_content",
+      "params": { "topic": "{{steps.topics.data.topics[0]}}" }
+    },
+    {
+      "id": "save",
+      "tool": "autocard_create_pool_entry",
+      "params": {
+        "title": "{{steps.topics.data.topics[0]}}",
+        "markdown": "{{steps.cards.data.markdown}}"
+      }
+    }
+  ]
+}

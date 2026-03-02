@@ -107,6 +107,65 @@ function registerCoreTools(server, client) {
       }
     }
   )
+
+  server.tool(
+    'machines',
+    'Get status of all CloudPipe machines and tunnel connectors',
+    async () => {
+      try {
+        const data = await client.machines()
+        return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  // --- Scheduler tools ---
+
+  server.tool(
+    'list_schedules',
+    'List all scheduled tasks with their status, cron expression, and last run',
+    async () => {
+      try {
+        const scheduler = require('../src/core/scheduler')
+        const schedules = scheduler.listSchedules()
+        return { content: [{ type: 'text', text: JSON.stringify(schedules, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
+    'run_schedule',
+    'Manually trigger a scheduled task immediately',
+    { id: z.string().describe('Schedule ID') },
+    async ({ id }) => {
+      try {
+        const scheduler = require('../src/core/scheduler')
+        const result = await scheduler.runSchedule(id)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
+    'toggle_schedule',
+    'Enable or disable a scheduled task',
+    { id: z.string().describe('Schedule ID') },
+    async ({ id }) => {
+      try {
+        const scheduler = require('../src/core/scheduler')
+        const result = scheduler.toggleSchedule(id)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
 }
 
 module.exports = { registerCoreTools }

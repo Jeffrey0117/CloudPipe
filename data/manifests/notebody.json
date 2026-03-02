@@ -1,0 +1,173 @@
+{
+  "name": "NoteBody",
+  "version": "1.0.0",
+  "description": "NotebookLM research bridge - ask questions with grounded, citation-backed answers from your notebooks",
+  "endpoints": [
+    {
+      "name": "ask",
+      "description": "Ask NotebookLM a question and get a grounded answer with citations from your notebooks",
+      "method": "POST",
+      "path": "/api/ask",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "The question to ask NotebookLM" },
+          "notebook_url": { "type": "string", "description": "Optional notebook URL to query (uses active notebook if omitted)" },
+          "session_id": { "type": "string", "description": "Optional session ID for conversation continuity" }
+        },
+        "required": ["question"]
+      }
+    },
+    {
+      "name": "list_notebooks",
+      "description": "List all notebooks in the NotebookLM library",
+      "method": "GET",
+      "path": "/api/notebooks",
+      "auth": "bearer"
+    },
+    {
+      "name": "add_notebook",
+      "description": "Add a notebook to the library by URL",
+      "method": "POST",
+      "path": "/api/notebooks",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "NotebookLM notebook URL" },
+          "tags": { "type": "array", "description": "Tags for categorization" },
+          "description": { "type": "string", "description": "Notebook description" }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "get_notebook",
+      "description": "Get details of a specific notebook",
+      "method": "GET",
+      "path": "/api/notebooks/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Notebook ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "update_notebook",
+      "description": "Update notebook metadata (tags, description)",
+      "method": "PUT",
+      "path": "/api/notebooks/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Notebook ID" },
+          "tags": { "type": "array", "description": "Updated tags" },
+          "description": { "type": "string", "description": "Updated description" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "remove_notebook",
+      "description": "Remove a notebook from the library",
+      "method": "DELETE",
+      "path": "/api/notebooks/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Notebook ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "select_notebook",
+      "description": "Set a notebook as the active notebook for queries",
+      "method": "POST",
+      "path": "/api/notebooks/{id}/select",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Notebook ID to activate" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "search_notebooks",
+      "description": "Search notebooks by keyword",
+      "method": "GET",
+      "path": "/api/search",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Search keyword" }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "list_sessions",
+      "description": "List active NotebookLM browser sessions",
+      "method": "GET",
+      "path": "/api/sessions",
+      "auth": "bearer"
+    },
+    {
+      "name": "close_session",
+      "description": "Close a specific browser session",
+      "method": "DELETE",
+      "path": "/api/sessions/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Session ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_health",
+      "description": "Get NoteBody server and MCP connection health status",
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "name": "auto_create_notebook",
+      "description": "Create a new NotebookLM notebook via browser automation",
+      "method": "POST",
+      "path": "/api/auto/create",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "Optional notebook title" }
+        }
+      }
+    },
+    {
+      "name": "auto_add_source",
+      "description": "Add a URL source (YouTube, website) to a NotebookLM notebook",
+      "method": "POST",
+      "path": "/api/auto/source",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "notebook_url": { "type": "string", "description": "NotebookLM notebook URL" },
+          "source_url": { "type": "string", "description": "URL to add as source (YouTube, website, etc.)" }
+        },
+        "required": ["notebook_url", "source_url"]
+      }
+    }
+  ]
+}

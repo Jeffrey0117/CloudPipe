@@ -402,3 +402,53 @@ sudo apt update && sudo apt install -y git build-essential python3 python3-pip f
 - **GPU**: Optional. ReelScript's Whisper transcription uses GPU if available, falls back to CPU (slow)
 - **Ports**: Not needed — Cloudflare Tunnel uses outbound connections only
 - **Architecture**: `setup.js` downloads `cloudflared-linux-amd64`. ARM machines need manual cloudflared install
+
+## Diagnostics & Troubleshooting
+
+### Quick Diagnosis
+
+Run on any machine:
+```bash
+node diagnose.js          # Full health report
+node diagnose.js --json   # JSON output (for scripting)
+node diagnose.js --fix    # Show fix suggestions
+```
+
+### Common Problems & Fixes
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| No config.json | Setup not run | `node setup.js` |
+| Redis connection refused | Wrong redis.url or Redis down | Check config.json redis.url |
+| PM2 empty | Services not started | `pm2 start ecosystem.config.js` |
+| Project "not deployed" | Dir missing in projects/ | Deploy via admin or `git clone` |
+| cloudflared not running | Process crashed | `pm2 restart tunnel` |
+| .env missing | Env not synced | `/envtoken` on primary → `node setup-env.js <url>` |
+| Tunnel 0 connectors | cloudflared credentials bad | Re-run `node setup.js` |
+| Health check fails | Port conflict or crash | `pm2 logs {name}` to see error |
+
+### Machine Setup Checklist
+
+For a new machine (Machine B, C, etc.):
+1. Clone repo: `git clone https://github.com/Jeffrey0117/CloudPipe.git`
+2. Run bootstrap: `start.bat` (Windows) or `bash start.sh` (Linux)
+3. Verify: `node diagnose.js`
+4. If errors: follow the fix suggestions
+5. Confirm on primary: check `/machines` in Telegram or MCP `machines` tool
+
+### File Locations
+
+| File | Purpose | Critical? |
+|------|---------|-----------|
+| `config.json` | Machine identity + credentials | Yes |
+| `data/deploy/projects.json` | Project registry | Yes |
+| `cloudflared.yml` | Tunnel routing rules | Yes (for remote access) |
+| `~/.cloudflared/{tunnelId}.json` | Tunnel credentials | Yes (for remote access) |
+| `projects/{id}/.env` | Per-project secrets | Yes (per project) |
+| `ecosystem.config.js` | PM2 process definitions | Auto-generated |
+
+### Restart Everything
+
+```bash
+pm2 delete all && pm2 start ecosystem.config.js && pm2 save
+```

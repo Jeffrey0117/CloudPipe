@@ -1,0 +1,24 @@
+{
+  "id": "notebook-to-flashcards",
+  "name": "NotebookLM → Flashcards",
+  "description": "Ask NotebookLM a research question, then generate flashcards from the answer",
+  "input": {
+    "question": { "type": "string", "required": true, "description": "Research question to ask NotebookLM" },
+    "pages": { "type": "number", "required": false, "description": "Number of flashcard pages (default: 4)" }
+  },
+  "steps": [
+    {
+      "id": "research",
+      "tool": "notebody_ask",
+      "params": { "question": "{{input.question}}" }
+    },
+    {
+      "id": "flashcards",
+      "tool": "autocard_generate_content",
+      "params": {
+        "topic": "{{steps.research.data.answer}}",
+        "pages": "{{input.pages}}"
+      }
+    }
+  ]
+}

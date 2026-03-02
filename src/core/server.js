@@ -9,6 +9,7 @@ const deploy = require('./deploy');
 const gateway = require('./gateway');
 const telegram = require('./telegram');
 const heartbeat = require('./heartbeat');
+const scheduler = require('./scheduler');
 const redis = require('./redis');
 
 // 專案根目錄
@@ -90,6 +91,9 @@ if (xcardConfig?.enabled && xcardConfig?.botPath) {
   console.log('[XCard] Not enabled or no botPath, skipping');
 }
 
+// 啟動 Scheduler（排程任務）
+scheduler.start();
+
 // Graceful shutdown
 const shutdown = async () => {
   console.log('');
@@ -98,6 +102,7 @@ const shutdown = async () => {
   try {
     await heartbeat.stopHeartbeat();
     deploy.stopPolling();
+    scheduler.stop();
     telegram.stopBot();
     if (xcardBot) xcardBot.stopBot();
 

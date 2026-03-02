@@ -1,0 +1,26 @@
+{
+  "id": "trending-to-flashcards",
+  "name": "Trending → Flashcards",
+  "description": "Get trending YouTube videos and generate AI flashcards from the top result",
+  "input": {},
+  "steps": [
+    {
+      "id": "trending",
+      "tool": "meetube_get_trending",
+      "params": {}
+    },
+    {
+      "id": "cards",
+      "tool": "autocard_generate_content",
+      "params": { "topic": "{{steps.trending.data[0].title}}" }
+    },
+    {
+      "id": "cover",
+      "tool": "upimg_shorten_url",
+      "params": {
+        "url": "https://i.ytimg.com{{steps.trending.data[0].videoThumbnails[0].url}}",
+        "filename": "{{steps.trending.data[0].videoId}}.jpg"
+      }
+    }
+  ]
+}
