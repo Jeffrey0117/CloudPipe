@@ -308,7 +308,23 @@ async function handleMachines(chatId) {
     ].join('\n');
   });
 
-  await sendMessage(chatId, lines.join('\n\n'));
+  // Tunnel connector info
+  try {
+    const { getTunnelInfo } = require('./tunnel-info');
+    const tunnel = getTunnelInfo();
+    if (tunnel.connectorCount > 0) {
+      lines.push('');
+      lines.push(`🔗 <b>Tunnel:</b> ${tunnel.connectorCount} connector${tunnel.connectorCount > 1 ? 's' : ''}`);
+      for (const c of tunnel.connectors) {
+        const colos = c.colos.length > 0 ? ` via ${c.colos.join(', ')}` : '';
+        lines.push(`  • ${c.ip} (${c.arch})${colos}`);
+      }
+    }
+  } catch {
+    // tunnel-info not available
+  }
+
+  await sendMessage(chatId, lines.join('\n'));
 }
 
 async function handleRestart(chatId, projectId) {
@@ -927,16 +943,16 @@ function onDeployComplete({ project, deployment }) {
 
   const text = deployment.status === 'success'
     ? [
-        `✅ <b>[部署成功] ${project.name || project.id}</b>`,
+        `✅ <b>[${machineTag}] [部署成功] ${project.name || project.id}</b>`,
         `Commit: <code>${deployment.commit || '-'}</code>`,
         deployment.commitMessage ? `${deployment.commitMessage}` : '',
-        `耗時: ${duration} | 機器: ${machineTag}`,
+        `耗時: ${duration}`,
         `🔗 https://${project.id}.${domain}`,
       ].filter(Boolean).join('\n')
     : [
-        `❌ <b>[部署失敗] ${project.name || project.id}</b>`,
+        `❌ <b>[${machineTag}] [部署失敗] ${project.name || project.id}</b>`,
         `錯誤: ${deployment.error || '未知'}`,
-        `觸發: ${deployment.triggeredBy || 'unknown'} | 機器: ${machineTag}`,
+        `觸發: ${deployment.triggeredBy || 'unknown'}`,
       ].join('\n');
 
   sendMessage(config.chatId, text).catch((err) => {
