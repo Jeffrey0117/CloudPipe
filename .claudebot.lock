@@ -1,1 +1,1 @@
-{"botToken":"wSwrNU","botLabel":"Bot 4","pid":23936,"startedAt":1772451081261,"task":"在 reelscript 專案的 Python 環境中執行 `pip install --upgrade yt-dlp`"}
+{"botToken":"wSwrNU","botLabel":"Bot 4","pid":23936,"startedAt":1772451175338,"task":"在 reelscript 專案環境中執行：`pip install --upgrade yt-dlp`，然後重啟 ree"}
