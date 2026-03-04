@@ -332,7 +332,11 @@
       "envFile": "",
       "buildCommand": "pnpm install && pnpm run build",
       "healthEndpoint": "/",
-      "createdAt": "2026-03-05T00:00:00.000Z"
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "lastDeployAt": "2026-03-04T19:55:43.020Z",
+      "lastDeployStatus": "success",
+      "lastDeployCommit": "b94a2e3",
+      "runningCommit": "b94a2e3"
     }
   ]
 }
