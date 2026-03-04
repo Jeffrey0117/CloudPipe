@@ -1,0 +1,21 @@
+{
+  "id": "test-repic-bg-removal",
+  "name": "Test REPIC Background Removal",
+  "description": "Remove background from an image URL using REPIC",
+  "input": {
+    "url": {
+      "type": "string",
+      "required": true,
+      "description": "Image URL to remove background from"
+    }
+  },
+  "steps": [
+    {
+      "id": "remove_bg",
+      "tool": "repic_remove_background",
+      "params": {
+        "url": "{{input.url}}"
+      }
+    }
+  ]
+}

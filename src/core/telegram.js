@@ -1017,23 +1017,65 @@ function onDeployComplete({ project, deployment }) {
   const redisMod = require('./redis');
   const machineTag = redisMod.getMachineId() || '';
 
-  const text = deployment.status === 'success'
-    ? [
-        `✅ <b>[${machineTag}] [部署成功] ${project.name || project.id}</b>`,
-        `Commit: <code>${deployment.commit || '-'}</code>`,
-        deployment.commitMessage ? `${deployment.commitMessage}` : '',
-        `耗時: ${duration}`,
-        `🔗 https://${project.id}.${domain}`,
-      ].filter(Boolean).join('\n')
-    : [
-        `❌ <b>[${machineTag}] [部署失敗] ${project.name || project.id}</b>`,
-        `錯誤: ${deployment.error || '未知'}`,
-        `觸發: ${deployment.triggeredBy || 'unknown'}`,
-      ].join('\n');
+  if (deployment.status === 'success') {
+    // Reset autofix counter on success
+    const autofix = require('./autofix');
+    autofix.resetProject(project.id);
 
-  sendMessage(config.chatId, text).catch((err) => {
-    console.error('[Telegram] Notification error:', err.message);
-  });
+    const text = [
+      `✅ <b>[${machineTag}] [部署成功] ${project.name || project.id}</b>`,
+      `Commit: <code>${deployment.commit || '-'}</code>`,
+      deployment.commitMessage ? `${deployment.commitMessage}` : '',
+      `耗時: ${duration}`,
+      `🔗 https://${project.id}.${domain}`,
+    ].filter(Boolean).join('\n');
+
+    sendMessage(config.chatId, text).catch((err) => {
+      console.error('[Telegram] Notification error:', err.message);
+    });
+  } else {
+    // Deploy failed — notify + attempt autofix
+    const autofix = require('./autofix');
+    const check = autofix.shouldAttemptFix(project.id, deployment.commit);
+    const errorPreview = (deployment.error || '未知').substring(0, 200);
+
+    const text = [
+      `❌ <b>[${machineTag}] [部署失敗] ${project.name || project.id}</b>`,
+      `錯誤: <code>${escapeHtml(errorPreview)}</code>`,
+      `觸發: ${deployment.triggeredBy || 'unknown'}`,
+      `Commit: <code>${deployment.commit || '-'}</code>`,
+      check.allowed
+        ? `🔧 自動修復中...`
+        : `⏸️ 自動修復跳過: ${check.reason}`,
+    ].join('\n');
+
+    sendMessage(config.chatId, text).catch((err) => {
+      console.error('[Telegram] Notification error:', err.message);
+    });
+
+    // Trigger autofix if allowed
+    if (check.allowed) {
+      autofix.sendFixRequest(project, deployment).then((result) => {
+        if (result.skipped) return;
+        if (result.sent) {
+          sendMessage(config.chatId,
+            `🔧 <b>[${project.name || project.id}]</b> 修復請求已發送給 Bot`
+          ).catch(() => {});
+        } else {
+          sendMessage(config.chatId,
+            `⚠️ <b>[${project.name || project.id}]</b> 無法發送修復請求: ${result.error || 'unknown'}`
+          ).catch(() => {});
+        }
+      });
+    }
+  }
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // ==================== Lifecycle ====================

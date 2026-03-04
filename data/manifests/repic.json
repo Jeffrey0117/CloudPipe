@@ -1,0 +1,31 @@
+{
+  "name": "REPIC",
+  "version": "1.0.0",
+  "description": "Image background removal service using Sharp",
+  "endpoints": [
+    {
+      "name": "remove_background",
+      "description": "Remove light gray/white background from an image. Supports URL or base64 input, returns PNG with transparent background.",
+      "method": "POST",
+      "path": "/api/remove-background",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Image URL to process (mutually exclusive with base64)"
+          },
+          "base64": {
+            "type": "string",
+            "description": "Base64-encoded image data (mutually exclusive with url)"
+          }
+        },
+        "oneOf": [
+          { "required": ["url"] },
+          { "required": ["base64"] }
+        ]
+      }
+    }
+  ]
+}

@@ -153,7 +153,7 @@
       "port": 4007,
       "pm2Name": "upimg",
       "runner": "next",
-      "webhookSecret": "",
+      "webhookSecret": "2c1d66f9921963ab251f887b6572ea4e68fa78a0",
       "envFile": "",
       "buildCommand": "npm run build",
       "customDomains": [
@@ -162,10 +162,11 @@
       ],
       "healthEndpoint": "/",
       "createdAt": "2026-02-26T00:00:00.000Z",
-      "lastDeployAt": "2026-03-01T08:59:36.842Z",
+      "lastDeployAt": "2026-03-04T12:32:55.127Z",
       "lastDeployStatus": "success",
-      "lastDeployCommit": "62df13f",
-      "runningCommit": "62df13f"
+      "lastDeployCommit": "f4631ec",
+      "runningCommit": "f4631ec",
+      "webhookId": 598997460
     },
     {
       "id": "meetube",
@@ -183,11 +184,11 @@
       "buildCommand": "cd client && npm install && npm run build",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-02-27T00:40:36.982Z",
-      "lastDeployAt": "2026-03-04T09:05:27.331Z",
-      "lastDeployStatus": "failed",
+      "lastDeployAt": "2026-03-04T12:18:24.839Z",
+      "lastDeployStatus": "success",
       "webhookId": 598173949,
-      "lastDeployCommit": "a89ba05",
-      "runningCommit": "554ba5d"
+      "lastDeployCommit": "235cde2",
+      "runningCommit": "235cde2"
     },
     {
       "id": "pokkit",
@@ -201,7 +202,7 @@
       "port": 4009,
       "pm2Name": "pokkit",
       "runner": "tsx",
-      "webhookSecret": "",
+      "webhookSecret": "be33002ab13907939c0f2c25f3e7faa30ac86763",
       "envFile": "",
       "buildCommand": "npm install",
       "healthEndpoint": "/status",
@@ -209,7 +210,8 @@
       "lastDeployAt": "2026-03-02T01:33:44.918Z",
       "lastDeployStatus": "failed",
       "lastDeployCommit": "eae3411",
-      "runningCommit": "f60d2ed"
+      "runningCommit": "f60d2ed",
+      "webhookId": 599000112
     },
     {
       "id": "notebody",
@@ -222,7 +224,7 @@
       "entryFile": "server.js",
       "port": 4010,
       "pm2Name": "notebody",
-      "webhookSecret": "",
+      "webhookSecret": "15d0e666e6f79a91264dfa47b71c9bd9a6a468a8",
       "envFile": "",
       "buildCommand": "npm install",
       "healthEndpoint": "/api/health",
@@ -230,7 +232,8 @@
       "lastDeployAt": "2026-03-02T18:11:29.694Z",
       "lastDeployStatus": "success",
       "lastDeployCommit": null,
-      "runningCommit": null
+      "runningCommit": null,
+      "webhookId": 599000113
     },
     {
       "id": "canweback",
@@ -294,7 +297,25 @@
       "lastDeployAt": "2026-03-04T05:19:12.361Z",
       "lastDeployStatus": "success",
       "lastDeployCommit": "64504f6",
-      "runningCommit": "64504f6"
+      "runningCommit": "64504f6",
+      "webhookSecret": "05c9189945ee0c8e7386bbe511530f2bdbb2285c",
+      "webhookId": 599000116
+    },
+    {
+      "id": "repic",
+      "name": "REPIC",
+      "description": "Image background removal service",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/REPIC.git",
+      "branch": "master",
+      "directory": "projects/repic",
+      "entryFile": "server.js",
+      "port": 4013,
+      "pm2Name": "repic",
+      "envFile": "",
+      "buildCommand": "npm install",
+      "healthEndpoint": "/api/health",
+      "createdAt": "2026-03-04T13:00:00.000Z"
     }
   ]
 }

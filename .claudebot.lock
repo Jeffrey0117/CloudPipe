@@ -1,1 +1,1 @@
-{"botToken":"wSwrNU","botLabel":"Bot 4","pid":5552,"startedAt":1772615213113,"task":"deploy.js 已更新：1) git reset --hard 前後自動備份/還原 .env* 檔案 2) PM2 "}
+{"botToken":"ck_4hk","botLabel":"Bot 3","pid":57936,"startedAt":1772627967883,"task":"部署 REPIC 專案（https://github.com/Jeffrey0117/REPIC），需要把圖片處理功能（"}
