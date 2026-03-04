@@ -1,0 +1,70 @@
+{
+  "id": "video-learning-complete",
+  "name": "Complete Video Learning Package",
+  "description": "Download video, transcribe, translate to Chinese, extract vocabulary, generate golden quotes, create flashcards, and prepare cover image",
+  "input": {
+    "url": {
+      "type": "string",
+      "required": true,
+      "description": "Video URL (YouTube, Instagram, Bilibili, TikTok)"
+    },
+    "pages": {
+      "type": "number",
+      "required": false,
+      "description": "Number of flashcard pages to generate (default: 4)"
+    }
+  },
+  "steps": [
+    {
+      "id": "process",
+      "tool": "reelscript_process_video",
+      "params": {
+        "url": "{{input.url}}"
+      }
+    },
+    {
+      "id": "get_video",
+      "tool": "reelscript_get_video",
+      "params": {
+        "video_id": "{{steps.process.data.video_id}}"
+      }
+    },
+    {
+      "id": "translate",
+      "tool": "reelscript_translate_video",
+      "params": {
+        "video_id": "{{steps.process.data.video_id}}"
+      }
+    },
+    {
+      "id": "vocabulary",
+      "tool": "reelscript_analyze_vocabulary",
+      "params": {
+        "video_id": "{{steps.process.data.video_id}}"
+      }
+    },
+    {
+      "id": "appreciate",
+      "tool": "reelscript_appreciate_video",
+      "params": {
+        "video_id": "{{steps.process.data.video_id}}"
+      }
+    },
+    {
+      "id": "article",
+      "tool": "reelscript_get_article",
+      "params": {
+        "video_id": "{{steps.process.data.video_id}}"
+      },
+      "continueOnError": true
+    },
+    {
+      "id": "flashcards",
+      "tool": "autocard_generate_content",
+      "params": {
+        "topic": "{{steps.appreciate.data.theme_en}}",
+        "pages": "{{input.pages}}"
+      }
+    }
+  ]
+}

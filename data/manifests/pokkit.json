@@ -1,0 +1,55 @@
+{
+  "name": "Pokkit",
+  "version": "1.0.0",
+  "description": "Self-hosted file storage server for uploading, listing, downloading, and deleting files",
+  "endpoints": [
+    {
+      "name": "upload_file",
+      "description": "Upload a file to Pokkit storage. Returns download URL and file ID.",
+      "method": "POST",
+      "path": "/upload",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (multipart form data)"
+          }
+        },
+        "required": ["file"]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List all stored files with metadata",
+      "method": "GET",
+      "path": "/files",
+      "auth": "bearer"
+    },
+    {
+      "name": "delete_file",
+      "description": "Delete a file by its ID",
+      "method": "DELETE",
+      "path": "/files/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "File ID to delete"
+          }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_status",
+      "description": "Get storage statistics (total files, disk usage, etc.)",
+      "method": "GET",
+      "path": "/status",
+      "auth": "bearer"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "ClaudeBot Survey",
+  "version": "1.0.0",
+  "description": "Course interest survey powered by ClaudeBot (Next.js app, mostly frontend)",
+  "endpoints": []
+}

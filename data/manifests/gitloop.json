@@ -1,0 +1,23 @@
+{
+  "name": "GitLoop",
+  "version": "1.0.0",
+  "description": "AI-native Git platform — webhook receiver for Gitea push/PR events with AI code review",
+  "endpoints": [
+    {
+      "name": "receive_webhook",
+      "description": "Receive Gitea webhook event (push or pull_request). Triggers notifications, AI review, and learning insights.",
+      "method": "POST",
+      "path": "/api/webhook",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "description": "Gitea event type: push or pull_request (passed via x-gitea-event header)"
+          }
+        }
+      }
+    }
+  ]
+}

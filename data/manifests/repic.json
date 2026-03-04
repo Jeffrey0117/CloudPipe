@@ -1,30 +1,120 @@
 {
   "name": "REPIC",
-  "version": "1.0.0",
-  "description": "Image background removal service using Sharp",
+  "version": "2.0.0",
+  "description": "Image processing service — background removal, favicon generation, resize, convert, crop, metadata, compositing",
   "endpoints": [
     {
       "name": "remove_background",
-      "description": "Remove light gray/white background from an image. Supports URL or base64 input, returns PNG with transparent background.",
+      "description": "Remove light gray/white background from an image, returns PNG with transparent background",
       "method": "POST",
       "path": "/api/remove-background",
       "auth": "none",
       "parameters": {
         "type": "object",
         "properties": {
-          "url": {
-            "type": "string",
-            "description": "Image URL to process (mutually exclusive with base64)"
-          },
-          "base64": {
-            "type": "string",
-            "description": "Base64-encoded image data (mutually exclusive with url)"
-          }
+          "url": { "type": "string", "description": "Image URL to process" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" }
+        }
+      }
+    },
+    {
+      "name": "generate_favicon",
+      "description": "Generate favicon set from an image: 16x16, 32x32, 180x180 (Apple), 192x192, 512x512 (Android). Returns all sizes as base64 PNGs.",
+      "method": "POST",
+      "path": "/api/favicon",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Image URL" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" }
+        }
+      }
+    },
+    {
+      "name": "resize",
+      "description": "Resize an image to specified dimensions",
+      "method": "POST",
+      "path": "/api/resize",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Image URL" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" },
+          "width": { "type": "number", "description": "Target width in pixels" },
+          "height": { "type": "number", "description": "Target height in pixels" },
+          "fit": { "type": "string", "description": "Resize fit mode: contain, cover, fill, inside, outside (default: contain)", "enum": ["contain", "cover", "fill", "inside", "outside"] },
+          "format": { "type": "string", "description": "Output format (default: png)", "enum": ["png", "jpeg", "webp", "avif"] }
+        }
+      }
+    },
+    {
+      "name": "convert",
+      "description": "Convert an image to a different format (PNG, JPEG, WebP, AVIF)",
+      "method": "POST",
+      "path": "/api/convert",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Image URL" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" },
+          "format": { "type": "string", "description": "Target format", "enum": ["png", "jpeg", "webp", "avif"] },
+          "quality": { "type": "number", "description": "Quality 1-100 (for JPEG/WebP/AVIF)" }
         },
-        "oneOf": [
-          { "required": ["url"] },
-          { "required": ["base64"] }
-        ]
+        "required": ["format"]
+      }
+    },
+    {
+      "name": "crop",
+      "description": "Crop a region from an image by specifying left, top, width, height in pixels",
+      "method": "POST",
+      "path": "/api/crop",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Image URL" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" },
+          "left": { "type": "number", "description": "Left offset in pixels" },
+          "top": { "type": "number", "description": "Top offset in pixels" },
+          "width": { "type": "number", "description": "Crop width in pixels" },
+          "height": { "type": "number", "description": "Crop height in pixels" }
+        },
+        "required": ["left", "top", "width", "height"]
+      }
+    },
+    {
+      "name": "metadata",
+      "description": "Get image metadata: width, height, format, channels, hasAlpha, file size",
+      "method": "POST",
+      "path": "/api/metadata",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Image URL" },
+          "base64": { "type": "string", "description": "Base64-encoded image data" }
+        }
+      }
+    },
+    {
+      "name": "composite",
+      "description": "Overlay/watermark one image onto another. Specify gravity for positioning.",
+      "method": "POST",
+      "path": "/api/composite",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Base image URL" },
+          "base64": { "type": "string", "description": "Base image as base64" },
+          "overlay_url": { "type": "string", "description": "Overlay/watermark image URL" },
+          "overlay_base64": { "type": "string", "description": "Overlay/watermark image as base64" },
+          "gravity": { "type": "string", "description": "Position: north, south, east, west, northeast, northwest, southeast, southwest, centre (default: southeast)", "enum": ["north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest", "centre"] },
+          "opacity": { "type": "number", "description": "Overlay opacity 0-1 (default: 1)" }
+        }
       }
     }
   ]

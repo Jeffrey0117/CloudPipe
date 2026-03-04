@@ -1,0 +1,128 @@
+{
+  "name": "CanWeBack",
+  "version": "1.0.0",
+  "description": "Relationship analysis and fortune-telling service with payment integration",
+  "endpoints": [
+    {
+      "name": "generate_fortune",
+      "description": "Generate a relationship compatibility fortune reading from two people's birthdays (ROC format like 880118)",
+      "method": "POST",
+      "path": "/api/fortune",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "myBirthday": {
+            "type": "string",
+            "description": "Your birthday in ROC calendar format (e.g., 880118)"
+          },
+          "partnerBirthday": {
+            "type": "string",
+            "description": "Partner's birthday in ROC calendar format"
+          },
+          "myName": {
+            "type": "string",
+            "description": "Your name (optional)"
+          },
+          "partnerName": {
+            "type": "string",
+            "description": "Partner's name (optional)"
+          }
+        },
+        "required": ["myBirthday", "partnerBirthday"]
+      }
+    },
+    {
+      "name": "get_fortune",
+      "description": "Retrieve a full fortune report by order ID (requires payment)",
+      "method": "GET",
+      "path": "/api/fortune/{orderId}",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Order ID from generate_fortune"
+          }
+        },
+        "required": ["orderId"]
+      }
+    },
+    {
+      "name": "create_letter",
+      "description": "Create an unsent letter to someone (max 500 chars)",
+      "method": "POST",
+      "path": "/api/letter",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "senderName": {
+            "type": "string",
+            "description": "Sender's name"
+          },
+          "receiverName": {
+            "type": "string",
+            "description": "Receiver's name"
+          },
+          "receiverBirthday": {
+            "type": "string",
+            "description": "Receiver's birthday in ROC format"
+          },
+          "content": {
+            "type": "string",
+            "description": "Letter content (max 500 characters)"
+          }
+        },
+        "required": ["senderName", "receiverName", "receiverBirthday", "content"]
+      }
+    },
+    {
+      "name": "search_letters",
+      "description": "Search for letters by receiver's name and birthday",
+      "method": "GET",
+      "path": "/api/letter/search",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Receiver's name to search"
+          },
+          "birthday": {
+            "type": "string",
+            "description": "Receiver's birthday in ROC format"
+          }
+        },
+        "required": ["name", "birthday"]
+      }
+    },
+    {
+      "name": "collect_email",
+      "description": "Collect user email for marketing/follow-up",
+      "method": "POST",
+      "path": "/api/collect-email",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User's email address"
+          },
+          "orderId": {
+            "type": "string",
+            "description": "Associated order ID"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source page (e.g., 'report', 'fortune')"
+          }
+        },
+        "required": ["email"]
+      }
+    }
+  ]
+}

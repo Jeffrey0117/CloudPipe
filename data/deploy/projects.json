@@ -162,10 +162,10 @@
       ],
       "healthEndpoint": "/",
       "createdAt": "2026-02-26T00:00:00.000Z",
-      "lastDeployAt": "2026-03-04T12:32:55.127Z",
-      "lastDeployStatus": "success",
-      "lastDeployCommit": "f4631ec",
-      "runningCommit": "f4631ec",
+      "lastDeployAt": "2026-03-04T18:36:09.127Z",
+      "lastDeployStatus": "failed",
+      "lastDeployCommit": "1d9e600",
+      "runningCommit": "eed68cb",
       "webhookId": 598997460
     },
     {

@@ -1,0 +1,81 @@
+{
+  "id": "brand-asset-kit",
+  "name": "Brand Asset Kit Generator",
+  "description": "Remove background from logo, generate favicon set (16/32/180/192/512), create social images, and upload all to duk.tw",
+  "input": {
+    "url": {
+      "type": "string",
+      "required": true,
+      "description": "Logo image URL"
+    },
+    "projectName": {
+      "type": "string",
+      "required": false,
+      "description": "Project name for file naming (optional)"
+    }
+  },
+  "steps": [
+    {
+      "id": "check_metadata",
+      "tool": "repic_metadata",
+      "params": {
+        "url": "{{input.url}}"
+      }
+    },
+    {
+      "id": "remove_bg",
+      "tool": "repic_remove_background",
+      "params": {
+        "url": "{{input.url}}"
+      },
+      "continueOnError": true
+    },
+    {
+      "id": "generate_favicons",
+      "tool": "repic_generate_favicon",
+      "params": {
+        "url": "{{input.url}}"
+      }
+    },
+    {
+      "id": "og_image",
+      "tool": "repic_resize",
+      "params": {
+        "url": "{{input.url}}",
+        "width": 1200,
+        "height": 630,
+        "fit": "contain",
+        "format": "png"
+      }
+    },
+    {
+      "id": "twitter_card",
+      "tool": "repic_resize",
+      "params": {
+        "url": "{{input.url}}",
+        "width": 800,
+        "height": 418,
+        "fit": "contain",
+        "format": "png"
+      }
+    },
+    {
+      "id": "upload_logo",
+      "tool": "upimg_shorten_url",
+      "params": {
+        "url": "{{input.url}}",
+        "filename": "{{input.projectName}}-logo.png"
+      },
+      "continueOnError": true
+    },
+    {
+      "id": "upload_logo_nobg",
+      "tool": "upimg_shorten_url",
+      "params": {
+        "url": "data:image/png;base64,{{steps.remove_bg.data.base64}}",
+        "filename": "{{input.projectName}}-logo-nobg.png"
+      },
+      "continueOnError": true
+    }
+  ]
+}
