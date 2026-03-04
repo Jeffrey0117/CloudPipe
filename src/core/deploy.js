@@ -16,6 +16,9 @@ const { EventEmitter } = require('events');
 
 const events = new EventEmitter();
 
+// Per-project deploy locks to prevent concurrent deploys
+const deployLocks = new Map();
+
 const DATA_DIR = path.join(__dirname, '../../data/deploy');
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const DEPLOYMENTS_FILE = path.join(DATA_DIR, 'deployments.json');
@@ -300,6 +303,31 @@ async function deploy(projectId, options = {}) {
     throw new Error(`專案 "${projectId}" 不存在`);
   }
 
+  // ===== Deploy Lock: prevent concurrent deploys for same project =====
+  if (deployLocks.get(projectId)) {
+    console.log(`[deploy:${projectId}] 已有部署正在進行，跳過`);
+    return { id: null, status: 'skipped', error: 'Deploy already in progress' };
+  }
+  deployLocks.set(projectId, true);
+
+  // ===== Clean up stale "building" records (older than 10 min) =====
+  const allDeploys = readDeployments();
+  const STALE_THRESHOLD = 10 * 60 * 1000;
+  let cleanedStale = false;
+  for (const d of allDeploys) {
+    if (d.projectId === projectId && d.status === 'building') {
+      const age = Date.now() - new Date(d.startedAt).getTime();
+      if (age > STALE_THRESHOLD) {
+        d.status = 'failed';
+        d.error = 'Stale build (auto-cleaned after 10min)';
+        d.finishedAt = new Date().toISOString();
+        d.duration = age;
+        cleanedStale = true;
+      }
+    }
+  }
+  if (cleanedStale) writeDeployments(allDeploys);
+
   const deployId = generateDeployId();
   const startedAt = new Date().toISOString();
   const logs = [];
@@ -484,6 +512,7 @@ async function deploy(projectId, options = {}) {
     }
     if (buildCmd) {
       // 在 build 前先殺掉佔用 port 的舊進程（避免 Prisma EPERM 錯誤）
+      let killedOldProcess = false;
       if (project.port) {
         try {
           log(`檢查 port ${project.port} 是否被佔用...`);
@@ -495,8 +524,9 @@ async function deploy(projectId, options = {}) {
             try {
               execSync(`taskkill /F /PID ${pid}`, { windowsHide: true });
               log(`✓ 已關閉 PID ${pid}`);
-              // 等待 1 秒讓 port 完全釋放
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              killedOldProcess = true;
+              // 等待 1.5 秒讓 port 和 file handles 完全釋放
+              await new Promise(resolve => setTimeout(resolve, 1500));
             } catch (killErr) {
               log(`⚠ 無法關閉 PID ${pid}: ${killErr.message}`);
             }
@@ -518,6 +548,17 @@ async function deploy(projectId, options = {}) {
           log(`✓ Prisma cache 已清理`);
         } catch (cleanErr) {
           log(`⚠ 清理 Prisma cache 失敗: ${cleanErr.message}`);
+          // Retry after extra wait (file handle may not be released yet)
+          if (killedOldProcess) {
+            log(`等待 3 秒後重試清理...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            try {
+              fs.rmSync(prismaPath, { recursive: true, force: true });
+              log(`✓ Prisma cache 重試清理成功`);
+            } catch (retryErr) {
+              log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
+            }
+          }
         }
       }
 
@@ -529,6 +570,18 @@ async function deploy(projectId, options = {}) {
       } catch (buildErr) {
         const stderr = buildErr.stderr ? buildErr.stderr.toString().trim() : '';
         log(`Build stderr: ${stderr || buildErr.message}`);
+
+        // Rollback: if we killed the old process, try to restart it so service isn't down
+        if (killedOldProcess && project.pm2Name) {
+          log(`⚠ Build 失敗，嘗試重啟舊進程...`);
+          try {
+            execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+            log(`✓ 舊進程已重啟 (pm2 restart ${project.pm2Name})`);
+          } catch (restartErr) {
+            log(`⚠ 重啟舊進程失敗: ${restartErr.message}`);
+          }
+        }
+
         throw buildErr;
       }
       log(`Build 完成`);
@@ -864,6 +917,9 @@ async function deploy(projectId, options = {}) {
     deployment.error = error.message;
     log(`部署失敗: ${error.message}`);
     deployment.logs = logs;
+  } finally {
+    // Always release the deploy lock
+    deployLocks.delete(projectId);
   }
 
   // 更新部署記錄
