@@ -586,7 +586,10 @@ async function deploy(projectId, options = {}) {
     // PM2 重啟
     if (project.pm2Name) {
       // 準備環境變數
-      const pm2Env = project.port ? { PORT: String(project.port) } : {};
+      const pm2Env = {
+        NODE_ENV: 'production',
+        ...(project.port ? { PORT: String(project.port) } : {})
+      };
 
       // Load .env file from project directory
       const envFilePath = path.join(projectDir, '.env');
@@ -611,8 +614,6 @@ async function deploy(projectId, options = {}) {
         pm2Env.TELEGRAM_PROXY = fullConfig.telegramProxy;
       }
 
-      const spawnEnv = { ...process.env, ...pm2Env };
-
       // 先刪除舊的（如果有）
       if (project.companions && Array.isArray(project.companions)) {
         for (const companion of project.companions) {
@@ -627,31 +628,43 @@ async function deploy(projectId, options = {}) {
         // 忽略刪除錯誤
       }
 
+      // Build PM2 ecosystem config to ensure env vars reach the app
+      let pm2Script, pm2Args;
       if (startCommand) {
-        // 框架專案
-        const { script, args } = startCommand;
-        const argsStr = args ? ` -- ${args}` : '';
-        log(`啟動 PM2 (framework): ${path.basename(script)} ${args}`);
-        execSync(`pm2 start "${script}" --name ${project.pm2Name}${argsStr}`, {
-          stdio: 'pipe',
-          cwd: projectDir,
-          env: spawnEnv,
-          windowsHide: true
-        });
+        pm2Script = startCommand.script;
+        pm2Args = startCommand.args || undefined;
+        log(`啟動 PM2 (framework): ${path.basename(pm2Script)} ${pm2Args || ''}`);
       } else {
-        // 直接入口檔案
         const entryPath = path.join(projectDir, entryFile);
         if (!fs.existsSync(entryPath)) {
           throw new Error(`入口檔案不存在: ${entryFile}`);
         }
+        pm2Script = entryPath;
+        pm2Args = undefined;
         log(`啟動 PM2 (file): ${entryFile}`);
-        execSync(`pm2 start "${entryPath}" --name ${project.pm2Name}`, {
-          stdio: 'pipe',
-          cwd: projectDir,
-          env: spawnEnv,
-          windowsHide: true
-        });
       }
+
+      const pm2EcoConfig = {
+        apps: [{
+          name: project.pm2Name,
+          script: pm2Script,
+          cwd: projectDir,
+          env: pm2Env,
+          autorestart: true,
+          max_restarts: 5,
+          ...(pm2Args ? { args: pm2Args } : {})
+        }]
+      };
+
+      const ecoPath = path.join(projectDir, '.pm2-ecosystem.json');
+      fs.writeFileSync(ecoPath, JSON.stringify(pm2EcoConfig, null, 2));
+
+      execSync(`pm2 start "${ecoPath}"`, {
+        stdio: 'pipe',
+        cwd: projectDir,
+        windowsHide: true
+      });
+
       log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
 
       // Health Check：確認服務啟動
@@ -709,14 +722,21 @@ async function deploy(projectId, options = {}) {
           const compArgs = companion.args ? companion.args.join(' ') : '';
           log(`啟動 companion: ${compName} (${companion.command} ${compArgs})`);
 
-          execSync(
-            `pm2 start "${companion.command}" --name ${compName} --cwd "${compCwd}" -- ${compArgs}`,
-            {
-              stdio: 'pipe',
-              env: spawnEnv,
-              windowsHide: true
-            }
-          );
+          const compEcoConfig = {
+            apps: [{
+              name: compName,
+              script: companion.command,
+              cwd: compCwd,
+              interpreter: companion.command === 'python' || companion.command === 'python3' ? 'none' : undefined,
+              env: pm2Env,
+              autorestart: true,
+              max_restarts: 5,
+              ...(compArgs ? { args: compArgs } : {})
+            }]
+          };
+          const compEcoPath = path.join(projectDir, `.pm2-companion-${companion.name}.json`);
+          fs.writeFileSync(compEcoPath, JSON.stringify(compEcoConfig, null, 2));
+          execSync(`pm2 start "${compEcoPath}"`, { stdio: 'pipe', windowsHide: true });
           log(`Companion ${compName} 已啟動`);
         }
       }

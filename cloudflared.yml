@@ -25,14 +25,16 @@ ingress:
     service: http://localhost:4008
   - hostname: upimg.isnowfriend.com
     service: http://localhost:4007
-  - hostname: *.duk.tw
-    service: http://localhost:4007
   - hostname: pokkit.isnowfriend.com
     service: http://localhost:4009
   - hostname: canweback.isnowfriend.com
-    service: http://localhost:4010
+    service: http://localhost:4011
   - hostname: gitloop.isnowfriend.com
     service: http://localhost:4012
+  - hostname: notebody.isnowfriend.com
+    service: http://localhost:4010
+  - hostname: survey.isnowfriend.com
+    service: http://localhost:8787
 
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787

@@ -113,10 +113,10 @@
         }
       ],
       "createdAt": "2026-02-13T00:00:00.000Z",
-      "lastDeployAt": "2026-03-02T11:35:41.386Z",
+      "lastDeployAt": "2026-03-03T21:42:12.228Z",
       "lastDeployStatus": "success",
-      "lastDeployCommit": "1644d68",
-      "runningCommit": "1644d68",
+      "lastDeployCommit": "d6c8d09",
+      "runningCommit": "d6c8d09",
       "webhookId": 595985399
     },
     {
@@ -183,8 +183,8 @@
       "buildCommand": "cd client && npm install && npm run build",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-02-27T00:40:36.982Z",
-      "lastDeployAt": "2026-03-01T09:00:07.017Z",
-      "lastDeployStatus": "success",
+      "lastDeployAt": "2026-03-04T07:59:54.618Z",
+      "lastDeployStatus": "failed",
       "webhookId": 598173949,
       "lastDeployCommit": "554ba5d",
       "runningCommit": "554ba5d"
@@ -247,11 +247,11 @@
       "envFile": "",
       "buildCommand": "",
       "createdAt": "2026-03-01T09:29:00.567Z",
-      "lastDeployAt": "2026-03-02T05:44:08.861Z",
+      "lastDeployAt": "2026-03-03T22:21:32.243Z",
       "lastDeployStatus": "success",
       "webhookId": 598523403,
-      "lastDeployCommit": "63ab025",
-      "runningCommit": "63ab025"
+      "lastDeployCommit": "5af2bf1",
+      "runningCommit": "5af2bf1"
     },
     {
       "id": "gitloop",
@@ -267,12 +267,34 @@
       "webhookSecret": "cae2ef4a6e417b2eaf6a6537358ad87055c7c867",
       "envFile": "",
       "buildCommand": "npm run build",
+      "healthEndpoint": "/health",
       "createdAt": "2026-03-01T18:36:44.446Z",
-      "lastDeployAt": "2026-03-01T21:28:33.704Z",
+      "lastDeployAt": "2026-03-04T03:24:26.877Z",
       "lastDeployStatus": "success",
       "webhookId": 598573124,
-      "lastDeployCommit": "419d13f",
-      "runningCommit": "419d13f"
+      "lastDeployCommit": "21fde28",
+      "runningCommit": "21fde28"
+    },
+    {
+      "id": "survey",
+      "name": "ClaudeBot Survey",
+      "description": "Course interest survey powered by ClaudeBot",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/claudebot-survey",
+      "branch": "main",
+      "directory": "projects/survey",
+      "entryFile": "index.js",
+      "port": 3456,
+      "pm2Name": "claudebot-survey",
+      "runner": "next",
+      "envFile": "",
+      "buildCommand": "npm run build",
+      "healthEndpoint": "/",
+      "createdAt": "2026-03-04T11:00:00.000Z",
+      "lastDeployAt": "2026-03-04T05:19:12.361Z",
+      "lastDeployStatus": "success",
+      "lastDeployCommit": "64504f6",
+      "runningCommit": "64504f6"
     }
   ]
 }

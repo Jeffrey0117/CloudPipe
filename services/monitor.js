@@ -2,10 +2,10 @@
  * URL Monitor Service
  * 自動監控所有已部署專案的健康狀態
  *
- * - 每 5 分鐘 HEAD request 所有專案 URL
- * - 連續 2 次失敗 → Telegram DOWN 通知
+ * - 每 5 分鐘 GET request 所有專案（本機直連）
+ * - 連續 3 次失敗 → Telegram DOWN 通知
  * - 恢復 → Telegram UP 通知 + 停機時間
- * - 也支援手動加入額外 URL
+ * - 也支援手動加入額外 URL（走外部）
  *
  * API:
  *   GET  /monitor/status   — 所有監控目標狀態
@@ -22,14 +22,14 @@ const telegram = require('../src/core/telegram');
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 const DATA_FILE = path.join(__dirname, '../data/monitor.json');
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
-const CHECK_TIMEOUT_MS = 10_000;
-const FAILURE_THRESHOLD = 2;
+const CHECK_TIMEOUT_MS = 60_000;
+const FAILURE_THRESHOLD = 3;
 
 let checkTimer = null;
 
 // --- State ---
 
-// Key: URL → { consecutiveFailures, lastStatus, lastCheckedAt, downSince, latencyMs }
+// Key: URL → { consecutiveFailures, lastStatus, lastCheckedAt, downSince, latencyMs, statusCode }
 let state = new Map();
 
 // --- Persistence (custom URLs only, projects are auto-discovered) ---
@@ -49,7 +49,7 @@ function saveCustomUrls(urls) {
   fs.writeFileSync(DATA_FILE, JSON.stringify({ urls }, null, 2), 'utf8');
 }
 
-// --- Build target list: deployed projects + custom URLs ---
+// --- Build target list ---
 
 function getConfig() {
   try {
@@ -59,34 +59,48 @@ function getConfig() {
   }
 }
 
-function getAllTargetUrls() {
+function getAllTargets() {
   const config = getConfig();
   const domain = config.domain || '';
-  const urls = [];
+  const targets = [];
 
-  // Auto-discover deployed projects — use healthEndpoint if available
+  // Auto-discover deployed projects — check localhost directly
   try {
     const projects = deploy.getAllProjects();
     for (const p of projects) {
-      if (domain && p.id) {
-        const health = p.healthEndpoint || '';
-        urls.push(`https://${p.id}.${domain}${health}`);
+      if (p.port) {
+        const health = p.healthEndpoint || '/';
+        targets.push({
+          url: `http://localhost:${p.port}${health}`,
+          label: domain ? `${p.id}.${domain}` : p.id,
+          projectId: p.id,
+        });
       }
     }
   } catch {
     // deploy module not ready yet
   }
 
-  // Add custom URLs
+  // Add custom URLs (external, checked as-is)
   const custom = loadCustomUrls();
   for (const url of custom) {
-    if (!urls.includes(url)) urls.push(url);
+    if (!targets.find(t => t.url === url)) {
+      targets.push({ url, label: url, projectId: null });
+    }
   }
 
-  return urls;
+  return targets;
 }
 
 // --- Health check ---
+
+function isAlive(statusCode) {
+  // Any HTTP response means the service is running
+  // 401/403 = auth required but alive
+  // 404 = no route but alive
+  // Only 5xx and connection failures count as down
+  return statusCode > 0 && statusCode < 500;
+}
 
 async function checkUrl(url) {
   const start = Date.now();
@@ -100,7 +114,7 @@ async function checkUrl(url) {
     });
     clearTimeout(timeout);
     return {
-      ok: res.status >= 200 && res.status < 400,
+      ok: isAlive(res.status),
       statusCode: res.status,
       latencyMs: Date.now() - start,
     };
@@ -126,6 +140,7 @@ function getState(url) {
       lastCheckedAt: 0,
       downSince: null,
       latencyMs: 0,
+      statusCode: 0,
     });
   }
   return state.get(url);
@@ -140,21 +155,22 @@ async function notify(text) {
 }
 
 async function checkAllTargets() {
-  const urls = getAllTargetUrls();
-  if (urls.length === 0) return;
+  const targets = getAllTargets();
+  if (targets.length === 0) return;
 
   const now = Date.now();
 
-  for (const url of urls) {
-    const result = await checkUrl(url);
-    const s = getState(url);
+  for (const target of targets) {
+    const result = await checkUrl(target.url);
+    const s = getState(target.url);
     s.lastCheckedAt = now;
     s.latencyMs = result.latencyMs;
+    s.statusCode = result.statusCode;
 
     if (result.ok) {
       if (s.lastStatus === 'down' && s.downSince) {
         const downtime = formatDuration(now - s.downSince);
-        notify(`✅ <b>[Monitor UP]</b> ${url}\n停機時間: ${downtime}`);
+        notify(`✅ <b>[Monitor UP]</b> ${target.label}\n停機時間: ${downtime}`);
       }
       s.consecutiveFailures = 0;
       s.lastStatus = 'up';
@@ -165,7 +181,7 @@ async function checkAllTargets() {
         s.lastStatus = 'down';
         s.downSince = now;
         notify(
-          `❌ <b>[Monitor DOWN]</b> ${url}\n` +
+          `❌ <b>[Monitor DOWN]</b> ${target.label}\n` +
           `HTTP ${result.statusCode || 'timeout'} (${result.latencyMs}ms)\n` +
           `連續失敗: ${s.consecutiveFailures} 次`
         );
@@ -178,7 +194,7 @@ async function checkAllTargets() {
 
 function startMonitor() {
   if (checkTimer) return;
-  console.log('[monitor] Started — checking every 5 minutes');
+  console.log('[monitor] Started — checking every 5 minutes (localhost direct)');
   // First check after 30s
   setTimeout(() => checkAllTargets().catch(console.error), 30_000);
   checkTimer = setInterval(() => checkAllTargets().catch(console.error), CHECK_INTERVAL_MS);
@@ -210,12 +226,15 @@ module.exports = {
 
     // GET /monitor/status
     if (pathname === '/monitor/status' && req.method === 'GET') {
-      const urls = getAllTargetUrls();
-      const targets = urls.map((u) => {
-        const s = getState(u);
+      const targets = getAllTargets();
+      const statuses = targets.map((t) => {
+        const s = getState(t.url);
         return {
-          url: u,
+          label: t.label,
+          url: t.url,
+          projectId: t.projectId,
           status: s.lastStatus,
+          statusCode: s.statusCode,
           consecutiveFailures: s.consecutiveFailures,
           latencyMs: s.latencyMs,
           lastCheckedAt: s.lastCheckedAt,
@@ -223,7 +242,7 @@ module.exports = {
         };
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ targets, checkedAt: Date.now() }));
+      res.end(JSON.stringify({ targets: statuses, checkedAt: Date.now() }));
       return;
     }
 
