@@ -316,6 +316,23 @@
       "buildCommand": "npm install",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-03-04T13:00:00.000Z"
+    },
+    {
+      "id": "coursebloom",
+      "name": "CourseBloom Space",
+      "description": "Multi-tenant online course platform with payments & AI content generation",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/coursebloom-space.git",
+      "branch": "main",
+      "directory": "projects/coursebloom",
+      "entryFile": "index.js",
+      "port": 4014,
+      "pm2Name": "coursebloom",
+      "runner": "next",
+      "envFile": "",
+      "buildCommand": "pnpm install && pnpm run build",
+      "healthEndpoint": "/",
+      "createdAt": "2026-03-05T00:00:00.000Z"
     }
   ]
 }

@@ -39,6 +39,8 @@ ingress:
     service: http://localhost:4007
   - hostname: repic.isnowfriend.com
     service: http://localhost:4013
+  - hostname: coursebloom.isnowfriend.com
+    service: http://localhost:4014
 
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787

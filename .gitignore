@@ -22,6 +22,7 @@ config.json
 data/*
 !data/manifests/
 !data/pipelines/
+!data/deploy/projects.json
 !data/.gitkeep
 
 # Services (keep only examples)

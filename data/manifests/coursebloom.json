@@ -1,0 +1,41 @@
+{
+  "name": "CourseBloom Space",
+  "version": "1.0.0",
+  "description": "Multi-tenant online course platform - Course, Payment, Affiliate, AI Content, Booking & Analytics APIs",
+  "endpoints": [
+    {
+      "name": "check_tenant",
+      "description": "Check if a tenant slug is available for registration",
+      "method": "POST",
+      "path": "/api/check-tenant",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "description": "Tenant slug to check (3-20 chars, lowercase alphanumeric + hyphens)" }
+        },
+        "required": ["slug"]
+      }
+    },
+    {
+      "name": "track_affiliate",
+      "description": "Track affiliate click and set tracking cookie (30 days)",
+      "method": "POST",
+      "path": "/api/affiliate/track",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": { "type": "string", "description": "Tenant UUID" },
+          "affiliateCode": { "type": "string", "description": "Affiliate code from URL parameter" },
+          "landingUrl": { "type": "string", "description": "Landing page URL" }
+        },
+        "required": ["tenantId", "affiliateCode", "landingUrl"]
+      }
+    },
+    {
+      "name": "get_affiliate_status",
+      "description": "Get current affiliate tracking status from cookies",
+      "method": "GET",
+      "path": "/api/affiliate/track"
+    }
+  ]
+}
