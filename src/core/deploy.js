@@ -366,11 +366,29 @@ async function deploy(projectId, options = {}) {
 
     // Git 部署
     if (project.deployMethod === 'github' || project.deployMethod === 'git-url') {
+      // Backup env files before git reset (they're not in git and would survive reset,
+      // but git clean or other operations could remove them)
+      const ENV_PATTERNS = ['.env', '.env.local', '.env.production', '.env.production.local'];
+      const envBackups = {};
+      for (const envName of ENV_PATTERNS) {
+        const envPath = path.join(projectDir, envName);
+        if (fs.existsSync(envPath)) {
+          envBackups[envName] = fs.readFileSync(envPath);
+          log(`備份 ${envName}`);
+        }
+      }
+
       log(`執行 git fetch...`);
       execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
 
       log(`執行 git reset --hard...`);
       execSync(`git reset --hard origin/${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+
+      // Restore env files
+      for (const [envName, content] of Object.entries(envBackups)) {
+        fs.writeFileSync(path.join(projectDir, envName), content);
+        log(`還原 ${envName}`);
+      }
 
       // 取得 commit 資訊
       const commitHash = execSync('git rev-parse --short HEAD', { cwd: projectDir, windowsHide: true }).toString().trim();
@@ -591,22 +609,25 @@ async function deploy(projectId, options = {}) {
         ...(project.port ? { PORT: String(project.port) } : {})
       };
 
-      // Load .env file from project directory
-      const envFilePath = path.join(projectDir, '.env');
-      if (fs.existsSync(envFilePath)) {
-        const envContent = fs.readFileSync(envFilePath, 'utf8');
-        envContent.split('\n').forEach(line => {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#')) return;
-          const eqIdx = trimmed.indexOf('=');
-          if (eqIdx > 0) {
-            const key = trimmed.slice(0, eqIdx);
-            let val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '');
-            pm2Env[key] = val;
-          }
-        });
-        log(`.env 已載入 (${Object.keys(pm2Env).length} 個變數)`);
+      // Load .env files from project directory (.env first, .env.local overrides)
+      for (const envFileName of ['.env', '.env.local']) {
+        const envFilePath = path.join(projectDir, envFileName);
+        if (fs.existsSync(envFilePath)) {
+          const envContent = fs.readFileSync(envFilePath, 'utf8');
+          envContent.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const eqIdx = trimmed.indexOf('=');
+            if (eqIdx > 0) {
+              const key = trimmed.slice(0, eqIdx);
+              let val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '');
+              pm2Env[key] = val;
+            }
+          });
+          log(`${envFileName} 已載入`);
+        }
       }
+      log(`環境變數總計: ${Object.keys(pm2Env).length} 個`);
 
       // Inject shared CloudPipe env vars (e.g. TELEGRAM_PROXY)
       const fullConfig = getConfig();
