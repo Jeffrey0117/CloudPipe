@@ -205,7 +205,7 @@ async function handleProjects(chatId) {
 
   const keyboard = projects.map((p) => ([
     { text: `🔗 ${p.name || p.id}`, url: `https://${p.id}.${domain}` },
-    { text: '📌 Bot', callback_data: `bot_select:${p.name || p.id}` },
+    { text: '📌 Bot', callback_data: `bot_select:${p.id}` },
   ]));
 
   keyboard.push([{
