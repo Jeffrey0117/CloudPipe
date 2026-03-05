@@ -113,34 +113,107 @@ function buildFixPrompt(project, deployment) {
 }
 
 /**
+ * HTTP GET helper using node:http
+ */
+function httpGet(url, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      reject(new Error('timeout'));
+    });
+    req.end();
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Poll command status until completed, failed, or timeout
+ */
+async function pollCommandStatus(commandId, timeoutMs = 300000) {
+  const config = getConfig();
+  const dashboardUrl = config.botDashboardUrl || 'http://localhost:3100';
+  const POLL_INTERVAL = 10000;
+  const MAX_CONSECUTIVE_FAILURES = 5;
+  const startTime = Date.now();
+  let consecutiveFailures = 0;
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const response = await httpGet(`${dashboardUrl}/api/commands/${commandId}`);
+      const parsed = JSON.parse(response);
+      const status = parsed.command?.status;
+      consecutiveFailures = 0;
+
+      if (status === 'completed') return { status: 'completed' };
+      if (status === 'failed') return { status: 'failed' };
+    } catch (err) {
+      consecutiveFailures += 1;
+      console.error(`[autofix] Poll error (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}): ${err.message}`);
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        return { status: 'error', error: 'Dashboard unreachable' };
+      }
+    }
+
+    await sleep(POLL_INTERVAL);
+  }
+
+  return { status: 'timeout' };
+}
+
+/**
  * Send fix request to ClaudeBot via Dashboard API
  * All state mutations happen atomically here to prevent race conditions.
+ *
+ * @param {object} project - Project config
+ * @param {object} deployment - Deployment result
+ * @param {number} [telegramChatId] - Telegram chat ID for bot responses
  */
-function sendFixRequest(project, deployment) {
+function sendFixRequest(project, deployment, telegramChatId) {
   const config = getConfig();
   const ps = getProjectState(project.id);
-
-  // Atomic state update: reset if new commit, then increment
-  if (ps.lastCommit !== deployment.commit) {
-    ps.retryCount = 0;
-    ps.lastCommit = deployment.commit;
-  }
-  ps.retryCount += 1;
-  ps.lastAttempt = Date.now();
-  ps.lastError = deployment.error;
-  saveState();
-
   const prompt = buildFixPrompt(project, deployment);
   const projectName = project.name || project.id;
 
-  console.log(`[autofix] 發送修復請求: ${projectName} (第 ${ps.retryCount} 次)`);
+  // Compute effective retry count for logging (state mutated only on success)
+  const effectiveRetries = (ps.lastCommit === deployment.commit) ? ps.retryCount : 0;
+
+  console.log(`[autofix] 發送修復請求: ${projectName} (第 ${effectiveRetries + 1} 次)`);
+
+  const commandPayload = {
+    prompt,
+    project: projectName,
+  };
+  if (telegramChatId) {
+    commandPayload.chatId = Number(telegramChatId);
+  }
 
   const payload = JSON.stringify({
     type: 'prompt',
-    payload: {
-      prompt,
-      project: projectName,
-    },
+    payload: commandPayload,
   });
 
   const dashboardUrl = config.botDashboardUrl || 'http://localhost:3100';
@@ -164,8 +237,25 @@ function sendFixRequest(project, deployment) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`[autofix] ✓ 修復請求已發送: ${projectName}`);
-          resolve({ sent: true, response: data });
+          // State mutation only on successful request
+          if (ps.lastCommit !== deployment.commit) {
+            ps.retryCount = 0;
+            ps.lastCommit = deployment.commit;
+          }
+          ps.retryCount += 1;
+          ps.lastAttempt = Date.now();
+          ps.lastError = deployment.error;
+          saveState();
+
+          let commandId = null;
+          try {
+            const parsed = JSON.parse(data);
+            commandId = parsed.command?.id || null;
+          } catch {
+            // response not JSON, commandId stays null
+          }
+          console.log(`[autofix] ✓ 修復請求已發送: ${projectName} (${commandId})`);
+          resolve({ sent: true, commandId, response: data });
         } else {
           console.error(`[autofix] ✗ Dashboard 回應 ${res.statusCode}: ${data}`);
           resolve({ sent: false, error: data });
@@ -213,6 +303,7 @@ function getStatus() {
 module.exports = {
   sendFixRequest,
   shouldAttemptFix,
+  pollCommandStatus,
   resetProject,
   getStatus,
   getConfig,

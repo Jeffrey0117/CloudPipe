@@ -203,17 +203,17 @@ async function handleProjects(chatId) {
     return sendMessage(chatId, '目前沒有任何專案。');
   }
 
-  const keyboard = projects.map((p) => ([{
-    text: `${p.name || p.id}`,
-    url: `https://${p.id}.${domain}`,
-  }]));
+  const keyboard = projects.map((p) => ([
+    { text: `🔗 ${p.name || p.id}`, url: `https://${p.id}.${domain}` },
+    { text: '📌 Bot', callback_data: `bot_select:${p.name || p.id}` },
+  ]));
 
   keyboard.push([{
     text: 'CloudPipe Admin',
     url: `https://epi.${domain}/_admin`,
   }]);
 
-  await sendMessage(chatId, '<b>你的專案：</b>', {
+  await sendMessage(chatId, '<b>你的專案：</b>\n📌 = 讓 ClaudeBot 切換到該專案', {
     reply_markup: { inline_keyboard: keyboard },
   });
 }
@@ -692,6 +692,69 @@ async function handleCallback(callbackQuery) {
     return editMessage(chatId, messageId, '📸 上傳模式已關閉');
   }
 
+  // Bot project select — step 1: show online bots
+  if (data.startsWith('bot_select:')) {
+    const projectName = data.replace('bot_select:', '');
+    await answerCallback(queryId, '查詢在線 Bot...');
+
+    const bots = await getOnlineBots();
+    if (bots.length === 0) {
+      await sendMessage(chatId, '⚠️ 目前沒有在線的 Bot');
+      return;
+    }
+
+    // Single bot → skip selection, assign directly
+    if (bots.length === 1) {
+      const result = await sendBotCommand('select_project', {
+        project: projectName,
+        chatId: Number(chatId),
+      }, bots[0]);
+
+      if (result.ok) {
+        await sendMessage(chatId, `📌 <b>${escapeHtml(bots[0])}</b> 已切換到 <b>${escapeHtml(projectName)}</b>`);
+      } else {
+        await sendMessage(chatId, `⚠️ 無法通知 Bot: ${result.error}`);
+      }
+      return;
+    }
+
+    // Multiple bots → show selection
+    const botKeyboard = [];
+    for (let i = 0; i < bots.length; i += 3) {
+      const row = bots.slice(i, i + 3).map((botId) => ({
+        text: `🤖 ${botId}`,
+        callback_data: `bot_assign:${botId}:${projectName}`,
+      }));
+      botKeyboard.push(row);
+    }
+
+    await sendMessage(chatId,
+      `📌 選擇要切換到 <b>${escapeHtml(projectName)}</b> 的 Bot：`,
+      { reply_markup: { inline_keyboard: botKeyboard } },
+    );
+    return;
+  }
+
+  // Bot project select — step 2: assign to specific bot
+  if (data.startsWith('bot_assign:')) {
+    const parts = data.replace('bot_assign:', '').split(':');
+    const targetBot = parts[0];
+    const projectName = parts.slice(1).join(':');
+    await answerCallback(queryId, `通知 ${targetBot}...`);
+
+    const result = await sendBotCommand('select_project', {
+      project: projectName,
+      chatId: Number(chatId),
+    }, targetBot);
+
+    if (result.ok) {
+      await sendMessage(chatId, `📌 <b>${escapeHtml(targetBot)}</b> 已切換到 <b>${escapeHtml(projectName)}</b>`);
+    } else {
+      await sendMessage(chatId, `⚠️ 無法通知 ${escapeHtml(targetBot)}: ${result.error}`);
+    }
+    return;
+  }
+
   // Quick action buttons
   if (data === 'quick:status') {
     await answerCallback(queryId);
@@ -1055,15 +1118,38 @@ function onDeployComplete({ project, deployment }) {
 
     // Trigger autofix if allowed
     if (check.allowed) {
-      autofix.sendFixRequest(project, deployment).then((result) => {
+      const pName = project.name || project.id;
+      autofix.sendFixRequest(project, deployment, config.chatId).then(async (result) => {
         if (result.skipped) return;
-        if (result.sent) {
+        if (!result.sent) {
           sendMessage(config.chatId,
-            `🔧 <b>[${project.name || project.id}]</b> 修復請求已發送給 Bot`
+            `⚠️ <b>[${pName}]</b> 無法發送修復請求: ${result.error || 'unknown'}`
+          ).catch(() => {});
+          return;
+        }
+
+        sendMessage(config.chatId,
+          `🔧 <b>[${pName}]</b> 修復請求已發送，等待 Bot 執行...`
+        ).catch(() => {});
+
+        if (!result.commandId) return;
+
+        const pollResult = await autofix.pollCommandStatus(result.commandId);
+        if (pollResult.status === 'completed') {
+          sendMessage(config.chatId,
+            `✅ <b>[${pName}]</b> Bot 已完成修復，等待 webhook 觸發重新部署...`
+          ).catch(() => {});
+        } else if (pollResult.status === 'failed') {
+          sendMessage(config.chatId,
+            `❌ <b>[${pName}]</b> Bot 修復失敗，可能需要手動介入`
+          ).catch(() => {});
+        } else if (pollResult.status === 'error') {
+          sendMessage(config.chatId,
+            `⚠️ <b>[${pName}]</b> 無法追蹤修復進度 (${pollResult.error || 'unknown'})，請手動確認`
           ).catch(() => {});
         } else {
           sendMessage(config.chatId,
-            `⚠️ <b>[${project.name || project.id}]</b> 無法發送修復請求: ${result.error || 'unknown'}`
+            `⏰ <b>[${pName}]</b> Bot 修復逾時 (5分鐘)，可能需要手動介入`
           ).catch(() => {});
         }
       });
@@ -1076,6 +1162,80 @@ function escapeHtml(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/**
+ * Get ClaudeBot Dashboard base URL from config
+ */
+function getDashboardUrl() {
+  const fullConfig = getFullConfig();
+  return (fullConfig.autofix || {}).botDashboardUrl || 'http://localhost:3100';
+}
+
+/**
+ * HTTP helper for ClaudeBot Dashboard API
+ */
+function dashboardRequest(method, path, body) {
+  const http = require('http');
+  const dashboardUrl = getDashboardUrl();
+
+  return new Promise((resolve) => {
+    const url = new URL(`${dashboardUrl}${path}`);
+    const payload = body ? JSON.stringify(body) : null;
+    const headers = payload
+      ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+      : {};
+
+    const req = http.request({
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname + url.search,
+      method,
+      headers,
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve({ ok: true, data: JSON.parse(data) });
+          } catch {
+            resolve({ ok: true, data });
+          }
+        } else {
+          resolve({ ok: false, error: `HTTP ${res.statusCode}` });
+        }
+      });
+    });
+
+    req.on('error', (err) => resolve({ ok: false, error: err.message }));
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve({ ok: false, error: 'timeout' });
+    });
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Send a command to ClaudeBot via Dashboard API
+ */
+function sendBotCommand(type, payload, targetBot) {
+  const body = { type, payload };
+  if (targetBot) body.targetBot = targetBot;
+  return dashboardRequest('POST', '/api/commands', body);
+}
+
+/**
+ * Get online bot list from Dashboard API
+ */
+async function getOnlineBots() {
+  const result = await dashboardRequest('GET', '/api/status');
+  if (!result.ok || !result.data?.bots) return [];
+  return result.data.bots
+    .filter((b) => b.online)
+    .map((b) => b.botId);
 }
 
 // ==================== Lifecycle ====================
