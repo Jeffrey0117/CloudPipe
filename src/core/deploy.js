@@ -136,7 +136,7 @@ async function createProject(data) {
     deployMethod,
     repoUrl: data.repoUrl || '',
     branch: data.branch || 'main',
-    directory: data.directory || `projects/${data.id}`,
+    directory: data.directory || `../workhub/${data.id}`,
     entryFile: data.entryFile || 'index.js',
     port: data.port || autoPort,  // 自動分配或手動指定
     pm2Name: data.pm2Name || data.id,
@@ -293,6 +293,17 @@ async function performHealthCheck(port, endpoint = '/health', log, retries = 5, 
 
 // ==================== 部署引擎 ====================
 
+/**
+ * 解析專案目錄路徑（統一處理絕對路徑和相對路徑）
+ */
+function resolveProjectDir(project) {
+  if (path.isAbsolute(project.directory)) {
+    return path.normalize(project.directory);
+  } else {
+    return path.join(CLOUDPIPE_ROOT, project.directory);
+  }
+}
+
 function generateDeployId() {
   return 'deploy_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
@@ -359,7 +370,7 @@ async function deploy(projectId, options = {}) {
   writeDeployments(deployments);
 
   try {
-    const projectDir = path.join(CLOUDPIPE_ROOT, project.directory);
+    const projectDir = resolveProjectDir(project);
 
     log(`開始部署專案: ${project.name}`);
     log(`專案目錄: ${projectDir}`);
@@ -427,6 +438,21 @@ async function deploy(projectId, options = {}) {
       log(`Commit: ${commitHash} - ${commitMessage}`);
     }
 
+    // Python 依賴安裝（runner: python）
+    const isPython = project.runner === 'python';
+    if (isPython) {
+      const reqPath = path.join(projectDir, 'requirements.txt');
+      if (fs.existsSync(reqPath)) {
+        log('安裝 Python 依賴...');
+        try {
+          execSync(`pip install -r "${reqPath}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+          log('Python 依賴安裝完成');
+        } catch (e) {
+          log(`⚠ Python 依賴安裝失敗: ${e.message}`);
+        }
+      }
+    }
+
     // 偵測 package manager
     const pkgPath = path.join(projectDir, 'package.json');
     const hasPnpmLock = fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'));
@@ -434,7 +460,7 @@ async function deploy(projectId, options = {}) {
     const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
 
     // 自動安裝依賴（如果有 package.json）
-    if (fs.existsSync(pkgPath)) {
+    if (!isPython && fs.existsSync(pkgPath)) {
       const nodeModulesPath = path.join(projectDir, 'node_modules');
       const lockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'];
       const lockPath = lockFiles.map(f => path.join(projectDir, f)).find(f => fs.existsSync(f));
@@ -590,8 +616,17 @@ async function deploy(projectId, options = {}) {
     // 自動偵測入口檔案或啟動指令
     let entryFile = project.entryFile;
     let startCommand = null;  // 框架專案用啟動指令代替入口檔案
+    let useInterpreterNone = false;  // Python projects need interpreter: 'none'
 
-    if (fs.existsSync(pkgPath)) {
+    // Python runner: skip Node.js detection, use uvicorn
+    if (isPython) {
+      startCommand = {
+        script: 'python',
+        args: `-m uvicorn ${entryFile} --host 0.0.0.0 --port ${project.port || 8000}`
+      };
+      useInterpreterNone = true;
+      log(`Python 專案，使用 uvicorn: ${entryFile}`);
+    } else if (fs.existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
         if (pkg.main) {
@@ -602,8 +637,8 @@ async function deploy(projectId, options = {}) {
         // ignore
       }
     }
-    // Fallback: 檢查常見入口檔案
-    if (!fs.existsSync(path.join(projectDir, entryFile))) {
+    // Fallback: 檢查常見入口檔案（Node.js only）
+    if (!isPython && !fs.existsSync(path.join(projectDir, entryFile))) {
       const candidates = ['server.js', 'app.js', 'index.js', 'main.js'];
       for (const c of candidates) {
         if (fs.existsSync(path.join(projectDir, c))) {
@@ -764,15 +799,17 @@ async function deploy(projectId, options = {}) {
         log(`啟動 PM2 (file): ${entryFile}`);
       }
 
+      const effectiveCwd = project.startCwd ? path.join(projectDir, project.startCwd) : projectDir;
       const pm2EcoConfig = {
         apps: [{
           name: project.pm2Name,
           script: pm2Script,
-          cwd: projectDir,
+          cwd: effectiveCwd,
           env: pm2Env,
           autorestart: true,
           max_restarts: 5,
-          ...(pm2Args ? { args: pm2Args } : {})
+          ...(pm2Args ? { args: pm2Args } : {}),
+          ...(useInterpreterNone ? { interpreter: 'none' } : {})
         }]
       };
 
@@ -1155,7 +1192,7 @@ async function checkProjectForUpdates(project) {
   if (!remoteCommit) return null;
 
   // 取得本地 commit
-  const projectDir = path.join(CLOUDPIPE_ROOT, project.directory);
+  const projectDir = resolveProjectDir(project);
   let localCommit = null;
   try {
     if (fs.existsSync(projectDir)) {
