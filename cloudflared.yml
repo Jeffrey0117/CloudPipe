@@ -35,12 +35,16 @@ ingress:
     service: http://localhost:4010
   - hostname: survey.isnowfriend.com
     service: http://localhost:8787
-  - hostname: *.duk.tw
-    service: http://localhost:4007
   - hostname: repic.isnowfriend.com
     service: http://localhost:4013
   - hostname: coursebloom.isnowfriend.com
     service: http://localhost:4014
+  - hostname: autoreel.isnowfriend.com
+    service: http://localhost:8001
+  - hostname: rawtxt.isnowfriend.com
+    service: http://localhost:4015
+  - hostname: quickky.isnowfriend.com
+    service: http://localhost:4016
 
   - hostname: "*.isnowfriend.com"
     service: http://localhost:8787

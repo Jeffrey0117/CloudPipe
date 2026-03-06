@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why RePic? - The Story Behind the App</title>
+  <meta name="description" content="Why I built RePic - a developer's frustration with image viewers turned into something unexpectedly cool.">
+  <meta name="theme-color" content="#0A84FF">
+  <link rel="icon" href="https://raw.githubusercontent.com/Jeffrey0117/RePic/main/repic-logo.png" type="image/png">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #000000;
+      --surface: #1C1C1E;
+      --surface-2: #2C2C2E;
+      --primary: #0A84FF;
+      --primary-hover: #409CFF;
+      --text: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --text-tertiary: #636366;
+      --border: #38383A;
+      --nav-bg: rgba(0, 0, 0, 0.8);
+      --glow: rgba(10, 132, 255, 0.15);
+      --icon-bg: rgba(10, 132, 255, 0.1);
+      --shadow-btn: rgba(10, 132, 255, 0.4);
+      --accent-yellow: #FFD60A;
+      --accent-green: #30D158;
+      --accent-orange: #FF9F0A;
+      --radius: 12px;
+      --radius-lg: 20px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html[data-theme="light"] {
+      --bg: #F5F5F7;
+      --surface: #FFFFFF;
+      --surface-2: #E8E8ED;
+      --primary: #0066CC;
+      --primary-hover: #0077ED;
+      --text: #1D1D1F;
+      --text-secondary: #6E6E73;
+      --text-tertiary: #AEAEB2;
+      --border: #D2D2D7;
+      --nav-bg: rgba(245, 245, 247, 0.8);
+      --glow: rgba(0, 102, 204, 0.08);
+      --icon-bg: rgba(0, 102, 204, 0.08);
+      --shadow-btn: rgba(0, 102, 204, 0.3);
+      --accent-yellow: #B25000;
+      --accent-green: #248A3D;
+      --accent-orange: #C93400;
+    }
+
+    html[data-lang="en"] .zh { display: none !important; }
+    html[data-lang="zh"] .en { display: none !important; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ── Nav (same as index) ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: var(--nav-bg);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text); font-weight: 700; font-size: 18px;
+    }
+    .nav-brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-links { display: flex; align-items: center; gap: 20px; }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none;
+      font-size: 14px; font-weight: 500; transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--text); }
+    .toggle-btn {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-secondary); border-radius: 8px;
+      width: 36px; height: 36px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; font-size: 14px; font-weight: 600;
+    }
+    .toggle-btn:hover { color: var(--text); border-color: var(--text-tertiary); }
+    .lang-btn { width: auto; padding: 0 12px; font-size: 13px; }
+    html[data-theme="dark"] .icon-sun { display: none; }
+    html[data-theme="light"] .icon-moon { display: none; }
+    .nav-download {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--primary); color: #FFFFFF;
+      padding: 8px 16px; border-radius: 8px;
+      text-decoration: none; font-size: 14px; font-weight: 600;
+      transition: background 0.2s;
+    }
+    .nav-download:hover { background: var(--primary-hover); }
+
+    /* ── Article Layout ── */
+    .article-hero {
+      padding: 140px 24px 60px;
+      text-align: center;
+      position: relative;
+    }
+    .article-hero::before {
+      content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(circle, var(--glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .article-hero h1 {
+      font-size: clamp(28px, 6vw, 48px);
+      font-weight: 800; letter-spacing: -0.03em; line-height: 1.2;
+      max-width: 720px; margin: 0 auto 20px;
+    }
+    .article-meta {
+      font-size: 14px; color: var(--text-tertiary); margin-bottom: 8px;
+    }
+
+    article {
+      max-width: 720px; margin: 0 auto;
+      padding: 0 24px 100px;
+    }
+
+    article p {
+      font-size: 17px; line-height: 1.8;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    article strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    article h2 {
+      font-size: 28px; font-weight: 700;
+      margin: 56px 0 24px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+      letter-spacing: -0.02em;
+    }
+
+    article h2:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    article code {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.9em;
+    }
+
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 24px 28px;
+      margin: 32px 0;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .callout p { margin-bottom: 12px; }
+    .callout p:last-child { margin-bottom: 0; }
+
+    .big-number {
+      font-size: 48px;
+      font-weight: 800;
+      color: var(--primary);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* Feature list in article */
+    .feature-list {
+      list-style: none;
+      margin: 24px 0 32px;
+    }
+
+    .feature-list li {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .feature-list li:last-child { border-bottom: none; }
+
+    .feature-list .icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .feature-list li strong {
+      color: var(--text);
+    }
+
+    /* CTA in article */
+    .article-cta {
+      text-align: center;
+      padding: 48px 0;
+      margin-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .article-cta h2 {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    .article-cta p {
+      text-align: center;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 28px; border-radius: var(--radius);
+      font-size: 16px; font-weight: 600; text-decoration: none;
+      transition: all 0.2s; cursor: pointer; border: none;
+    }
+    .btn svg { flex-shrink: 0; }
+    .btn-primary { background: var(--primary); color: #FFFFFF; }
+    .btn-primary:hover {
+      background: var(--primary-hover); transform: translateY(-1px);
+      box-shadow: 0 4px 16px var(--shadow-btn);
+    }
+    .btn-secondary {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--surface-2); border-color: var(--text-tertiary); }
+    .btn-group {
+      display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border); padding: 48px 24px;
+      max-width: 720px; margin: 0 auto; transition: border-color 0.3s;
+    }
+    .footer-inner {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 24px;
+    }
+    .footer-brand { display: flex; align-items: center; gap: 10px; }
+    .footer-brand img { width: 24px; height: 24px; border-radius: 6px; }
+    .footer-brand span { font-weight: 600; font-size: 14px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a {
+      color: var(--text-tertiary); text-decoration: none; font-size: 13px;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text); }
+    .footer-bottom { margin-top: 32px; text-align: center; font-size: 13px; color: var(--text-tertiary); }
+
+    @media (max-width: 768px) {
+      .nav-links .nav-link-text { display: none; }
+      .article-hero { padding: 100px 20px 40px; }
+      article { padding: 0 20px 64px; }
+      article h2 { font-size: 24px; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <a href="index.html" class="nav-brand">
+      <img src="https://raw.githubusercontent.com/Jeffrey0117/RePic/main/repic-logo.png" alt="RePic" />
+      RePic
+    </a>
+    <div class="nav-links">
+      <a href="index.html#features" class="nav-link-text">
+        <span class="en">Features</span><span class="zh">功能</span>
+      </a>
+      <a href="index.html#virtual-image" class="nav-link-text">
+        <span class="en">Virtual Image</span><span class="zh">虛擬圖片</span>
+      </a>
+      <a href="intro.html" class="nav-link-text active">
+        <span class="en">Story</span><span class="zh">故事</span>
+      </a>
+      <a href="https://github.com/Jeffrey0117/RePic" target="_blank" rel="noopener" class="nav-link-text">GitHub</a>
+
+      <button onclick="toggleTheme()" class="toggle-btn" aria-label="Toggle theme">
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button onclick="toggleLang()" class="toggle-btn lang-btn">
+        <span class="en">中文</span><span class="zh">EN</span>
+      </button>
+      <a href="https://github.com/Jeffrey0117/RePic/releases" class="nav-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </nav>
+
+  <!-- Article Hero -->
+  <div class="article-hero">
+    <p class="article-meta">
+      <span class="en">The story behind RePic</span>
+      <span class="zh">RePic 的誕生故事</span>
+    </p>
+    <h1>
+      <span class="en">I was sick of every image viewer,<br>so I built my own</span>
+      <span class="zh">受夠了那些看圖軟體，<br>所以我自己寫了一個</span>
+    </h1>
+  </div>
+
+  <!-- Article Body -->
+  <article>
+
+    <!-- ── ZH Content ── -->
+    <div class="zh">
+      <p>你是不是也跟我一樣，對看圖軟體超級不滿？</p>
+
+      <p>Windows 內建的「相片」慢到爆，開個圖要等半天。第三方軟體不是介面像上世紀的產物，就是要付費，不然就是一堆你根本用不到的功能塞在那裡佔空間。</p>
+
+      <p>我是一個開發者，每天都要看大量圖片、整理素材。終於有一天我受不了了，決定自己來做。</p>
+
+      <p><strong>於是 RePic 就誕生了。</strong></p>
+
+      <h2>虛擬相簿 &mdash; 這功能超扯</h2>
+
+      <p>做著做著，我搞出了一個連我自己都覺得扯的功能 &mdash; <strong>虛擬相簿</strong>。</p>
+
+      <p>想像一下：你在 Twitter 看到一張喜歡的圖，你把它拖進 RePic。</p>
+
+      <p>RePic <strong>不會下載那張圖</strong>。它只記住 URL，存在記憶體裡。</p>
+
+      <div class="callout">
+        <p>拖了 1000 張圖進相簿，磁碟佔用多少？</p>
+        <p><span class="big-number">0 KB</span></p>
+        <p>不是「很小」，是<strong>真正的零</strong>。因為圖片根本不在你的電腦上 &mdash; 只有 URL 存在記憶體裡。但你打開相簿，每張圖都能即時看到、裁切、標註。</p>
+      </div>
+
+      <p>這不是超神？我自己做完都覺得不可思議。</p>
+
+      <h2>.repic 檔案 &mdash; 想要實體檔案？也行</h2>
+
+      <p>虛擬相簿的缺點是：它活在 app 裡面，你在檔案總管看不到。如果你想要<strong>看得到、摸得到的檔案</strong>，RePic 可以把相簿「釘選」到磁碟。</p>
+
+      <p>釘選之後，每張圖會變成一個 <code>.repic</code> 檔案 &mdash; 不到 1 KB 的 JSON 捷徑。在檔案總管裡看得到、能分享給別人、能備份到隨身碟。雙擊就能直接用 RePic 打開。</p>
+
+      <p>你甚至可以把本地圖片上傳雲端，然後轉成 <code>.repic</code> 檔案。5 MB 的照片變成 0.5 KB 的捷徑，省了 99.99% 的空間。</p>
+
+      <p><strong>要零空間？用虛擬相簿。要實體檔案？釘選成 .repic。由你決定。</strong></p>
+
+      <h2>不只是虛擬相簿</h2>
+
+      <p>RePic 當然不只有虛擬相簿：</p>
+
+      <ul class="feature-list">
+        <li>
+          <span class="icon">&#9889;</span>
+          <span><strong>極速瀏覽</strong> &mdash; 虛擬捲動 + 縮圖預載，幾千張圖滑起來跟原生一樣順</span>
+        </li>
+        <li>
+          <span class="icon">&#127760;</span>
+          <span><strong>網頁相簿</strong> &mdash; 從任何網站拖圖片進來，自動繞過防盜連</span>
+        </li>
+        <li>
+          <span class="icon">&#9986;&#65039;</span>
+          <span><strong>非破壞性編輯</strong> &mdash; 裁切、標註、馬賽克，原圖完全不動</span>
+        </li>
+        <li>
+          <span class="icon">&#128203;</span>
+          <span><strong>剪貼簿整合</strong> &mdash; Ctrl+V 貼上截圖直接進相簿</span>
+        </li>
+        <li>
+          <span class="icon">&#128433;&#65039;</span>
+          <span><strong>拖曳分享</strong> &mdash; 直接拖到 Discord、LINE 就能傳</span>
+        </li>
+        <li>
+          <span class="icon">&#127769;</span>
+          <span><strong>暗色 / 亮色主題</strong> &mdash; 你的眼睛你做主</span>
+        </li>
+      </ul>
+
+      <h2>開源、免費、永遠</h2>
+
+      <p><strong>RePic 完全開源、完全免費。</strong></p>
+
+      <p>我不會加廣告，不會要你的資料，不會搞訂閱制。這是一個開發者做給自己用的工具，剛好也想分享給有同樣需求的人。</p>
+
+      <p>如果你用了覺得不錯，幫我在 GitHub 上按個 Star 就是最大的支持。</p>
+
+      <p>如果你發現 bug 或有任何建議，歡迎到 <a href="https://github.com/Jeffrey0117/RePic/issues" target="_blank" rel="noopener" style="color: var(--primary);">GitHub Issues</a> 留言，我都會看。</p>
+
+      <p>這個專案從一個人的煩躁開始，希望它能解決你的煩躁。</p>
+
+      <div class="article-cta">
+        <h2>試試看？</h2>
+        <p>免費下載，不用註冊，不用信用卡。<br>打開就能用。</p>
+        <div class="btn-group">
+          <a href="https://github.com/Jeffrey0117/RePic/releases" class="btn btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            下載 RePic
+          </a>
+          <a href="https://github.com/Jeffrey0117/RePic" target="_blank" rel="noopener" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub 原始碼
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EN Content ── -->
+    <div class="en">
+      <p>Let me be honest: every image viewer I've tried has let me down.</p>
+
+      <p>Windows Photos takes forever to open a single image. Third-party viewers either look like they're from 2005, charge a subscription, or stuff in features nobody asked for.</p>
+
+      <p>I'm a developer who works with images every day. One day I finally snapped and decided to build my own.</p>
+
+      <p><strong>That's how RePic was born.</strong></p>
+
+      <h2>Virtual Albums &mdash; the feature that blew my own mind</h2>
+
+      <p>While building RePic, I stumbled onto a feature that even surprised me &mdash; <strong>Virtual Albums</strong>.</p>
+
+      <p>Here's how it works: you see an image on Twitter that you like. You drag it into RePic.</p>
+
+      <p>RePic <strong>doesn't download that image</strong>. It just remembers the URL, stored in memory.</p>
+
+      <div class="callout">
+        <p>You drag 1,000 images into an album. Disk usage?</p>
+        <p><span class="big-number">0 KB</span></p>
+        <p>Not "very small". <strong>Literally zero.</strong> The images aren't on your computer &mdash; only URLs exist in memory. But open the album and every image loads instantly. You can crop and annotate them too.</p>
+      </div>
+
+      <p>I couldn't believe it myself when I realized what I'd built.</p>
+
+      <h2>.repic files &mdash; want real files? You got it</h2>
+
+      <p>The one downside of virtual albums: they live inside the app. You can't see them in File Explorer. If you want <strong>tangible files you can see, share, and back up</strong>, RePic lets you "pin" an album to disk.</p>
+
+      <p>Pinning creates a <code>.repic</code> file for each image &mdash; a tiny JSON shortcut under 1 KB. Visible in File Explorer, shareable with others, easy to back up. Double-click to open directly in RePic.</p>
+
+      <p>You can even upload local images to the cloud, then convert them to <code>.repic</code> files. A 5 MB photo becomes a 0.5 KB shortcut &mdash; 99.99% space savings.</p>
+
+      <p><strong>Want zero space? Use virtual albums. Want real files? Pin to .repic. Your choice.</strong></p>
+
+      <h2>More than just virtual albums</h2>
+
+      <p>Of course, RePic isn't only about virtual albums:</p>
+
+      <ul class="feature-list">
+        <li>
+          <span class="icon">&#9889;</span>
+          <span><strong>Blazing fast</strong> &mdash; Virtual scrolling + preloading, thousands of images buttery smooth</span>
+        </li>
+        <li>
+          <span class="icon">&#127760;</span>
+          <span><strong>Web albums</strong> &mdash; Drag images from any website, automatic hotlink bypass</span>
+        </li>
+        <li>
+          <span class="icon">&#9986;&#65039;</span>
+          <span><strong>Non-destructive editing</strong> &mdash; Crop, annotate, mosaic &mdash; originals stay untouched</span>
+        </li>
+        <li>
+          <span class="icon">&#128203;</span>
+          <span><strong>Clipboard integration</strong> &mdash; Ctrl+V to paste screenshots directly</span>
+        </li>
+        <li>
+          <span class="icon">&#128433;&#65039;</span>
+          <span><strong>Drag to share</strong> &mdash; Drag straight to Discord, LINE, or any app</span>
+        </li>
+        <li>
+          <span class="icon">&#127769;</span>
+          <span><strong>Dark &amp; light themes</strong> &mdash; Your eyes, your choice</span>
+        </li>
+      </ul>
+
+      <h2>Open source, free, forever</h2>
+
+      <p><strong>RePic is completely open source and free.</strong></p>
+
+      <p>No ads, no data collection, no subscriptions. Ever. This is a tool I built for myself and decided to share with anyone who has the same frustrations.</p>
+
+      <p>If you like it, a Star on GitHub is the biggest support you can give.</p>
+
+      <p>Found a bug or have a suggestion? Open an issue on <a href="https://github.com/Jeffrey0117/RePic/issues" target="_blank" rel="noopener" style="color: var(--primary);">GitHub Issues</a> &mdash; I read every single one.</p>
+
+      <p>This project started from one developer's frustration. I hope it solves yours too.</p>
+
+      <div class="article-cta">
+        <h2>Give it a try?</h2>
+        <p>Free download, no sign-up, no credit card.<br>Just open and go.</p>
+        <div class="btn-group">
+          <a href="https://github.com/Jeffrey0117/RePic/releases" class="btn btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download RePic
+          </a>
+          <a href="https://github.com/Jeffrey0117/RePic" target="_blank" rel="noopener" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </article>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="https://raw.githubusercontent.com/Jeffrey0117/RePic/main/repic-logo.png" alt="RePic" />
+        <span>RePic</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">
+          <span class="en">Home</span><span class="zh">首頁</span>
+        </a>
+        <a href="https://github.com/Jeffrey0117/RePic" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Jeffrey0117/RePic/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <div class="footer-bottom">&copy; 2025 RePic. Open source under MIT License.</div>
+  </footer>
+
+  <script>
+    (function() {
+      var h = document.documentElement;
+      var st = localStorage.getItem('repic-theme');
+      if (!st) st = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      h.setAttribute('data-theme', st);
+      var sl = localStorage.getItem('repic-lang');
+      if (!sl) sl = (navigator.language || '').startsWith('zh') ? 'zh' : 'en';
+      h.setAttribute('data-lang', sl);
+    })();
+    function toggleTheme() {
+      var h = document.documentElement;
+      var next = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      h.setAttribute('data-theme', next);
+      localStorage.setItem('repic-theme', next);
+    }
+    function toggleLang() {
+      var h = document.documentElement;
+      var next = h.getAttribute('data-lang') === 'en' ? 'zh' : 'en';
+      h.setAttribute('data-lang', next);
+      localStorage.setItem('repic-lang', next);
+    }
+  </script>
+</body>
+</html>

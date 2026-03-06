@@ -34,6 +34,77 @@ function registerCoreTools(server, client) {
   )
 
   server.tool(
+    'create_project',
+    'Register a new project in CloudPipe',
+    {
+      id: z.string().describe('Project ID (lowercase, no spaces)'),
+      name: z.string().describe('Display name'),
+      repoUrl: z.string().optional().describe('GitHub repo URL'),
+      branch: z.string().optional().describe('Git branch (default: master)'),
+      port: z.number().describe('Port number'),
+      entryFile: z.string().optional().describe('Entry file (e.g. server.js)'),
+      buildCommand: z.string().optional().describe('Build command (e.g. npm run build)'),
+      healthEndpoint: z.string().optional().describe('Health check path (e.g. /api/health)'),
+      runner: z.enum(['node', 'next', 'tsx']).optional().describe('PM2 runner type'),
+      description: z.string().optional().describe('Project description'),
+    },
+    async (params) => {
+      try {
+        const data = {
+          ...params,
+          deployMethod: params.repoUrl ? 'github' : 'local',
+          branch: params.branch || 'master',
+          directory: `projects/${params.id}`,
+          pm2Name: params.id,
+        }
+        const result = await client.projects.create(data)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
+    'update_project',
+    'Update an existing project configuration',
+    {
+      id: z.string().describe('Project ID'),
+      name: z.string().optional().describe('Display name'),
+      repoUrl: z.string().optional().describe('GitHub repo URL'),
+      branch: z.string().optional().describe('Git branch'),
+      port: z.number().optional().describe('Port number'),
+      entryFile: z.string().optional().describe('Entry file'),
+      buildCommand: z.string().optional().describe('Build command'),
+      healthEndpoint: z.string().optional().describe('Health check path'),
+      runner: z.enum(['node', 'next', 'tsx']).optional().describe('PM2 runner type'),
+      description: z.string().optional().describe('Project description'),
+    },
+    async ({ id, ...updates }) => {
+      try {
+        const result = await client.projects.update(id, updates)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
+    'delete_project',
+    'Remove a project from CloudPipe',
+    { id: z.string().describe('Project ID') },
+    async ({ id }) => {
+      try {
+        const result = await client.projects.delete(id)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
     'deploy_project',
     'Trigger a deployment for a project',
     { id: z.string().describe('Project ID') },

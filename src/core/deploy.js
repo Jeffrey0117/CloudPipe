@@ -459,6 +459,27 @@ async function deploy(projectId, options = {}) {
     const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
     const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
 
+    // 清理 Prisma cache（在 npm install 之前，避免 EPERM 錯誤）
+    const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
+    if (fs.existsSync(prismaPath)) {
+      log(`清理 Prisma cache...`);
+      try {
+        fs.rmSync(prismaPath, { recursive: true, force: true });
+        log(`✓ Prisma cache 已清理`);
+      } catch (cleanErr) {
+        log(`⚠ 清理 Prisma cache 失敗: ${cleanErr.message}`);
+        // Wait and retry (file handle may not be released yet)
+        log(`等待 2 秒後重試清理...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          fs.rmSync(prismaPath, { recursive: true, force: true });
+          log(`✓ Prisma cache 重試清理成功`);
+        } catch (retryErr) {
+          log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
+        }
+      }
+    }
+
     // 自動安裝依賴（如果有 package.json）
     if (!isPython && fs.existsSync(pkgPath)) {
       const nodeModulesPath = path.join(projectDir, 'node_modules');
@@ -562,29 +583,6 @@ async function deploy(projectId, options = {}) {
         } catch (err) {
           // netstat 找不到表示 port 沒被佔用，繼續
           log(`Port ${project.port} 未被佔用`);
-        }
-      }
-
-      // 清理 Prisma cache（避免 EPERM 錯誤）
-      const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
-      if (fs.existsSync(prismaPath)) {
-        log(`清理 Prisma cache...`);
-        try {
-          fs.rmSync(prismaPath, { recursive: true, force: true });
-          log(`✓ Prisma cache 已清理`);
-        } catch (cleanErr) {
-          log(`⚠ 清理 Prisma cache 失敗: ${cleanErr.message}`);
-          // Retry after extra wait (file handle may not be released yet)
-          if (killedOldProcess) {
-            log(`等待 3 秒後重試清理...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            try {
-              fs.rmSync(prismaPath, { recursive: true, force: true });
-              log(`✓ Prisma cache 重試清理成功`);
-            } catch (retryErr) {
-              log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
-            }
-          }
         }
       }
 

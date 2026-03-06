@@ -1,0 +1,142 @@
+{
+  "name": "repic",
+  "private": true,
+  "version": "0.1.0-beta",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:3000 && node electron/start.cjs\"",
+    "electron:build": "vite build && electron-builder && node scripts/post-build.cjs"
+  },
+  "build": {
+    "appId": "com.repic.app",
+    "productName": "Repic",
+    "asar": true,
+    "compression": "normal",
+    "removePackageScripts": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*/{.github,.vscode,.idea}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/**/*.d.ts",
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/**/*.md",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/node_modules/**/LICENSE*",
+      "!**/node_modules/**/LICENCE*",
+      "!**/node_modules/**/license*"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "jpg",
+          "jpeg"
+        ],
+        "name": "JPEG Image",
+        "description": "JPEG Image File",
+        "mimeType": "image/jpeg",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      },
+      {
+        "ext": "png",
+        "name": "PNG Image",
+        "description": "PNG Image File",
+        "mimeType": "image/png",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      },
+      {
+        "ext": "gif",
+        "name": "GIF Image",
+        "description": "GIF Image File",
+        "mimeType": "image/gif",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      },
+      {
+        "ext": "webp",
+        "name": "WebP Image",
+        "description": "WebP Image File",
+        "mimeType": "image/webp",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      },
+      {
+        "ext": "bmp",
+        "name": "BMP Image",
+        "description": "BMP Image File",
+        "mimeType": "image/bmp",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      },
+      {
+        "ext": "repic",
+        "name": "Repic Virtual Image",
+        "description": "Repic Virtual Image File",
+        "mimeType": "application/x-repic",
+        "role": "Viewer",
+        "icon": "repic-logo.png"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "repic-logo.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true,
+      "perMachine": false
+    },
+    "electronLanguages": [
+      "en-US"
+    ]
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-image-crop": "^11.0.10",
+    "react-window": "^2.2.5",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "postcss": "^8.5.6",
+    "rcedit": "^5.0.2",
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.3"
+  }
+}

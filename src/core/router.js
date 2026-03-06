@@ -170,11 +170,11 @@ module.exports = function(config) {
     // 先檢查 apps/ 目錄
     let appDir = path.join(appsDir, subdomain);
 
-    // 如果 apps/ 沒有，檢查 projects/ 目錄（Git 部署）
-    if (!fs.existsSync(appDir)) {
-      const projectsDir = path.join(__dirname, '../../projects', subdomain);
-      if (fs.existsSync(projectsDir)) {
-        appDir = projectsDir;
+    // 如果 apps/ 沒有，檢查專案目錄（Git 部署）
+    if (!fs.existsSync(appDir) && project && project.directory) {
+      const projDir = path.resolve(__dirname, '../..', project.directory);
+      if (fs.existsSync(projDir)) {
+        appDir = projDir;
       }
     }
 

@@ -31,13 +31,15 @@ function loadEnv(relativeDir) {
 }
 
 // ── PM2 defaults for sub-projects ──
+const LOGS_DIR = path.join(__dirname, 'logs');
+
 function projectDefaults(name, opts = {}) {
   return {
     autorestart: true,
     max_restarts: 5,
     min_uptime: opts.min_uptime || '5s',
-    error_file: `../../logs/${name}-error.log`,
-    out_file: `../../logs/${name}-out.log`,
+    error_file: path.join(LOGS_DIR, `${name}-error.log`),
+    out_file: path.join(LOGS_DIR, `${name}-out.log`),
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
     merge_logs: true
   };
@@ -57,6 +59,12 @@ function resolveRunner(project) {
       return {
         script: 'node_modules/tsx/dist/cli.mjs',
         args: project.entryFile,
+      };
+    case 'python':
+      return {
+        script: 'python',
+        args: `-m uvicorn ${project.entryFile} --host 0.0.0.0 --port ${project.port}`,
+        interpreter: 'none',
       };
     case 'node':
     default:
@@ -101,24 +109,25 @@ try {
   const { projects } = JSON.parse(fs.readFileSync(projectsPath, 'utf8'));
 
   for (const project of projects) {
-    const projectDir = path.join(__dirname, 'projects', project.id);
+    const projectDir = path.resolve(__dirname, project.directory);
 
     // Skip projects that haven't been cloned yet
     if (!fs.existsSync(projectDir)) continue;
 
-    const { script, args } = resolveRunner(project);
+    const { script, args, interpreter } = resolveRunner(project);
     const minUptime = ['reelscript', 'upimg'].includes(project.id) ? '10s' : '5s';
+    const effectiveCwd = project.startCwd ? path.join(projectDir, project.startCwd) : projectDir;
 
     const entry = {
       name: project.pm2Name || project.id,
       script,
-      cwd: `./projects/${project.id}`,
+      cwd: effectiveCwd,
       ...projectDefaults(project.pm2Name || project.id, { min_uptime: minUptime }),
       env: {
         NODE_ENV: 'production',
         PORT: project.port,
         ...sharedEnv,
-        ...loadEnv(`projects/${project.id}`)
+        ...loadEnv(project.directory)
       }
     };
 
@@ -130,6 +139,9 @@ try {
     if (args) {
       entry.args = args;
     }
+    if (interpreter) {
+      entry.interpreter = interpreter;
+    }
 
     apps.push(entry);
 
@@ -137,8 +149,8 @@ try {
     if (Array.isArray(project.companions)) {
       for (const comp of project.companions) {
         const compCwd = comp.cwd
-          ? `./projects/${project.id}/${comp.cwd}`
-          : `./projects/${project.id}`;
+          ? path.join(projectDir, comp.cwd)
+          : projectDir;
         const compName = `${project.id}-${comp.name}`;
 
         apps.push({
@@ -151,8 +163,8 @@ try {
             NODE_ENV: 'production',
             PORT: project.port,
             ...sharedEnv,
-            ...loadEnv(`projects/${project.id}`),
-            ...(comp.cwd ? loadEnv(`projects/${project.id}/${comp.cwd}`) : {})
+            ...loadEnv(project.directory),
+            ...(comp.cwd ? loadEnv(path.join(project.directory, comp.cwd)) : {})
           }
         });
       }

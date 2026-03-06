@@ -841,24 +841,22 @@ async function handleDownloadEnvBundle(req, res, url) {
   }
 }
 
-// Collect all .env files from projects/ directory
+// Collect all .env files from registered projects
 function collectEnvBundle() {
-  const projectsDir = path.join(ROOT, 'projects');
   const envBundle = {};
 
-  if (fs.existsSync(projectsDir)) {
-    const dirs = fs.readdirSync(projectsDir).filter(d => {
-      const full = path.join(projectsDir, d);
-      return fs.statSync(full).isDirectory();
-    });
+  try {
+    const projectsPath = path.join(ROOT, 'data', 'deploy', 'projects.json');
+    const { projects } = JSON.parse(fs.readFileSync(projectsPath, 'utf8'));
 
-    for (const dir of dirs) {
-      const envPath = path.join(projectsDir, dir, '.env');
+    for (const project of projects) {
+      const projectDir = path.resolve(ROOT, project.directory);
+      const envPath = path.join(projectDir, '.env');
       if (fs.existsSync(envPath)) {
-        envBundle[dir] = fs.readFileSync(envPath, 'utf8');
+        envBundle[project.id] = fs.readFileSync(envPath, 'utf8');
       }
     }
-  }
+  } catch {}
 
   return envBundle;
 }

@@ -1,0 +1,39 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+release/
+
+# Native SDK (libvips) - too large for git
+native/
+nul
+
+# Go scraper binary and test files
+scraper/*.exe
+scraper/test_*/
+scraper/build.bat
+scraper/*_benchmark.*
+
+# Temporary files
+temp_*.jpg
+temp_*.png
