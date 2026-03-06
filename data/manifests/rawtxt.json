@@ -1,0 +1,68 @@
+{
+  "name": "RawTxt",
+  "version": "1.0.0",
+  "description": "Minimal text paste service for AI workflows — paste text, get URL, feed AI",
+  "endpoints": [
+    {
+      "name": "create_paste",
+      "description": "Create a new text paste. Returns raw URL for AI consumption and view URL for browser.",
+      "method": "POST",
+      "path": "/api/paste",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Text content to paste"
+          },
+          "expiresIn": {
+            "type": "string",
+            "description": "Expiration time: 1h, 6h, 24h (default), 7d, 30d, forever"
+          }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "read_paste",
+      "description": "Read a paste by ID. Returns raw text content with metadata headers.",
+      "method": "GET",
+      "path": "/{id}/raw",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Paste ID (8-character nanoid)"
+          }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "list_recent",
+      "description": "List recent active pastes with metadata (no content body). Useful for browsing recent pastes.",
+      "method": "GET",
+      "path": "/api/pastes",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Max results to return (1-100, default 20)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_health",
+      "description": "Get server health status and paste statistics",
+      "method": "GET",
+      "path": "/api/health",
+      "auth": "none"
+    }
+  ]
+}
