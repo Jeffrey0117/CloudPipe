@@ -1,0 +1,106 @@
+{
+  "name": "AutoReel",
+  "version": "2.1.0",
+  "description": "Video translation + JianYing draft automation",
+  "endpoints": [
+    {
+      "name": "list_drafts",
+      "description": "列出所有剪映草稿（含加密狀態）",
+      "method": "GET",
+      "path": "/api/draft/list"
+    },
+    {
+      "name": "preview_draft_texts",
+      "description": "預覽草稿中的文字內容",
+      "method": "GET",
+      "path": "/api/draft/{draft_name}/texts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_name": { "type": "string", "description": "草稿名稱" }
+        },
+        "required": ["draft_name"]
+      }
+    },
+    {
+      "name": "draft_info",
+      "description": "取得剪映草稿詳細資訊（解析度、軌道、素材統計）",
+      "method": "GET",
+      "path": "/api/draft/{draft_name}/info",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_name": { "type": "string", "description": "草稿名稱" }
+        },
+        "required": ["draft_name"]
+      }
+    },
+    {
+      "name": "export_srt",
+      "description": "把剪映草稿字幕匯出為 SRT 格式",
+      "method": "GET",
+      "path": "/api/draft/{draft_name}/export-srt",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_name": { "type": "string", "description": "草稿名稱" },
+          "save": { "type": "boolean", "description": "是否存檔到草稿目錄（預設 false）" }
+        },
+        "required": ["draft_name"]
+      }
+    },
+    {
+      "name": "convert_draft_s2t",
+      "description": "把剪映草稿中的簡體中文轉換為繁體中文",
+      "method": "POST",
+      "path": "/api/draft/convert-s2t",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_name": { "type": "string", "description": "要轉換的草稿名稱" },
+          "variant": { "type": "string", "description": "轉換模式: s2tw(臺灣繁體,預設) / s2t(通用繁體) / s2twp(臺灣繁體+慣用詞)" }
+        },
+        "required": ["draft_name"]
+      }
+    },
+    {
+      "name": "convert_srt",
+      "description": "把 SRT 字幕檔從簡體中文轉換為繁體中文（輸出加 _繁體 後綴）",
+      "method": "POST",
+      "path": "/api/draft/convert-srt",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "srt_path": { "type": "string", "description": "SRT 檔案完整路徑" },
+          "variant": { "type": "string", "description": "轉換模式: s2tw(預設) / s2t / s2twp" }
+        },
+        "required": ["srt_path"]
+      }
+    },
+    {
+      "name": "replace_text",
+      "description": "批量替換剪映草稿中指定 index 的文字內容",
+      "method": "POST",
+      "path": "/api/draft/{draft_name}/replace-text",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_name": { "type": "string", "description": "草稿名稱" },
+          "replacements": {
+            "type": "array",
+            "description": "要替換的文字列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer", "description": "文字 index" },
+                "text": { "type": "string", "description": "新文字" }
+              },
+              "required": ["index", "text"]
+            }
+          }
+        },
+        "required": ["draft_name", "replacements"]
+      }
+    }
+  ]
+}
