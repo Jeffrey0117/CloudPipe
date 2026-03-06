@@ -31,9 +31,83 @@ data/
   manifests/auth.json    — Auth config (per-project)
   pipelines/*.json       — Pipeline definitions
 
-projects/          — Deployed project folders (git clones)
+projects/          — Junctions → workhub/ (canonical project folders)
 services/          — CloudPipe-internal services (xcard, etc.)
+scripts/           — Maintenance scripts (workhub init, deploy-all, sync)
+
+workhub/           — (outside repo, configured in config.json)
+                     Single canonical directory for all project git clones
 ```
+
+## Workhub (Canonical Project Storage)
+
+**Problem**: `projects/` contained git clones, but other tools (ClaudeBot, IDE) also needed copies → duplicate repos, sync nightmares, divergent state.
+
+**Solution**: One canonical directory (`workhub/`) holds all git clones. Both `projects/` and external directories use Windows junctions (symlinks) pointing there.
+
+```
+workhub/           ← real git clones (canonical source of truth)
+  ├── adman/
+  ├── survey/
+  └── ...
+
+cloudpipe/projects/ ← junctions → workhub/{id}
+Desktop/code/       ← junctions → workhub/{id} (optional, for IDE/ClaudeBot)
+```
+
+### Config (`config.json`)
+
+```json
+{
+  "workhub": {
+    "enabled": true,
+    "dir": "../workhub"    // relative to CloudPipe root, or absolute path
+  }
+}
+```
+
+### Setup Script
+
+```bash
+node scripts/init-workhub.js              # dry-run (preview only)
+node scripts/init-workhub.js --run        # clone repos + create junctions
+node scripts/init-workhub.js --run --setup # also npm install + next build
+node scripts/init-workhub.js --run --code-dir "C:\Users\jeffb\Desktop\code"
+                                          # also create junctions in code dir
+```
+
+The script:
+1. Reads project list from `data/deploy/projects.json` (not filesystem scan)
+2. `git clone` each project's `repoUrl` into workhub/
+3. Backs up existing `projects/{id}` → `projects/{id}.bak`
+4. Creates junctions: `projects/{id}` → `workhub/{id}`
+5. Copies runtime files from `.bak` (`.env`, `data/`, `uploads/`, `.db` files)
+6. With `--setup`: runs `npm install` + `next build` where needed
+
+### Important: Runtime Data
+
+Git clones don't include `.gitignored` runtime data. The script auto-copies from `.bak`:
+- `.env`, `.env.local`, `.env.production`
+- `.pm2-start.cjs` (CloudPipe-generated startup scripts)
+- `data/`, `uploads/`, `db/`, `storage/` directories
+- `*.db`, `*.sqlite`, `*.sqlite3` files
+
+### New Projects
+
+New projects added via CloudPipe deploy flow automatically go into `projects/`. To integrate with workhub:
+1. Add project to `data/deploy/projects.json`
+2. Re-run `node scripts/init-workhub.js --run`
+
+Deploying (`git fetch + reset --hard`) preserves untracked files — existing `.env` and `data/` directories are safe.
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/init-workhub.js` | Clone all projects into workhub, create junctions |
+| `scripts/deploy-all.js` | Deploy all registered projects |
+| `scripts/sync-projects.js` | Legacy sync (superseded by workhub) |
+| `scripts/autostart.js` | Auto-start services on boot |
 
 ## Ports
 
@@ -46,9 +120,16 @@ services/          — CloudPipe-internal services (xcard, etc.)
 | 4004 | AutoCard |
 | 4005 | ReelScript |
 | 4006 | LetMeUse |
-| 4007 | Upimg |
+| 4007 | Upimg (duk.tw) |
 | 4008 | MeeTube |
-| 4009 | XCard (reserved) |
+| 4009 | Pokkit |
+| 4010 | NoteBody |
+| 4011 | CanWeBack |
+| 4012 | GitLoop |
+| 4013 | REPIC |
+| 4014 | CourseBloom |
+| 4015 | RawTxt |
+| 4016 | Quickky |
 
 ## Code Style
 
@@ -282,16 +363,277 @@ const tg = require('@jeffrey0117/cloudpipe/sdk/telegram')
 
 ### Shared Infrastructure
 
-| Capability | How to access | What it does |
-|-----------|--------------|-------------|
-| Any project API | `gw.call('projectId_endpoint', params)` | Gateway routes to correct port |
-| Telegram messages | `tg.send(text)` | Uses tg-proxy (Cloudflare Worker) |
-| Image hosting | `gw.call('upimg_upload', ...)` | R2-backed image CDN |
-| Job queue | `gw.call('workr_create_job', ...)` | Background task processing |
-| Auth verification | `gw.call('letmeuse_verify_session', ...)` | Shared auth service |
-| YouTube search | `gw.call('meetube_search', ...)` | YouTube proxy |
-| AI flashcards | `gw.call('autocard_generate_content', ...)` | DeepSeek-powered |
-| Ad serving | `gw.call('adman_list_ads', ...)` | Ad management |
+See **"Ecosystem Services Quick Reference"** section below for complete details on every service.
+
+| Capability | SDK call | MCP tool |
+|-----------|---------|---------|
+| Any project API | `gw.call('projectId_endpoint', params)` | `{projectId}_{endpoint}` |
+| Telegram messages | `tg.send(text)` | — |
+| Auth (register app) | `gw.call('letmeuse_create_app', ...)` | `letmeuse_create_app` |
+| Image hosting | `gw.call('upimg_shorten_url', ...)` | `upimg_shorten_url` |
+| Image processing | `gw.call('repic_resize', ...)` | `repic_resize` |
+| File storage | `gw.call('pokkit_upload_file', ...)` | `pokkit_upload_file` |
+| Job queue | `gw.call('workr_submit_job', ...)` | `workr_submit_job` |
+| Text paste | `gw.call('rawtxt_create_paste', ...)` | `rawtxt_create_paste` |
+| YouTube search | `gw.call('meetube_search', ...)` | `meetube_search` |
+| AI flashcards | `gw.call('autocard_generate_content', ...)` | `autocard_generate_content` |
+| Video learning | `gw.call('reelscript_process_video', ...)` | `reelscript_process_video` |
+| NotebookLM | `gw.call('notebody_ask', ...)` | `notebody_ask` |
+
+## Ecosystem Services Quick Reference (IMPORTANT — READ THIS FIRST)
+
+When you need a capability, find it here. Use MCP tools directly — do NOT explore project source code.
+
+All MCP tools are prefixed: `{projectId}_{toolName}` (e.g. `upimg_shorten_url`, `letmeuse_create_app`).
+
+---
+
+### LetMeUse — Auth as a Service (port 4006)
+
+**What**: Embeddable email/password + magic link authentication for any app.
+
+**When to use**: Any new project that needs user login.
+
+**Key MCP tools**:
+- `letmeuse_create_app({ name, domains })` — Register a new app, returns app_id
+- `letmeuse_list_apps()` — List all registered apps
+- `letmeuse_list_users({ appId?, search? })` — List/search users
+- `letmeuse_get_stats()` — User/session/app counts
+
+**Integration workflow**: See `letmeuse/CLAUDE.md` → "Integrating LetMeUse into a New Project" (5-step guide with code).
+
+**Reference**: Quickky (`quickky/public/app.js` + `quickky/src/middleware/auth.js`)
+
+**Auth**: bearer (1-year admin JWT in auth.json)
+
+---
+
+### Upimg — Image Hosting / duk.tw (port 4007)
+
+**What**: Upload images or shorten external image URLs → get `https://duk.tw/hash.ext` short URLs.
+
+**When to use**: Any project that handles user-uploaded images or needs image CDN.
+
+**Key MCP tools**:
+- `upimg_shorten_url({ url, filename })` — Shorten external image URL → `https://duk.tw/xxx.png`
+- `upimg_upload_image({ file })` — Upload image file (multipart)
+- `upimg_list_mappings({ search?, page?, limit? })` — Query stored images
+- `upimg_get_admin_stats()` — Upload statistics
+
+**Integration pattern** (backend proxy for user uploads):
+```javascript
+// POST /api/upload — proxy user's FormData to Upimg
+const formData = new FormData()
+formData.append('file', file)
+const res = await fetch('https://duk.tw/api/upload', { method: 'POST', body: formData })
+const { shortUrl } = await res.json() // https://duk.tw/abc123.png
+```
+
+**Auth**: none for upload/shorten, bearer for admin endpoints
+
+---
+
+### REPIC — Image Processing (port 4013)
+
+**What**: Server-side image manipulation — remove background, generate favicons, resize, convert, crop, composite/watermark.
+
+**When to use**: Need to process images (remove bg, make favicon, resize for thumbnails, convert format, add watermark).
+
+**Key MCP tools** (all accept `url` or `base64`):
+- `repic_remove_background({ url })` — Remove white/gray bg → transparent PNG
+- `repic_generate_favicon({ url })` — Generate 16/32/180/192/512 favicon set
+- `repic_resize({ url, width, height, fit?, format? })` — Resize image
+- `repic_convert({ url, format, quality? })` — Convert between PNG/JPEG/WebP/AVIF
+- `repic_crop({ url, left, top, width, height })` — Crop region
+- `repic_composite({ url, overlay_url, gravity?, opacity? })` — Overlay/watermark
+- `repic_metadata({ url })` — Get dimensions, format, file size
+
+**Auth**: none (all endpoints are public)
+
+---
+
+### Pokkit — File Storage (port 4009)
+
+**What**: Self-hosted file storage. Upload any file, get download URL.
+
+**When to use**: Store non-image files (PDFs, ZIPs, documents).
+
+**Key MCP tools**:
+- `pokkit_upload_file({ file })` — Upload file → download URL + file ID
+- `pokkit_list_files()` — List all stored files with metadata
+- `pokkit_delete_file({ id })` — Delete by ID
+- `pokkit_get_status()` — Storage stats (total files, disk usage)
+
+**Auth**: bearer (token in auth.json via env var)
+
+---
+
+### Workr — Job Queue (port 4002)
+
+**What**: Background job processing — thumbnail generation, WebP conversion, HLS, downloads, HTTP proxy, deployments.
+
+**When to use**: Any long-running task that shouldn't block the main request.
+
+**Key MCP tools**:
+- `workr_submit_job({ type, payload, priority?, callback? })` — Submit job
+  - Types: `thumbnail`, `webp`, `hls`, `download`, `proxy`, `deploy`
+- `workr_get_job({ id })` — Check job status
+- `workr_list_jobs({ status?, type? })` — List/filter jobs
+- `workr_cancel_job({ id })` — Cancel queued job
+- `workr_get_stats()` — Queue statistics
+- `workr_proxy_request({ url })` — HTTP proxy (bypass CORS/geo-blocking)
+
+**Auth**: none
+
+---
+
+### RawTxt — Text Paste (port 4015)
+
+**What**: Minimal text paste service. Create paste → get raw URL for sharing or feeding to AI.
+
+**When to use**: Quick text sharing, logs, AI input preparation.
+
+**Key MCP tools**:
+- `rawtxt_create_paste({ content, expiresIn? })` — Create paste → raw URL + view URL
+  - expiresIn: `1h`, `6h`, `24h` (default), `7d`, `30d`, `forever`
+- `rawtxt_read_paste({ id })` — Read paste content
+- `rawtxt_list_recent({ limit? })` — List recent pastes
+
+**Auth**: none
+
+---
+
+### AutoCard — AI Flashcards (port 4004)
+
+**What**: Generate flashcard content using DeepSeek AI. Manage content pool.
+
+**Key MCP tools**:
+- `autocard_generate_content({ topic, pages? })` — AI generates flashcard markdown
+- `autocard_suggest_topics({ category })` — AI suggests 10 topics for a category
+- `autocard_gemini_action({ action, text, topic? })` — Gemini AI (social captions, enhance)
+- `autocard_list_pool()` / `autocard_create_pool_entry({ title, markdown, tags? })` — Content pool CRUD
+
+**Auth**: bearer
+
+---
+
+### MeeTube — YouTube Proxy (port 4008)
+
+**What**: Private YouTube client — search, video details, captions, translation, favorites.
+
+**Key MCP tools**:
+- `meetube_search({ q })` — Search YouTube videos
+- `meetube_get_video({ id })` — Full video details (streams, captions, related)
+- `meetube_get_channel({ id })` — Channel metadata
+- `meetube_get_captions({ videoId })` — List caption tracks
+- `meetube_translate_text({ text, targetLang? })` — Translate text (default: zh-TW)
+- `meetube_translate_batch({ texts, targetLang? })` — Batch translate
+- `meetube_get_trending()` — Trending videos
+
+**Auth**: none
+
+---
+
+### ReelScript — Video Learning (port 4005)
+
+**What**: Download video → transcribe → translate to Chinese → extract vocabulary → generate quotes. Full learning pipeline.
+
+**Key MCP tools**:
+- `reelscript_process_video({ url })` — Process video (YouTube/IG/Bilibili/TikTok), async
+- `reelscript_get_video({ video_id })` — Full transcript + translations + vocabulary
+- `reelscript_translate_video({ video_id })` — Translate to Traditional Chinese
+- `reelscript_analyze_vocabulary({ video_id })` — Extract phrasal verbs, idioms
+- `reelscript_appreciate_video({ video_id })` — Theme, key points, golden quotes
+- `reelscript_search({ q, mode? })` — Search across all video content
+- `reelscript_daily_snippet()` / `reelscript_random_snippet()` — Learning snippets
+- `reelscript_list_quotes({ limit? })` — Golden quotes collection
+
+**Auth**: bearer for process/translate/analyze, none for public read endpoints
+
+---
+
+### NoteBody — NotebookLM Bridge (port 4010)
+
+**What**: Ask questions to Google NotebookLM, get grounded answers with citations. Manage notebook library.
+
+**Key MCP tools**:
+- `notebody_ask({ question, notebook_url? })` — Ask NotebookLM a question
+- `notebody_list_notebooks()` — List notebooks in library
+- `notebody_add_notebook({ url, tags?, description? })` — Add notebook by URL
+- `notebody_select_notebook({ id })` — Set active notebook for queries
+- `notebody_auto_create_notebook({ title? })` — Create new notebook (browser automation)
+- `notebody_auto_add_source({ notebook_url, source_url })` — Add YouTube/website source
+
+**Auth**: bearer
+
+---
+
+### AdMan — Ad Management (port 4003)
+
+**What**: Manage ad projects and ad units. CRUD for ad campaigns.
+
+**Key MCP tools**:
+- `adman_list_projects()` / `adman_create_project({ name, domain })` — Project CRUD
+- `adman_get_ad({ adId })` / `adman_update_ad({ adId, status?, position? })` — Ad CRUD
+
+**Auth**: none
+
+---
+
+### CanWeBack — Fortune/Relationship (port 4011)
+
+**What**: Relationship compatibility analysis from birthdays (ROC format). Unsent letters feature.
+
+**Key MCP tools**:
+- `canweback_generate_fortune({ myBirthday, partnerBirthday })` — Generate reading
+- `canweback_create_letter({ senderName, receiverName, receiverBirthday, content })` — Unsent letter
+
+**Auth**: none
+
+---
+
+### GitLoop — Git Webhooks (port 4012)
+
+**What**: Receive Gitea push/PR webhooks → trigger notifications + AI code review.
+
+**Key MCP tools**:
+- `gitloop_receive_webhook({ event })` — Receive webhook event
+
+**Auth**: none
+
+---
+
+### CourseBloom — Online Courses (port 4014)
+
+**What**: Multi-tenant online course platform with affiliate tracking.
+
+**Key MCP tools**:
+- `coursebloom_check_tenant({ slug })` — Check tenant slug availability
+- `coursebloom_track_affiliate({ tenantId, affiliateCode, landingUrl })` — Track affiliate click
+
+**Auth**: none
+
+---
+
+### MySpeedTest — Speed Test (port 4001)
+
+**What**: Internet speed test with server node discovery.
+
+**Key MCP tools**:
+- `myspeedtest_get_targets({ count?, country? })` — Get test server nodes
+- `myspeedtest_save_result({ speed, bytes?, duration? })` — Save test result
+
+**Auth**: none
+
+---
+
+### Quickky — Personal Cards (port 4016)
+
+**What**: Personal card platform — create rich cards (text + images), share via QR/short link.
+
+**No MCP tools** — standalone consumer app. Uses LetMeUse for auth, Upimg for images.
+
+---
 
 ## Companion Processes
 
@@ -421,7 +763,7 @@ node diagnose.js --fix    # Show fix suggestions
 | No config.json | Setup not run | `node setup.js` |
 | Redis connection refused | Wrong redis.url or Redis down | Check config.json redis.url |
 | PM2 empty | Services not started | `pm2 start ecosystem.config.js` |
-| Project "not deployed" | Dir missing in projects/ | Deploy via admin or `git clone` |
+| Project "not deployed" | Dir/junction missing in projects/ | `node scripts/init-workhub.js --run` or deploy via admin |
 | cloudflared not running | Process crashed | `pm2 restart tunnel` |
 | .env missing | Env not synced | `/envtoken` on primary → `node setup-env.js <url>` |
 | Tunnel 0 connectors | cloudflared credentials bad | Re-run `node setup.js` |
@@ -445,6 +787,8 @@ For a new machine (Machine B, C, etc.):
 | `cloudflared.yml` | Tunnel routing rules | Yes (for remote access) |
 | `~/.cloudflared/{tunnelId}.json` | Tunnel credentials | Yes (for remote access) |
 | `projects/{id}/.env` | Per-project secrets | Yes (per project) |
+| `workhub/{id}/` | Canonical project clones (junctions from projects/) | Yes |
+| `workhub/{id}/data/` | Runtime data (surveys, uploads, etc.) | Yes (not in git) |
 | `ecosystem.config.js` | PM2 process definitions | Auto-generated |
 
 ### Restart Everything
