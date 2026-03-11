@@ -459,6 +459,35 @@ async function deploy(projectId, options = {}) {
     const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
     const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
 
+    // === Kill process BEFORE cleaning Prisma cache (critical for Windows) ===
+    let killedOldProcess = false;
+    if (project.port) {
+      try {
+        log(`檢查 port ${project.port} 是否被佔用...`);
+        const netstat = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
+        const lines = netstat.split('\n').filter(l => l.includes('LISTENING'));
+        if (lines.length > 0) {
+          const pid = lines[0].trim().split(/\s+/).pop();
+          log(`Port ${project.port} 被 PID ${pid} 佔用，嘗試關閉...`);
+          try {
+            execSync(`taskkill /F /PID ${pid}`, { windowsHide: true });
+            log(`✓ 已關閉 PID ${pid}`);
+            killedOldProcess = true;
+            // 等待 1.5 秒讓 port 和 file handles 完全釋放
+            log(`等待 1.5 秒讓檔案鎖定釋放...`);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          } catch (killErr) {
+            log(`⚠ 無法關閉 PID ${pid}: ${killErr.message}`);
+          }
+        } else {
+          log(`Port ${project.port} 未被佔用`);
+        }
+      } catch (err) {
+        // netstat 找不到表示 port 沒被佔用，繼續
+        log(`Port ${project.port} 未被佔用`);
+      }
+    }
+
     // 清理 Prisma cache（在 npm install 之前，避免 EPERM 錯誤）
     const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
     if (fs.existsSync(prismaPath)) {
@@ -468,14 +497,30 @@ async function deploy(projectId, options = {}) {
         log(`✓ Prisma cache 已清理`);
       } catch (cleanErr) {
         log(`⚠ 清理 Prisma cache 失敗: ${cleanErr.message}`);
-        // Wait and retry (file handle may not be released yet)
-        log(`等待 2 秒後重試清理...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        try {
-          fs.rmSync(prismaPath, { recursive: true, force: true });
-          log(`✓ Prisma cache 重試清理成功`);
-        } catch (retryErr) {
-          log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
+        // If we killed the old process, retry after another delay
+        if (killedOldProcess) {
+          log(`等待額外 2 秒後重試清理...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            fs.rmSync(prismaPath, { recursive: true, force: true });
+            log(`✓ Prisma cache 重試清理成功`);
+          } catch (retryErr) {
+            log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
+            // Last resort: kill PM2 process by name
+            if (project.pm2Name) {
+              log(`最終嘗試：停止 PM2 進程 ${project.pm2Name}...`);
+              try {
+                execSync(`pm2 stop ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                fs.rmSync(prismaPath, { recursive: true, force: true });
+                log(`✓ Prisma cache 最終清理成功`);
+              } catch (finalErr) {
+                log(`❌ 所有清理嘗試均失敗，建議手動重啟伺服器`);
+              }
+            }
+          }
+        } else {
+          log(`⚠ 無法清理 Prisma cache，繼續執行 (可能導致 npm install 失敗)`);
         }
       }
     }
@@ -558,34 +603,6 @@ async function deploy(projectId, options = {}) {
       }
     }
     if (buildCmd) {
-      // 在 build 前先殺掉佔用 port 的舊進程（避免 Prisma EPERM 錯誤）
-      let killedOldProcess = false;
-      if (project.port) {
-        try {
-          log(`檢查 port ${project.port} 是否被佔用...`);
-          const netstat = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
-          const lines = netstat.split('\n').filter(l => l.includes('LISTENING'));
-          if (lines.length > 0) {
-            const pid = lines[0].trim().split(/\s+/).pop();
-            log(`Port ${project.port} 被 PID ${pid} 佔用，嘗試關閉...`);
-            try {
-              execSync(`taskkill /F /PID ${pid}`, { windowsHide: true });
-              log(`✓ 已關閉 PID ${pid}`);
-              killedOldProcess = true;
-              // 等待 1.5 秒讓 port 和 file handles 完全釋放
-              await new Promise(resolve => setTimeout(resolve, 1500));
-            } catch (killErr) {
-              log(`⚠ 無法關閉 PID ${pid}: ${killErr.message}`);
-            }
-          } else {
-            log(`Port ${project.port} 未被佔用`);
-          }
-        } catch (err) {
-          // netstat 找不到表示 port 沒被佔用，繼續
-          log(`Port ${project.port} 未被佔用`);
-        }
-      }
-
       // Run build command without NODE_ENV override — Next.js needs NODE_ENV=production
       // The NODE_ENV=development trick is only needed for `npm install` (devDependencies)
       log(`執行 build: ${buildCmd}`);
