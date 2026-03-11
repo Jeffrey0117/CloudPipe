@@ -5,14 +5,14 @@
   "endpoints": [
     {
       "name": "list_apps",
-      "description": "List all registered apps",
+      "description": "List all registered apps with id, name, secret, domains, webhookUrl",
       "method": "GET",
       "path": "/api/admin/apps",
       "auth": "bearer"
     },
     {
       "name": "create_app",
-      "description": "Register a new app for authentication",
+      "description": "Register a new app for authentication. Returns { id, secret, domains, webhookUrl }.\n\nSDK: <script src=\"https://letmeuse.isnowfriend.com/letmeuse.js\" data-app-id=\"APP_ID\" data-theme=\"light|dark|auto\" data-accent=\"#hex\" data-locale=\"en|zh\" data-mode=\"modal|redirect\">\n\nwindow.letmeuse PROPERTIES (not methods!): ready (bool), user ({id,email,displayName,avatar,role}|null)\nMETHODS: login(), register(), logout(), getToken()=>string|null, onAuthChange(cb)=>unsubscribe, openProfile(), renderAvatar(target)=>cleanup, renderProfileCard(target)=>cleanup\n\nJWT payload: {sub,email,name,role,permissions,app,iat,exp} — decode base64url only, no signature verify needed (internal trust). 24h expiry.\nWebhook events (POST to webhookUrl, signed with X-LetMeUse-Signature HMAC-SHA256 using app secret): user.registered, user.login, user.updated, user.deleted, user.disabled, user.enabled, user.email_verified, user.password_reset",
       "method": "POST",
       "path": "/api/admin/apps",
       "auth": "bearer",
@@ -28,7 +28,7 @@
     },
     {
       "name": "get_app",
-      "description": "Get app details",
+      "description": "Get app details including secret, domains, webhookUrl, oauthProviders config",
       "method": "GET",
       "path": "/api/admin/apps/{id}",
       "auth": "bearer",
@@ -58,7 +58,7 @@
     },
     {
       "name": "get_user",
-      "description": "Get user details",
+      "description": "Get user details: id, email, displayName, role, disabled, emailVerified, avatar, lastLoginAt",
       "method": "GET",
       "path": "/api/admin/users/{id}",
       "auth": "bearer",
