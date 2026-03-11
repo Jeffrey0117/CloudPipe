@@ -138,6 +138,12 @@ const createRouter = function(config) {
       }
     }
 
+    // /_admin/lurlhub → redirect to /lurl/admin (獨立專案)
+    if (urlPath === '/_admin/lurlhub' || urlPath === '/_admin/lurlhub/') {
+      res.writeHead(302, { location: '/lurl/admin' });
+      return res.end();
+    }
+
     // /_admin/xxx → admin-xxx.html (服務後台頁面)
     if (urlPath.startsWith('/_admin/')) {
       const serviceName = urlPath.replace('/_admin/', '').replace(/\/$/, '');
@@ -192,6 +198,11 @@ const createRouter = function(config) {
         routes: routes.map(r => r.name),
         timestamp: new Date().toISOString()
       }));
+    }
+
+    // LurlHub path proxy (獨立專案，port 4017)
+    if (urlPath.startsWith('/lurl/') || urlPath === '/lurl') {
+      return proxyToPort(req, res, 4017);
     }
 
     // Services 路由

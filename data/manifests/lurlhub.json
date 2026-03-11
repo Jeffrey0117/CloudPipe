@@ -1,0 +1,96 @@
+{
+  "name": "LurlHub",
+  "version": "1.0.0",
+  "description": "Video/image capture, browsing, and management platform",
+  "baseUrl": "http://localhost:4017",
+  "endpoints": [
+    {
+      "name": "health",
+      "description": "Health check — returns server status",
+      "method": "GET",
+      "path": "/lurl/health"
+    },
+    {
+      "name": "get_stats",
+      "description": "Get platform statistics (total records, videos, images, disk usage)",
+      "method": "GET",
+      "path": "/lurl/api/stats",
+      "auth": "bearer"
+    },
+    {
+      "name": "list_records",
+      "description": "List records with pagination, search, and filters",
+      "method": "GET",
+      "path": "/lurl/api/records",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "number", "description": "Results per page (default 50)" },
+          "offset": { "type": "number", "description": "Pagination offset" },
+          "search": { "type": "string", "description": "Search by title" },
+          "type": { "type": "string", "description": "Filter by type: video or image" },
+          "sort": { "type": "string", "description": "Sort field (default: created_at)" }
+        }
+      }
+    },
+    {
+      "name": "capture",
+      "description": "Submit a video or image URL for capture and processing",
+      "method": "POST",
+      "path": "/lurl/api/capture",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Video or image URL to capture" },
+          "title": { "type": "string", "description": "Optional title" },
+          "type": { "type": "string", "description": "Content type: video or image" }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "delete_record",
+      "description": "Delete a record by ID",
+      "method": "DELETE",
+      "path": "/lurl/api/records/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Record ID to delete" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "get_maintenance_status",
+      "description": "Get maintenance system status (auto-maintenance, strategies, history)",
+      "method": "GET",
+      "path": "/lurl/api/maintenance/status",
+      "auth": "bearer"
+    },
+    {
+      "name": "run_maintenance",
+      "description": "Trigger a full maintenance cycle (all strategies)",
+      "method": "POST",
+      "path": "/lurl/api/maintenance/run",
+      "auth": "bearer"
+    },
+    {
+      "name": "get_retry_status",
+      "description": "Get status of failed download retries",
+      "method": "GET",
+      "path": "/lurl/api/retry-status",
+      "auth": "bearer"
+    },
+    {
+      "name": "retry_failed",
+      "description": "Retry all failed downloads",
+      "method": "POST",
+      "path": "/lurl/api/retry-failed",
+      "auth": "bearer"
+    }
+  ]
+}
