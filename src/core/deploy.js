@@ -216,10 +216,10 @@ function updateTunnelIngress(hostname, port) {
 
     let content = fs.readFileSync(CLOUDFLARED_CONFIG, 'utf8');
 
-    // 重複 hostname 偵測（支援有引號和無引號兩種格式）
-    const hostnameEscaped = hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const duplicatePattern = new RegExp(`hostname:\\s*"?${hostnameEscaped}"?`, 'm');
-    if (duplicatePattern.test(content)) {
+    // 重複 hostname 偵測：從 YAML 提取所有 hostname，剝掉引號後純文字比對
+    const existingHostnames = (content.match(/hostname:\s*"?([^"\n]+)"?/g) || [])
+      .map(m => m.replace(/hostname:\s*"?/, '').replace(/"?\s*$/, '').trim());
+    if (existingHostnames.includes(hostname)) {
       console.log(`[deploy] Ingress 已存在: ${hostname}`);
       return true;
     }
