@@ -203,6 +203,9 @@ function deleteProject(id) {
 
 /**
  * 更新 cloudflared.yml，加入專案的 ingress 規則
+ * - 自動為含萬用字元 (*) 的 hostname 加上引號
+ * - 重複 hostname 偵測
+ * - 寫入前備份 + YAML 驗證
  */
 function updateTunnelIngress(hostname, port) {
   try {
@@ -213,16 +216,25 @@ function updateTunnelIngress(hostname, port) {
 
     let content = fs.readFileSync(CLOUDFLARED_CONFIG, 'utf8');
 
-    // 檢查是否已存在此 hostname
-    if (content.includes(`hostname: ${hostname}`)) {
+    // 重複 hostname 偵測（支援有引號和無引號兩種格式）
+    const hostnameEscaped = hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const duplicatePattern = new RegExp(`hostname:\\s*"?${hostnameEscaped}"?`, 'm');
+    if (duplicatePattern.test(content)) {
       console.log(`[deploy] Ingress 已存在: ${hostname}`);
       return true;
     }
 
+    // 備份 cloudflared.yml
+    const backupPath = CLOUDFLARED_CONFIG + '.bak';
+    fs.writeFileSync(backupPath, content);
+
+    // 為含萬用字元的 hostname 加引號
+    const formattedHostname = hostname.includes('*') ? `"${hostname}"` : hostname;
+
     // 在 "*.<domain>" 之前插入新規則
     const domain = (getConfig().domain || 'isnowfriend.com').replace(/\./g, '\\.');
     const wildcardPattern = new RegExp(`(\\s*- hostname: "\\*\\.${domain}")`);
-    const newRule = `\n  - hostname: ${hostname}\n    service: http://localhost:${port}`;
+    const newRule = `\n  - hostname: ${formattedHostname}\n    service: http://localhost:${port}`;
 
     if (wildcardPattern.test(content)) {
       content = content.replace(wildcardPattern, newRule + '$1');
@@ -230,6 +242,17 @@ function updateTunnelIngress(hostname, port) {
       // 如果沒有通配符規則，在最後一個 service: http_status:404 之前插入
       const fallbackPattern = /(\s*- service: http_status:404)/;
       content = content.replace(fallbackPattern, newRule + '$1');
+    }
+
+    // YAML 驗證：嘗試解析修改後的 YAML 確認格式正確
+    try {
+      const yaml = require('yaml');
+      yaml.parse(content);
+    } catch (yamlErr) {
+      console.error(`[deploy] YAML 驗證失敗，還原備份: ${yamlErr.message}`);
+      // 還原備份
+      fs.writeFileSync(CLOUDFLARED_CONFIG, fs.readFileSync(backupPath, 'utf8'));
+      return false;
     }
 
     fs.writeFileSync(CLOUDFLARED_CONFIG, content);
@@ -246,6 +269,14 @@ function updateTunnelIngress(hostname, port) {
     return true;
   } catch (e) {
     console.error(`[deploy] 更新 ingress 失敗:`, e.message);
+    // 嘗試從備份還原
+    const backupPath = CLOUDFLARED_CONFIG + '.bak';
+    if (fs.existsSync(backupPath)) {
+      try {
+        fs.writeFileSync(CLOUDFLARED_CONFIG, fs.readFileSync(backupPath, 'utf8'));
+        console.log(`[deploy] 已從備份還原 cloudflared.yml`);
+      } catch {}
+    }
     return false;
   }
 }
@@ -461,23 +492,24 @@ async function deploy(projectId, options = {}) {
 
     // === Kill process BEFORE cleaning Prisma cache (critical for Windows) ===
     let killedOldProcess = false;
+    let portPid = null;
     if (project.port) {
       try {
         log(`檢查 port ${project.port} 是否被佔用...`);
         const netstat = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
         const lines = netstat.split('\n').filter(l => l.includes('LISTENING'));
         if (lines.length > 0) {
-          const pid = lines[0].trim().split(/\s+/).pop();
-          log(`Port ${project.port} 被 PID ${pid} 佔用，嘗試關閉...`);
+          portPid = lines[0].trim().split(/\s+/).pop();
+          log(`Port ${project.port} 被 PID ${portPid} 佔用，嘗試關閉...`);
           try {
-            execSync(`taskkill /F /PID ${pid}`, { windowsHide: true });
-            log(`✓ 已關閉 PID ${pid}`);
+            execSync(`taskkill /F /PID ${portPid}`, { windowsHide: true });
+            log(`✓ 已關閉 PID ${portPid}`);
             killedOldProcess = true;
-            // 等待 1.5 秒讓 port 和 file handles 完全釋放
-            log(`等待 1.5 秒讓檔案鎖定釋放...`);
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // 等待 3 秒讓 port 和 file handles 完全釋放
+            log(`等待 3 秒讓檔案鎖定釋放...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
           } catch (killErr) {
-            log(`⚠ 無法關閉 PID ${pid}: ${killErr.message}`);
+            log(`⚠ 無法關閉 PID ${portPid}: ${killErr.message}`);
           }
         } else {
           log(`Port ${project.port} 未被佔用`);
@@ -489,38 +521,72 @@ async function deploy(projectId, options = {}) {
     }
 
     // 清理 Prisma cache（在 npm install 之前，避免 EPERM 錯誤）
+    // 4 層重試策略：kill port PID → 3s 等待 → pm2 stop → 5s 等待 → force kill port PID
     const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
     if (fs.existsSync(prismaPath)) {
       log(`清理 Prisma cache...`);
+
+      // 檢查 .dll.node 檔案鎖定
+      const dllPath = path.join(prismaPath, 'client', 'query_engine-windows.dll.node');
+      const isDllLocked = () => {
+        if (!fs.existsSync(dllPath)) return false;
+        try {
+          fs.accessSync(dllPath, fs.constants.W_OK);
+          return false;
+        } catch {
+          return true;
+        }
+      };
+
       try {
+        if (isDllLocked()) {
+          log(`⚠ Prisma DLL 仍被鎖定，等待額外 2 秒...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
         fs.rmSync(prismaPath, { recursive: true, force: true });
         log(`✓ Prisma cache 已清理`);
       } catch (cleanErr) {
-        log(`⚠ 清理 Prisma cache 失敗: ${cleanErr.message}`);
-        // If we killed the old process, retry after another delay
-        if (killedOldProcess) {
-          log(`等待額外 2 秒後重試清理...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          try {
-            fs.rmSync(prismaPath, { recursive: true, force: true });
-            log(`✓ Prisma cache 重試清理成功`);
-          } catch (retryErr) {
-            log(`⚠ Prisma cache 重試清理仍失敗: ${retryErr.message}`);
-            // Last resort: kill PM2 process by name
-            if (project.pm2Name) {
-              log(`最終嘗試：停止 PM2 進程 ${project.pm2Name}...`);
+        log(`⚠ 清理 Prisma cache 失敗 (第 1 次): ${cleanErr.message}`);
+        // 第 2 層：等待 3 秒後重試
+        log(`等待 3 秒後重試清理...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        try {
+          fs.rmSync(prismaPath, { recursive: true, force: true });
+          log(`✓ Prisma cache 重試清理成功 (第 2 次)`);
+        } catch (retryErr) {
+          log(`⚠ Prisma cache 重試清理失敗 (第 2 次): ${retryErr.message}`);
+          // 第 3 層：pm2 stop + 5 秒等待
+          if (project.pm2Name) {
+            log(`停止 PM2 進程 ${project.pm2Name}...`);
+            try {
+              execSync(`pm2 stop ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+            } catch {}
+            log(`等待 5 秒後重試清理...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            try {
+              fs.rmSync(prismaPath, { recursive: true, force: true });
+              log(`✓ Prisma cache 清理成功 (第 3 次，pm2 stop 後)`);
+            } catch (thirdErr) {
+              log(`⚠ 第 3 次清理失敗: ${thirdErr.message}`);
+              // 第 4 層：重新檢查 port PID 並 force kill
               try {
-                execSync(`pm2 stop ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const netstat2 = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
+                const lines2 = netstat2.split('\n').filter(l => l.includes('LISTENING') || l.includes('ESTABLISHED'));
+                const pids = [...new Set(lines2.map(l => l.trim().split(/\s+/).pop()).filter(Boolean))];
+                for (const pid of pids) {
+                  log(`強制結束 PID ${pid}...`);
+                  try { execSync(`taskkill /F /PID ${pid}`, { windowsHide: true }); } catch {}
+                }
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 fs.rmSync(prismaPath, { recursive: true, force: true });
-                log(`✓ Prisma cache 最終清理成功`);
+                log(`✓ Prisma cache 清理成功 (第 4 次，force kill 後)`);
               } catch (finalErr) {
-                log(`❌ 所有清理嘗試均失敗，建議手動重啟伺服器`);
+                log(`❌ 所有 4 層清理嘗試均失敗，建議手動重啟伺服器: ${finalErr.message}`);
               }
             }
+          } else {
+            log(`⚠ 無法清理 Prisma cache，繼續執行 (可能導致 build 失敗)`);
           }
-        } else {
-          log(`⚠ 無法清理 Prisma cache，繼續執行 (可能導致 npm install 失敗)`);
         }
       }
     }
