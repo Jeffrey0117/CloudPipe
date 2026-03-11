@@ -258,7 +258,21 @@ function updateTunnelIngress(hostname, port) {
     fs.writeFileSync(CLOUDFLARED_CONFIG, content);
     console.log(`[deploy] Ingress 已新增: ${hostname} -> localhost:${port}`);
 
-    // 重啟 tunnel
+    // cloudflared ingress validate — 用 cloudflared 本身驗證規則結構
+    const cfPath = getCloudflared().path;
+    try {
+      execSync(`"${cfPath}" tunnel --config "${CLOUDFLARED_CONFIG}" ingress validate`, {
+        stdio: 'pipe', windowsHide: true, timeout: 10000
+      });
+      console.log(`[deploy] cloudflared ingress validate 通過`);
+    } catch (validateErr) {
+      const stderr = validateErr.stderr ? validateErr.stderr.toString().trim() : validateErr.message;
+      console.error(`[deploy] cloudflared ingress validate 失敗，還原備份: ${stderr}`);
+      fs.writeFileSync(CLOUDFLARED_CONFIG, fs.readFileSync(backupPath, 'utf8'));
+      return false;
+    }
+
+    // 驗證通過才重啟 tunnel
     try {
       execSync('pm2 restart tunnel', { stdio: 'pipe', windowsHide: true });
       console.log(`[deploy] Tunnel 已重啟`);
