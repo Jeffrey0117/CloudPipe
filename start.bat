@@ -14,20 +14,25 @@ REM ============================================================
 
 echo [0] Checking prerequisites...
 
-REM --- winget ---
-winget --version >nul 2>&1
+REM --- Ensure WindowsApps is in PATH (winget lives here) ---
+echo %PATH% | findstr /i "WindowsApps" >nul 2>&1
 if errorlevel 1 (
-  echo.
-  echo   [ERROR] winget not found!
-  echo   Install from: https://aka.ms/getwinget
-  pause
-  exit /b 1
+  set "PATH=%PATH%;%LOCALAPPDATA%\Microsoft\WindowsApps"
 )
 
 REM --- Node.js ---
 node --version >nul 2>&1
 if errorlevel 1 (
-  echo   Installing Node.js...
+  echo   Node.js not found, installing via winget...
+  winget --version >nul 2>&1
+  if errorlevel 1 (
+    echo.
+    echo   [ERROR] Neither Node.js nor winget found!
+    echo   Install Node.js from: https://nodejs.org
+    echo   Or install winget from: https://aka.ms/getwinget
+    pause
+    exit /b 1
+  )
   winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements >nul 2>&1
   call :REFRESH_PATH
   node --version >nul 2>&1
@@ -42,7 +47,16 @@ echo   Node.js OK
 REM --- Git ---
 git --version >nul 2>&1
 if errorlevel 1 (
-  echo   Installing Git...
+  echo   Git not found, installing via winget...
+  winget --version >nul 2>&1
+  if errorlevel 1 (
+    echo.
+    echo   [ERROR] Neither Git nor winget found!
+    echo   Install Git from: https://git-scm.com
+    echo   Or install winget from: https://aka.ms/getwinget
+    pause
+    exit /b 1
+  )
   winget install Git.Git --accept-source-agreements --accept-package-agreements >nul 2>&1
   call :REFRESH_PATH
   git --version >nul 2>&1
@@ -89,6 +103,21 @@ if not exist config.json (
   )
   echo.
   echo   Setup complete!
+  echo.
+)
+
+REM ============================================================
+REM  Auto-update: pull latest code (skip on first-time setup)
+REM ============================================================
+
+if exist config.json (
+  echo [*] Pulling latest code...
+  git pull --ff-only 2>nul
+  if errorlevel 1 (
+    echo   [WARN] git pull failed, continuing with current code
+  ) else (
+    echo   Code updated
+  )
   echo.
 )
 

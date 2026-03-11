@@ -96,6 +96,20 @@ if [ ! -f config.json ]; then
 fi
 
 # ============================================================
+#  Auto-update: pull latest code (skip on first-time setup)
+# ============================================================
+
+if [ -f config.json ]; then
+  echo "[*] Pulling latest code..."
+  if git pull --ff-only 2>/dev/null; then
+    echo "  Code updated"
+  else
+    echo "  [WARN] git pull failed, continuing with current code"
+  fi
+  echo ""
+fi
+
+# ============================================================
 #  Start all services + tunnel via PM2
 # ============================================================
 
