@@ -113,6 +113,7 @@ async function createProject(data) {
     webhookSecret: data.webhookSecret || crypto.randomBytes(20).toString('hex'),
     envFile: data.envFile || '',
     buildCommand: data.buildCommand || '',
+    buildSteps: data.buildSteps || [],
     createdAt: new Date().toISOString(),
     lastDeployAt: null,
     lastDeployStatus: null
@@ -315,6 +316,29 @@ function resolveProjectDir(project) {
 
 function generateDeployId() {
   return 'deploy_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+function runBuildSteps(steps, projectDir, log) {
+  const total = steps.length;
+  for (let i = 0; i < total; i++) {
+    const step = steps[i];
+    const label = `[step ${i + 1}/${total}: ${step.name}]`;
+    log(`${label} 執行: ${step.command}`);
+    const start = Date.now();
+    try {
+      execSync(step.command, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+      log(`${label} 完成 (${Date.now() - start}ms)`);
+    } catch (err) {
+      const elapsed = Date.now() - start;
+      if (step.optional) {
+        const stderr = err.stderr ? err.stderr.toString().trim().slice(0, 200) : err.message;
+        log(`${label} ⚠ 失敗 (${elapsed}ms, optional): ${stderr}`);
+      } else {
+        log(`${label} ✗ 失敗 (${elapsed}ms)`);
+        throw err;
+      }
+    }
+  }
 }
 
 async function deploy(projectId, options = {}) {
@@ -622,7 +646,52 @@ async function deploy(projectId, options = {}) {
       }
     }
 
-    // 執行 build command（手動設定或自動偵測）
+    // 執行 build（buildSteps 優先，fallback 到 buildCommand）
+    if (project.buildSteps?.length) {
+      try {
+        runBuildSteps(project.buildSteps, projectDir, log);
+      } catch (buildErr) {
+        const stderr = buildErr.stderr ? buildErr.stderr.toString().trim() : '';
+        log(`Build stderr: ${stderr || buildErr.message}`);
+
+        // Auto-rollback: restore to backup commit if we have one
+        if (backup) {
+          log(`⚠ Build 失敗，自動回滾到 ${backup.commit}...`);
+          try {
+            execSync(`git reset --hard ${backup.commit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+            for (const [envName, content] of Object.entries(envBackups)) {
+              fs.writeFileSync(path.join(projectDir, envName), content);
+            }
+            runBuildSteps(project.buildSteps, projectDir, log);
+            log(`✓ 回滾 build 成功`);
+            if (project.pm2Name) {
+              try {
+                execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+                log(`✓ 舊版本已重啟 (pm2 restart ${project.pm2Name})`);
+              } catch {}
+            }
+          } catch (rollbackErr) {
+            log(`⚠ 自動回滾也失敗: ${rollbackErr.message}`);
+            if (project.pm2Name) {
+              try {
+                execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+              } catch {}
+            }
+          }
+        } else if (killedOldProcess && project.pm2Name) {
+          log(`⚠ Build 失敗，嘗試重啟舊進程...`);
+          try {
+            execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+            log(`✓ 舊進程已重啟 (pm2 restart ${project.pm2Name})`);
+          } catch (restartErr) {
+            log(`⚠ 重啟舊進程失敗: ${restartErr.message}`);
+          }
+        }
+
+        throw buildErr;
+      }
+      log(`Build 完成`);
+    } else {
     let buildCmd = project.buildCommand;
     if (!buildCmd && fs.existsSync(pkgPath)) {
       try {
@@ -686,6 +755,7 @@ async function deploy(projectId, options = {}) {
         throw buildErr;
       }
       log(`Build 完成`);
+    }
     }
 
     // 自動偵測入口檔案或啟動指令
@@ -1560,21 +1630,26 @@ async function rollback(projectId, targetCommit, options = {}) {
       log('Dependencies installed');
     }
 
-    // Build
-    let buildCmd = project.buildCommand;
-    if (!buildCmd && fs.existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-        if (pkg.scripts?.build) {
-          const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
-          buildCmd = `${pmRun} build`;
-        }
-      } catch {}
-    }
-    if (buildCmd) {
-      log(`Running build: ${buildCmd}`);
-      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+    // Build（buildSteps 優先，fallback 到 buildCommand）
+    if (project.buildSteps?.length) {
+      runBuildSteps(project.buildSteps, projectDir, log);
       log('Build complete');
+    } else {
+      let buildCmd = project.buildCommand;
+      if (!buildCmd && fs.existsSync(pkgPath)) {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          if (pkg.scripts?.build) {
+            const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
+            buildCmd = `${pmRun} build`;
+          }
+        } catch {}
+      }
+      if (buildCmd) {
+        log(`Running build: ${buildCmd}`);
+        execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+        log('Build complete');
+      }
     }
 
     // PM2 restart

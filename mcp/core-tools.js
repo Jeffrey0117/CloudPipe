@@ -44,6 +44,11 @@ function registerCoreTools(server, client) {
       port: z.number().describe('Port number'),
       entryFile: z.string().optional().describe('Entry file (e.g. server.js)'),
       buildCommand: z.string().optional().describe('Build command (e.g. npm run build)'),
+      buildSteps: z.array(z.object({
+        name: z.string().describe('Step name'),
+        command: z.string().describe('Shell command'),
+        optional: z.boolean().optional().describe('If true, failure does not block deploy'),
+      })).optional().describe('Structured build steps (replaces buildCommand)'),
       healthEndpoint: z.string().optional().describe('Health check path (e.g. /api/health)'),
       runner: z.enum(['node', 'next', 'tsx']).optional().describe('PM2 runner type'),
       description: z.string().optional().describe('Project description'),
@@ -76,6 +81,11 @@ function registerCoreTools(server, client) {
       port: z.number().optional().describe('Port number'),
       entryFile: z.string().optional().describe('Entry file'),
       buildCommand: z.string().optional().describe('Build command'),
+      buildSteps: z.array(z.object({
+        name: z.string().describe('Step name'),
+        command: z.string().describe('Shell command'),
+        optional: z.boolean().optional().describe('If true, failure does not block deploy'),
+      })).optional().describe('Structured build steps (replaces buildCommand)'),
       healthEndpoint: z.string().optional().describe('Health check path'),
       runner: z.enum(['node', 'next', 'tsx']).optional().describe('PM2 runner type'),
       description: z.string().optional().describe('Project description'),
