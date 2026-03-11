@@ -36,6 +36,11 @@ class CloudPipe {
     return this._post(`/api/_admin/deploy/projects/${enc(id)}/restart`)
   }
 
+  rollback(id, commit) {
+    const body = commit ? { commit } : undefined
+    return this._post(`/api/_admin/deploy/projects/${enc(id)}/rollback`, body)
+  }
+
   status() {
     return this._get('/api/_admin/deploy/projects').then(r => r.projects)
   }

@@ -2,50 +2,10 @@ tunnel: afd11345-c75a-4d62-aa67-0a389d82ce74
 credentials-file: C:\Users\jeffb\.cloudflared\afd11345-c75a-4d62-aa67-0a389d82ce74.json
 
 ingress:
-  - hostname: epi.isnowfriend.com
-    service: http://localhost:8787
-  - hostname: workr.isnowfriend.com
-    service: http://localhost:4002
-  - hostname: myspeedtest.isnowfriend.com
-    service: http://localhost:4001
-  - hostname: adman.isnowfriend.com
-    service: http://localhost:4003
-  - hostname: letmeuse.isnowfriend.com
-    service: http://localhost:4006
-  - hostname: reelscript.isnowfriend.com
-    service: http://localhost:4005
-  - hostname: autocard.isnowfriend.com
-    service: http://localhost:4004
-
-  - hostname: duk.tw
-    service: http://localhost:4007
-  - hostname: "*.duk.tw"
-    service: http://localhost:4007
-  - hostname: meetube.isnowfriend.com
-    service: http://localhost:4008
-  - hostname: upimg.isnowfriend.com
-    service: http://localhost:4007
-  - hostname: pokkit.isnowfriend.com
-    service: http://localhost:4009
-  - hostname: canweback.isnowfriend.com
-    service: http://localhost:4011
-  - hostname: gitloop.isnowfriend.com
-    service: http://localhost:4012
-  - hostname: notebody.isnowfriend.com
-    service: http://localhost:4010
-  - hostname: survey.isnowfriend.com
-    service: http://localhost:8787
-  - hostname: repic.isnowfriend.com
-    service: http://localhost:4013
-  - hostname: coursebloom.isnowfriend.com
-    service: http://localhost:4014
-  - hostname: autoreel.isnowfriend.com
-    service: http://localhost:8001
-  - hostname: rawtxt.isnowfriend.com
-    service: http://localhost:4015
-  - hostname: quickky.isnowfriend.com
-    service: http://localhost:4016
-
   - hostname: "*.isnowfriend.com"
+    service: http://localhost:8787
+  - hostname: duk.tw
+    service: http://localhost:8787
+  - hostname: "*.duk.tw"
     service: http://localhost:8787
   - service: http_status:404

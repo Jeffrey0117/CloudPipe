@@ -192,6 +192,23 @@ function registerCoreTools(server, client) {
     }
   )
 
+  server.tool(
+    'rollback_project',
+    'Rollback a project to its previous running commit (or a specific commit)',
+    {
+      id: z.string().describe('Project ID'),
+      commit: z.string().optional().describe('Target commit hash (defaults to last running commit)'),
+    },
+    async ({ id, commit }) => {
+      try {
+        const result = await client.rollback(id, commit)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
   // --- Scheduler tools ---
 
   server.tool(

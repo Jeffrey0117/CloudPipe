@@ -180,6 +180,7 @@ async function handleStart(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務',
+    '/rollback &lt;id&gt; [commit] — 回滾到前一版本',
     '/tools [project] — 列出可用工具',
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
@@ -348,6 +349,33 @@ async function handleRestart(chatId, projectId) {
     await sendMessage(chatId, `✅ <b>${project.name || project.id}</b> 已重啟`);
   } catch (err) {
     await sendMessage(chatId, `❌ 重啟失敗: ${err.message}`);
+  }
+}
+
+async function handleRollback(chatId, projectId, targetCommit) {
+  if (!projectId) {
+    const projects = deploy.getAllProjects();
+    const ids = projects.map((p) => `<code>${p.id}</code>`).join(', ');
+    return sendMessage(chatId, `請指定專案 ID：\n/rollback &lt;id&gt; [commit]\n\n可用: ${ids}`);
+  }
+
+  const project = deploy.getProject(projectId);
+  if (!project) {
+    return sendMessage(chatId, `找不到專案 <code>${projectId}</code>`);
+  }
+
+  const commitInfo = targetCommit || project.runningCommit || '(unknown)';
+  await sendMessage(chatId, `⏪ 開始回滾 <b>${project.name || project.id}</b> → <code>${commitInfo}</code>...`);
+
+  try {
+    const result = await deploy.rollback(projectId, targetCommit, { triggeredBy: 'telegram' });
+    if (result.status === 'success') {
+      await sendMessage(chatId, `✅ 回滾成功！\nCommit: <code>${result.commit}</code>\n耗時: ${result.duration}ms`);
+    } else {
+      await sendMessage(chatId, `❌ 回滾失敗: ${result.error}`);
+    }
+  } catch (err) {
+    await sendMessage(chatId, `❌ 回滾失敗: ${err.message}`);
   }
 }
 
@@ -626,6 +654,7 @@ async function handleHelp(chatId) {
     '/machines — 各機器詳細資訊',
     '/deploy &lt;id&gt; — 觸發部署',
     '/restart &lt;id&gt; — 重啟服務（PM2 restart）',
+    '/rollback &lt;id&gt; [commit] — 回滾到前一版本',
     '/tools [project] — 列出可用工具',
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
@@ -885,6 +914,8 @@ async function handleUpdate(update) {
       return handleDeploy(chatId, args[0]);
     case '/restart':
       return handleRestart(chatId, args[0]);
+    case '/rollback':
+      return handleRollback(chatId, args[0], args[1]);
     case '/tools':
       return handleTools(chatId, args[0]);
     case '/call':

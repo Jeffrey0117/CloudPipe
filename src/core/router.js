@@ -12,6 +12,51 @@ const admin = require('./admin');
 const gateway = require('./gateway');
 const hotloader = require('./hotloader');
 const deploy = require('./deploy');
+const db = require('./db');
+
+// ── hostname → port resolution (30s TTL cache) ──
+
+let routeCache = new Map();
+let routeCacheTime = 0;
+const ROUTE_CACHE_TTL = 30000;
+
+/** Force cache rebuild on next request (call after project port changes) */
+function invalidateRouteCache() {
+  routeCacheTime = 0;
+}
+
+function buildRouteCache(domain) {
+  const cache = new Map();
+  const projects = db.getAllProjects();
+
+  for (const p of projects) {
+    if (!p.port) continue;
+    cache.set(`${p.id}.${domain}`, p.port);
+    for (const cd of (p.customDomains || [])) {
+      cache.set(cd, p.port);
+    }
+  }
+  return cache;
+}
+
+function resolveHostnameToPort(hostname, domain) {
+  if (Date.now() - routeCacheTime > ROUTE_CACHE_TTL) {
+    routeCache = buildRouteCache(domain);
+    routeCacheTime = Date.now();
+  }
+
+  // Exact match
+  if (routeCache.has(hostname)) return routeCache.get(hostname);
+
+  // Wildcard match (*.duk.tw → duk.tw's port)
+  const dotIdx = hostname.indexOf('.');
+  if (dotIdx > 0) {
+    const wildcard = '*' + hostname.slice(dotIdx);
+    if (routeCache.has(wildcard)) return routeCache.get(wildcard);
+  }
+
+  return null;
+}
 
 // MIME types
 const MIME = {
@@ -30,7 +75,7 @@ const MIME = {
   '.ttf': 'font/ttf'
 };
 
-module.exports = function(config) {
+const createRouter = function(config) {
   const servicesDir = config.servicesDir;
   const rootDir = path.join(servicesDir, '..');
   const publicDir = path.join(rootDir, 'public');
@@ -60,6 +105,7 @@ module.exports = function(config) {
     const host = req.headers.host || '';
     const hostname = host.split(':')[0];
     const subdomain = hostname.split('.')[0];
+    const domain = config.domain || 'isnowfriend.com';
 
     console.log(`[${subdomain}] ${req.method} ${req.url}`);
 
@@ -68,7 +114,13 @@ module.exports = function(config) {
       return handleMainDomain(req, res, { publicDir });
     }
 
-    // ========== 子域名 (xxx.isnowfriend.com) ==========
+    // ========== hostname → port 全域解析 (涵蓋子域名 + 自訂域名) ==========
+    const port = resolveHostnameToPort(hostname, domain);
+    if (port) {
+      return proxyToPort(req, res, port);
+    }
+
+    // ========== Fallback: apps/ 目錄靜態檔案 ==========
     return handleAppDomain(req, res, { subdomain, appsDir });
   });
 
@@ -255,3 +307,6 @@ module.exports = function(config) {
     req.pipe(proxyReq);
   }
 };
+
+createRouter.invalidateRouteCache = invalidateRouteCache;
+module.exports = createRouter;

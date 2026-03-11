@@ -103,10 +103,10 @@ const apps = [
   }
 ];
 
-// ── Read projects.json and generate PM2 entries ──
+// ── Read projects from SQLite (falls back to JSON auto-migration) ──
 try {
-  const projectsPath = path.join(__dirname, 'data', 'deploy', 'projects.json');
-  const { projects } = JSON.parse(fs.readFileSync(projectsPath, 'utf8'));
+  const db = require('./src/core/db');
+  const projects = db.getAllProjects();
 
   for (const project of projects) {
     const projectDir = path.resolve(__dirname, project.directory);
@@ -171,7 +171,7 @@ try {
     }
   }
 } catch (err) {
-  console.error('[ecosystem] Failed to load projects.json:', err.message);
+  console.error('[ecosystem] Failed to load projects:', err.message);
 }
 
 module.exports = { apps };

@@ -19,9 +19,7 @@ const events = new EventEmitter();
 // Per-project deploy locks to prevent concurrent deploys
 const deployLocks = new Map();
 
-const DATA_DIR = path.join(__dirname, '../../data/deploy');
-const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
-const DEPLOYMENTS_FILE = path.join(DATA_DIR, 'deployments.json');
+const db = require('./db');
 const CLOUDPIPE_ROOT = path.join(__dirname, '../..');
 
 // Cloudflare Tunnel 設定（從 config.json 讀取）
@@ -47,32 +45,6 @@ function getConfig() {
   }
 }
 
-// ==================== 資料存取 ====================
-
-function readProjects() {
-  try {
-    return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8')).projects || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeProjects(projects) {
-  fs.writeFileSync(PROJECTS_FILE, JSON.stringify({ projects }, null, 2));
-}
-
-function readDeployments() {
-  try {
-    return JSON.parse(fs.readFileSync(DEPLOYMENTS_FILE, 'utf8')).deployments || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeDeployments(deployments) {
-  fs.writeFileSync(DEPLOYMENTS_FILE, JSON.stringify({ deployments }, null, 2));
-}
-
 // 檢查端口是否可用
 function isPortAvailable(port) {
   const net = require('net');
@@ -88,7 +60,7 @@ function isPortAvailable(port) {
 
 // 取得下一個可用 port（真正檢查端口是否被佔用）
 async function getNextAvailablePort() {
-  const projects = readProjects();
+  const projects = db.getAllProjects();
   const usedPorts = projects
     .filter(p => p.port)
     .map(p => p.port);
@@ -109,18 +81,16 @@ async function getNextAvailablePort() {
 // ==================== 專案管理 ====================
 
 function getProject(id) {
-  return readProjects().find(p => p.id === id);
+  return db.getProject(id);
 }
 
 function getAllProjects() {
-  return readProjects();
+  return db.getAllProjects();
 }
 
 async function createProject(data) {
-  const projects = readProjects();
-
   // 檢查 ID 是否已存在
-  if (projects.find(p => p.id === data.id)) {
+  if (db.getProject(data.id)) {
     throw new Error(`專案 ID "${data.id}" 已存在`);
   }
 
@@ -148,8 +118,8 @@ async function createProject(data) {
     lastDeployStatus: null
   };
 
-  projects.push(project);
-  writeProjects(projects);
+  db.createProject(project);
+  invalidateRouterCache();
 
   // GitHub 專案自動設定 webhook
   if (deployMethod === 'github' && project.repoUrl) {
@@ -171,32 +141,23 @@ async function createProject(data) {
   return project;
 }
 
+function invalidateRouterCache() {
+  try {
+    const router = require('./router');
+    if (router.invalidateRouteCache) router.invalidateRouteCache();
+  } catch {}
+}
+
 function updateProject(id, data) {
-  const projects = readProjects();
-  const index = projects.findIndex(p => p.id === id);
-
-  if (index === -1) {
-    throw new Error(`專案 "${id}" 不存在`);
-  }
-
-  // 不允許修改 id 和 createdAt
-  const { id: _, createdAt: __, ...updateData } = data;
-  projects[index] = { ...projects[index], ...updateData };
-  writeProjects(projects);
-
-  return projects[index];
+  const result = db.updateProject(id, data);
+  invalidateRouterCache();
+  return result;
 }
 
 function deleteProject(id) {
-  const projects = readProjects();
-  const filtered = projects.filter(p => p.id !== id);
-
-  if (filtered.length === projects.length) {
-    throw new Error(`專案 "${id}" 不存在`);
-  }
-
-  writeProjects(filtered);
-  return true;
+  const result = db.deleteProject(id);
+  invalidateRouterCache();
+  return result;
 }
 
 // ==================== Cloudflare Tunnel Ingress ====================
@@ -208,6 +169,16 @@ function deleteProject(id) {
  * - 寫入前備份 + YAML 驗證
  */
 function updateTunnelIngress(hostname, port) {
+  const domain = (getConfig().domain || 'isnowfriend.com');
+
+  // Subdomains are covered by *.isnowfriend.com wildcard — router.js resolves hostname→port
+  if (hostname.endsWith('.' + domain)) {
+    console.log(`[deploy] Routing via router.js: ${hostname} -> :${port} (no YAML change needed)`);
+    return true;
+  }
+
+  // Custom domains: ensure cloudflared.yml has a catch-all entry pointing to :8787
+  // (router.js handles the actual port resolution)
   try {
     if (!fs.existsSync(CLOUDFLARED_CONFIG)) {
       console.log(`[deploy] cloudflared.yml 不存在，跳過 ingress 更新`);
@@ -216,7 +187,7 @@ function updateTunnelIngress(hostname, port) {
 
     let content = fs.readFileSync(CLOUDFLARED_CONFIG, 'utf8');
 
-    // 重複 hostname 偵測：從 YAML 提取所有 hostname，剝掉引號後純文字比對
+    // Check if hostname already in YAML
     const existingHostnames = (content.match(/hostname:\s*"?([^"\n]+)"?/g) || [])
       .map(m => m.replace(/hostname:\s*"?/, '').replace(/"?\s*$/, '').trim());
     if (existingHostnames.includes(hostname)) {
@@ -224,47 +195,41 @@ function updateTunnelIngress(hostname, port) {
       return true;
     }
 
-    // 備份 cloudflared.yml
+    // Backup
     const backupPath = CLOUDFLARED_CONFIG + '.bak';
     fs.writeFileSync(backupPath, content);
 
-    // 為含萬用字元的 hostname 加引號
+    // Custom domains always point to :8787 (router.js resolves the actual port)
     const formattedHostname = hostname.includes('*') ? `"${hostname}"` : hostname;
+    const newRule = `\n  - hostname: ${formattedHostname}\n    service: http://localhost:8787`;
 
-    // 在 "*.<domain>" 之前插入新規則
-    const domain = (getConfig().domain || 'isnowfriend.com').replace(/\./g, '\\.');
-    const wildcardPattern = new RegExp(`(\\s*- hostname: "\\*\\.${domain}")`);
-    const newRule = `\n  - hostname: ${formattedHostname}\n    service: http://localhost:${port}`;
-
-    if (wildcardPattern.test(content)) {
-      content = content.replace(wildcardPattern, newRule + '$1');
-    } else {
-      // 如果沒有通配符規則，在最後一個 service: http_status:404 之前插入
-      const fallbackPattern = /(\s*- service: http_status:404)/;
+    // Insert before fallback
+    const fallbackPattern = /(\s*- service: http_status:404)/;
+    if (fallbackPattern.test(content)) {
       content = content.replace(fallbackPattern, newRule + '$1');
+    } else {
+      content += newRule + '\n';
     }
 
-    // YAML 驗證：嘗試解析修改後的 YAML 確認格式正確
+    // Validate YAML
     try {
       const yaml = require('yaml');
       yaml.parse(content);
     } catch (yamlErr) {
       console.error(`[deploy] YAML 驗證失敗，還原備份: ${yamlErr.message}`);
-      // 還原備份
       fs.writeFileSync(CLOUDFLARED_CONFIG, fs.readFileSync(backupPath, 'utf8'));
       return false;
     }
 
     fs.writeFileSync(CLOUDFLARED_CONFIG, content);
-    console.log(`[deploy] Ingress 已新增: ${hostname} -> localhost:${port}`);
+    console.log(`[deploy] Ingress 已新增 (custom domain): ${hostname} -> :8787`);
 
-    // cloudflared ingress validate — 用 cloudflared 本身驗證規則結構
+    // Validate with cloudflared
     const cfPath = getCloudflared().path;
     try {
       execSync(`"${cfPath}" tunnel --config "${CLOUDFLARED_CONFIG}" ingress validate`, {
         stdio: 'pipe', windowsHide: true, timeout: 10000
       });
-      console.log(`[deploy] cloudflared ingress validate 通過`);
     } catch (validateErr) {
       const stderr = validateErr.stderr ? validateErr.stderr.toString().trim() : validateErr.message;
       console.error(`[deploy] cloudflared ingress validate 失敗，還原備份: ${stderr}`);
@@ -272,7 +237,7 @@ function updateTunnelIngress(hostname, port) {
       return false;
     }
 
-    // 驗證通過才重啟 tunnel
+    // Restart tunnel only for custom domain additions (rare)
     try {
       execSync('pm2 restart tunnel', { stdio: 'pipe', windowsHide: true });
       console.log(`[deploy] Tunnel 已重啟`);
@@ -283,7 +248,6 @@ function updateTunnelIngress(hostname, port) {
     return true;
   } catch (e) {
     console.error(`[deploy] 更新 ingress 失敗:`, e.message);
-    // 嘗試從備份還原
     const backupPath = CLOUDFLARED_CONFIG + '.bak';
     if (fs.existsSync(backupPath)) {
       try {
@@ -367,22 +331,8 @@ async function deploy(projectId, options = {}) {
   deployLocks.set(projectId, true);
 
   // ===== Clean up stale "building" records (older than 10 min) =====
-  const allDeploys = readDeployments();
   const STALE_THRESHOLD = 10 * 60 * 1000;
-  let cleanedStale = false;
-  for (const d of allDeploys) {
-    if (d.projectId === projectId && d.status === 'building') {
-      const age = Date.now() - new Date(d.startedAt).getTime();
-      if (age > STALE_THRESHOLD) {
-        d.status = 'failed';
-        d.error = 'Stale build (auto-cleaned after 10min)';
-        d.finishedAt = new Date().toISOString();
-        d.duration = age;
-        cleanedStale = true;
-      }
-    }
-  }
-  if (cleanedStale) writeDeployments(allDeploys);
+  db.cleanStaleDeployments(projectId, STALE_THRESHOLD);
 
   const deployId = generateDeployId();
   const startedAt = new Date().toISOString();
@@ -410,9 +360,7 @@ async function deploy(projectId, options = {}) {
     error: null
   };
 
-  const deployments = readDeployments();
-  deployments.unshift(deployment);
-  writeDeployments(deployments);
+  db.createDeployment(deployment);
 
   try {
     const projectDir = resolveProjectDir(project);
@@ -460,6 +408,12 @@ async function deploy(projectId, options = {}) {
           envBackups[envName] = fs.readFileSync(envPath);
           log(`備份 ${envName}`);
         }
+      }
+
+      // Tag current commit for rollback backup
+      const backup = tagCurrentDeploy(projectDir, projectId);
+      if (backup) {
+        log(`Backup tag: ${backup.tagName} (commit: ${backup.commit})`);
       }
 
       log(`執行 git fetch...`);
@@ -692,8 +646,34 @@ async function deploy(projectId, options = {}) {
         const stderr = buildErr.stderr ? buildErr.stderr.toString().trim() : '';
         log(`Build stderr: ${stderr || buildErr.message}`);
 
-        // Rollback: if we killed the old process, try to restart it so service isn't down
-        if (killedOldProcess && project.pm2Name) {
+        // Auto-rollback: restore to backup commit if we have one
+        if (backup) {
+          log(`⚠ Build 失敗，自動回滾到 ${backup.commit}...`);
+          try {
+            execSync(`git reset --hard ${backup.commit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+            // Restore env files again after rollback
+            for (const [envName, content] of Object.entries(envBackups)) {
+              fs.writeFileSync(path.join(projectDir, envName), content);
+            }
+            // Rebuild with old code
+            execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+            log(`✓ 回滾 build 成功`);
+            if (project.pm2Name) {
+              try {
+                execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+                log(`✓ 舊版本已重啟 (pm2 restart ${project.pm2Name})`);
+              } catch {}
+            }
+          } catch (rollbackErr) {
+            log(`⚠ 自動回滾也失敗: ${rollbackErr.message}`);
+            // Last resort: just try to restart PM2
+            if (project.pm2Name) {
+              try {
+                execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+              } catch {}
+            }
+          }
+        } else if (killedOldProcess && project.pm2Name) {
           log(`⚠ Build 失敗，嘗試重啟舊進程...`);
           try {
             execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
@@ -925,6 +905,23 @@ async function deploy(projectId, options = {}) {
         const healthEndpoint = project.healthEndpoint || (startCommand ? '/' : '/health');
         const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log);
         if (!healthCheckPassed) {
+          // Auto-rollback on health check failure
+          if (backup) {
+            log(`⚠ Health Check 失敗，自動回滾到 ${backup.commit}...`);
+            try {
+              execSync(`git reset --hard ${backup.commit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+              for (const [envName, content] of Object.entries(envBackups)) {
+                fs.writeFileSync(path.join(projectDir, envName), content);
+              }
+              if (buildCmd) {
+                execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+              }
+              execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+              log(`✓ 自動回滾完成，舊版本已恢復`);
+            } catch (rollbackErr) {
+              log(`⚠ 自動回滾失敗: ${rollbackErr.message}`);
+            }
+          }
           throw new Error(`Health Check 失敗：服務未能在 port ${project.port} 啟動`);
         }
         log(`Health Check 通過`);
@@ -1041,6 +1038,9 @@ async function deploy(projectId, options = {}) {
 
     log(`部署成功！耗時 ${deployment.duration}ms`);
 
+    // Clean old backup tags (keep 5)
+    cleanOldBackupTags(projectDir, projectId, 5);
+
   } catch (error) {
     const finishedAt = new Date().toISOString();
     deployment.status = 'failed';
@@ -1055,12 +1055,7 @@ async function deploy(projectId, options = {}) {
   }
 
   // 更新部署記錄
-  const allDeployments = readDeployments();
-  const deployIndex = allDeployments.findIndex(d => d.id === deployId);
-  if (deployIndex !== -1) {
-    allDeployments[deployIndex] = deployment;
-    writeDeployments(allDeployments);
-  }
+  db.updateDeployment(deployId, deployment);
 
   // 更新專案最後部署時間
   const projectUpdate = {
@@ -1103,15 +1098,11 @@ async function deploy(projectId, options = {}) {
 // ==================== 部署記錄 ====================
 
 function getDeployments(projectId, limit = 20) {
-  const deployments = readDeployments();
-  const filtered = projectId
-    ? deployments.filter(d => d.projectId === projectId)
-    : deployments;
-  return filtered.slice(0, limit);
+  return db.getAllDeployments(projectId, limit);
 }
 
 function getDeployment(deployId) {
-  return readDeployments().find(d => d.id === deployId);
+  return db.getDeployment(deployId);
 }
 
 // ==================== Webhook 驗證 ====================
@@ -1405,6 +1396,260 @@ function stopPolling() {
   console.log(`[poll] 已停止定時輪詢`);
 }
 
+// ==================== Rollback ====================
+
+/**
+ * Tag current commit before deploy (for rollback)
+ */
+function tagCurrentDeploy(projectDir, projectId) {
+  try {
+    const commit = execSync('git rev-parse --short HEAD', { cwd: projectDir, windowsHide: true }).toString().trim();
+    const tagName = `deploy-backup-${projectId}-${Date.now()}`;
+    execSync(`git tag ${tagName}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    return { tagName, commit };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clean old backup tags, keeping the most recent N
+ */
+function cleanOldBackupTags(projectDir, projectId, keep = 5) {
+  try {
+    const prefix = `deploy-backup-${projectId}-`;
+    const output = execSync('git tag', { cwd: projectDir, windowsHide: true }).toString().trim();
+    const tags = output.split('\n')
+      .filter(t => t.startsWith(prefix))
+      .sort(); // lexicographic = chronological (timestamp suffix)
+
+    if (tags.length <= keep) return;
+
+    const toDelete = tags.slice(0, tags.length - keep);
+    for (const tag of toDelete) {
+      try {
+        execSync(`git tag -d ${tag}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+      } catch {}
+    }
+  } catch {}
+}
+
+/**
+ * Rollback a project to a specific commit (or previous running commit)
+ *
+ * @param {string} projectId - Project ID
+ * @param {string} [targetCommit] - Target commit hash (defaults to last runningCommit)
+ * @param {object} [options] - Options
+ * @param {string} [options.triggeredBy] - Who triggered the rollback
+ * @returns {Promise<object>} Deployment result
+ */
+async function rollback(projectId, targetCommit, options = {}) {
+  const project = getProject(projectId);
+  if (!project) {
+    throw new Error(`Project "${projectId}" not found`);
+  }
+
+  const projectDir = resolveProjectDir(project);
+  if (!fs.existsSync(projectDir)) {
+    throw new Error(`Project directory not found: ${projectDir}`);
+  }
+
+  // Determine target commit
+  if (!targetCommit) {
+    targetCommit = project.runningCommit;
+  }
+  if (!targetCommit) {
+    throw new Error(`No target commit for rollback (no runningCommit recorded)`);
+  }
+
+  // Deploy lock
+  if (deployLocks.get(projectId)) {
+    throw new Error('Deploy already in progress');
+  }
+  deployLocks.set(projectId, true);
+
+  const deployId = generateDeployId();
+  const startedAt = new Date().toISOString();
+  const logs = [];
+  const log = (msg) => {
+    const timestamp = new Date().toISOString();
+    logs.push(`[${timestamp}] ${msg}`);
+    console.log(`[rollback:${projectId}] ${msg}`);
+  };
+
+  const deployment = {
+    id: deployId,
+    projectId,
+    status: 'building',
+    commit: targetCommit,
+    commitMessage: `Rollback to ${targetCommit}`,
+    branch: project.branch,
+    startedAt,
+    finishedAt: null,
+    duration: null,
+    logs: [],
+    triggeredBy: options.triggeredBy || 'rollback',
+    error: null,
+  };
+
+  db.createDeployment(deployment);
+
+  try {
+    log(`Rolling back to commit: ${targetCommit}`);
+
+    // Backup env files
+    const ENV_PATTERNS = ['.env', '.env.local', '.env.production', '.env.production.local'];
+    const envBackups = {};
+    for (const envName of ENV_PATTERNS) {
+      const envPath = path.join(projectDir, envName);
+      if (fs.existsSync(envPath)) {
+        envBackups[envName] = fs.readFileSync(envPath);
+      }
+    }
+
+    // Reset to target commit
+    execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    execSync(`git reset --hard ${targetCommit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    log(`Git reset to ${targetCommit}`);
+
+    // Restore env files
+    for (const [envName, content] of Object.entries(envBackups)) {
+      fs.writeFileSync(path.join(projectDir, envName), content);
+    }
+
+    // Detect package manager
+    const pkgPath = path.join(projectDir, 'package.json');
+    const hasPnpmLock = fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'));
+    const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
+    const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
+
+    // Clean Prisma cache before npm install (prevents EPERM on Windows)
+    const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
+    if (fs.existsSync(prismaPath)) {
+      log('Cleaning Prisma cache...');
+      const dllPath = path.join(prismaPath, 'client', 'query_engine-windows.dll.node');
+      const isDllLocked = () => {
+        if (!fs.existsSync(dllPath)) return false;
+        try { fs.accessSync(dllPath, fs.constants.W_OK); return false; } catch { return true; }
+      };
+      try {
+        if (isDllLocked()) {
+          log('Prisma DLL locked, waiting 2s...');
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        fs.rmSync(prismaPath, { recursive: true, force: true });
+        log('Prisma cache cleaned');
+      } catch (e1) {
+        log(`Prisma cleanup failed (attempt 1): ${e1.message}`);
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          fs.rmSync(prismaPath, { recursive: true, force: true });
+          log('Prisma cache cleaned (attempt 2)');
+        } catch (e2) {
+          log(`Prisma cleanup failed (attempt 2): ${e2.message}, continuing...`);
+        }
+      }
+    }
+
+    // npm install
+    if (fs.existsSync(pkgPath)) {
+      const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+      log(`Running ${installCmd}...`);
+      const installEnv = { ...process.env, NODE_ENV: 'development' };
+      execSync(installCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, env: installEnv });
+      log('Dependencies installed');
+    }
+
+    // Build
+    let buildCmd = project.buildCommand;
+    if (!buildCmd && fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.scripts?.build) {
+          const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
+          buildCmd = `${pmRun} build`;
+        }
+      } catch {}
+    }
+    if (buildCmd) {
+      log(`Running build: ${buildCmd}`);
+      execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+      log('Build complete');
+    }
+
+    // PM2 restart
+    if (project.pm2Name) {
+      try {
+        execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+        log(`PM2 restarted: ${project.pm2Name}`);
+      } catch {
+        execSync(`pm2 start ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+        log(`PM2 started: ${project.pm2Name}`);
+      }
+
+      // Health check
+      if (project.port) {
+        log(`Health check on port ${project.port}...`);
+        const healthEndpoint = project.healthEndpoint || '/health';
+        const healthOk = await performHealthCheck(project.port, healthEndpoint, log);
+        if (!healthOk) {
+          throw new Error(`Health check failed on port ${project.port}`);
+        }
+        log('Health check passed');
+      }
+
+      // Restart companion processes
+      if (project.companions && Array.isArray(project.companions)) {
+        for (const companion of project.companions) {
+          const compName = `${project.pm2Name}-${companion.name}`;
+          try {
+            execSync(`pm2 restart ${compName}`, { stdio: 'pipe', windowsHide: true });
+            log(`Companion restarted: ${compName}`);
+          } catch {
+            log(`Companion ${compName} not running, skipping`);
+          }
+        }
+      }
+    }
+
+    // Success
+    const finishedAt = new Date().toISOString();
+    deployment.status = 'success';
+    deployment.finishedAt = finishedAt;
+    deployment.duration = new Date(finishedAt) - new Date(startedAt);
+    deployment.logs = logs;
+    log(`Rollback successful (${deployment.duration}ms)`);
+
+  } catch (error) {
+    const finishedAt = new Date().toISOString();
+    deployment.status = 'failed';
+    deployment.finishedAt = finishedAt;
+    deployment.duration = new Date(finishedAt) - new Date(startedAt);
+    deployment.error = error.message;
+    deployment.logs = logs;
+    log(`Rollback failed: ${error.message}`);
+  } finally {
+    deployLocks.delete(projectId);
+  }
+
+  db.updateDeployment(deployId, deployment);
+
+  // Update project status
+  const projectUpdate = {
+    lastDeployAt: deployment.finishedAt,
+    lastDeployStatus: deployment.status,
+    lastDeployCommit: deployment.commit,
+  };
+  if (deployment.status === 'success') {
+    projectUpdate.runningCommit = deployment.commit;
+  }
+  updateProject(projectId, projectUpdate);
+
+  events.emit('deploy:complete', { project, deployment });
+
+  return deployment;
+}
+
 // ==================== 匯出 ====================
 
 module.exports = {
@@ -1435,6 +1680,9 @@ module.exports = {
   stopPolling,
   pollAllProjects,
   checkProjectForUpdates,
+
+  // Rollback
+  rollback,
 
   // Events
   events

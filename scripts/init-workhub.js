@@ -28,7 +28,15 @@ const { execSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
-const projectsData = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'deploy', 'projects.json'), 'utf8'));
+
+// Load projects from SQLite (auto-migrates from JSON on first use)
+let projectsData;
+try {
+  const db = require('../src/core/db');
+  projectsData = { projects: db.getAllProjects() };
+} catch {
+  projectsData = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'deploy', 'projects.json'), 'utf8'));
+}
 
 const args = process.argv.slice(2);
 const DRY_RUN = !args.includes('--run');

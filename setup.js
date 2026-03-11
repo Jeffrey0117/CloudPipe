@@ -37,31 +37,25 @@ function generateCloudflaredYml(bundle, credentialsFile) {
   lines.push('ingress:');
 
   const domain = bundle.domain || 'localhost';
-  const subdomain = bundle.subdomain || 'epi';
+  const corePort = bundle.port || 8787;
 
-  // Main CloudPipe hostname
-  lines.push(`  - hostname: "${subdomain}.${domain}"`);
-  lines.push(`    service: http://localhost:${bundle.port || 8787}`);
+  // Wildcard catch-all → CloudPipe core (router.js resolves hostname→port)
+  lines.push(`  - hostname: "*.${domain}"`);
+  lines.push(`    service: http://localhost:${corePort}`);
 
-  // Each project → {id}.{domain} + customDomains
+  // Custom domains (non-subdomain) → also to core port
   const projects = bundle.projects || [];
+  const seen = new Set();
   for (const proj of projects) {
-    if (!proj.port) continue;
-
-    lines.push(`  - hostname: "${proj.id}.${domain}"`);
-    lines.push(`    service: http://localhost:${proj.port}`);
-
     if (Array.isArray(proj.customDomains)) {
       for (const cd of proj.customDomains) {
+        if (seen.has(cd)) continue;
+        seen.add(cd);
         lines.push(`  - hostname: "${cd}"`);
-        lines.push(`    service: http://localhost:${proj.port}`);
+        lines.push(`    service: http://localhost:${corePort}`);
       }
     }
   }
-
-  // Wildcard → CloudPipe core
-  lines.push(`  - hostname: "*.${domain}"`);
-  lines.push(`    service: http://localhost:${bundle.port || 8787}`);
 
   // Fallback
   lines.push('  - service: http_status:404');

@@ -12,11 +12,11 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
+const db = require('./db');
 const CONFIG_PATH = path.join(__dirname, '../../config.json');
-const STATE_PATH = path.join(__dirname, '../../data/autofix-state.json');
 
-// In-memory state (persisted to disk)
-let state = loadState();
+// In-memory cache (persisted to SQLite via db.js)
+const stateCache = {};
 
 function getConfig() {
   try {
@@ -27,36 +27,24 @@ function getConfig() {
   }
 }
 
-function loadState() {
-  try {
-    return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'));
-  } catch {
-    return { projects: {} };
-  }
-}
-
-function saveState() {
-  try {
-    const dir = path.dirname(STATE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
-  } catch (err) {
-    console.error('[autofix] Failed to save state:', err.message);
-  }
-}
-
 function getProjectState(projectId) {
-  if (!state.projects[projectId]) {
-    state.projects[projectId] = {
+  if (!stateCache[projectId]) {
+    const saved = db.getAutofixState(projectId);
+    stateCache[projectId] = saved || {
       retryCount: 0,
       lastAttempt: 0,
       lastError: null,
       lastCommit: null,
     };
   }
-  return state.projects[projectId];
+  return stateCache[projectId];
+}
+
+function saveState(projectId) {
+  const ps = stateCache[projectId];
+  if (ps) {
+    db.saveAutofixState(projectId, ps);
+  }
 }
 
 /**
@@ -245,7 +233,7 @@ function sendFixRequest(project, deployment, telegramChatId) {
           ps.retryCount += 1;
           ps.lastAttempt = Date.now();
           ps.lastError = deployment.error;
-          saveState();
+          saveState(project.id);
 
           let commandId = null;
           try {
@@ -283,10 +271,10 @@ function sendFixRequest(project, deployment, telegramChatId) {
  * Reset retry counter for a project (called on successful deploy)
  */
 function resetProject(projectId) {
-  if (state.projects[projectId]) {
-    state.projects[projectId].retryCount = 0;
-    state.projects[projectId].lastError = null;
-    saveState();
+  const ps = stateCache[projectId];
+  if (ps) {
+    stateCache[projectId] = { ...ps, retryCount: 0, lastError: null };
+    saveState(projectId);
   }
 }
 
@@ -296,7 +284,7 @@ function resetProject(projectId) {
 function getStatus() {
   return {
     config: getConfig(),
-    projects: { ...state.projects },
+    projects: { ...stateCache },
   };
 }
 

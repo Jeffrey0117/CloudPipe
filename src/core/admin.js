@@ -145,6 +145,12 @@ module.exports = {
       return handleRestartProject(req, res, id);
     }
 
+    // POST /api/_admin/deploy/projects/:id/rollback - Rollback to previous version
+    if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/rollback$/)) {
+      const id = pathname.split('/')[5];
+      return handleRollback(req, res, id);
+    }
+
     // POST /api/_admin/deploy/projects/:id/webhook - 設定 GitHub Webhook
     if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/webhook$/)) {
       const id = pathname.split('/')[5];
@@ -699,6 +705,36 @@ async function handleManualDeploy(req, res, id) {
   }
 }
 
+async function handleRollback(req, res, id) {
+  try {
+    // Parse optional body for target commit
+    let targetCommit = null;
+    try {
+      const data = await parseJsonBody(req);
+      targetCommit = data.commit || null;
+    } catch {}
+
+    console.log(`[rollback] Triggered for: ${id}${targetCommit ? ` → ${targetCommit}` : ' (last running)'}`);
+
+    const result = await deploy.rollback(id, targetCommit, { triggeredBy: 'admin' });
+    const statusCode = result.status === 'success' ? 200 : 500;
+    res.writeHead(statusCode, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      success: result.status === 'success',
+      deployment: {
+        id: result.id,
+        status: result.status,
+        commit: result.commit,
+        duration: result.duration,
+        error: result.error,
+      },
+    }));
+  } catch (err) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
 // 設定 GitHub Webhook
 async function handleSetupWebhook(req, res, id) {
   let body = '';
@@ -846,8 +882,8 @@ function collectEnvBundle() {
   const envBundle = {};
 
   try {
-    const projectsPath = path.join(ROOT, 'data', 'deploy', 'projects.json');
-    const { projects } = JSON.parse(fs.readFileSync(projectsPath, 'utf8'));
+    const db = require('./db');
+    const projects = db.getAllProjects();
 
     for (const project of projects) {
       const projectDir = path.resolve(ROOT, project.directory);

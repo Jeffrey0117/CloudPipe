@@ -513,9 +513,16 @@ async function main() {
   const config = checkConfig();
   checkPrerequisites();
 
-  // Load projects list
-  const projectsData = readJsonSafe(PROJECTS_PATH);
-  const projects = projectsData?.projects || [];
+  // Load projects list from SQLite (auto-migrates from JSON on first use)
+  let projects = [];
+  try {
+    const db = require('./src/core/db');
+    projects = db.getAllProjects();
+  } catch (err) {
+    // Fallback to JSON if SQLite not available
+    const projectsData = readJsonSafe(PROJECTS_PATH);
+    projects = projectsData?.projects || [];
+  }
 
   await checkRedis(config);
 
