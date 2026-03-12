@@ -482,10 +482,15 @@ async function deploy(projectId, options = {}) {
     const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
     const pm = hasPnpmLock ? 'pnpm' : hasYarnLock ? 'yarn' : 'npm';
 
-    // === Kill process BEFORE cleaning Prisma cache (critical for Windows) ===
+    // === Detect Prisma (Windows DLL file lock requires killing process first) ===
+    const hasPrisma = fs.existsSync(path.join(projectDir, 'node_modules', '.prisma'));
+
+    // Build-first strategy: for non-Prisma projects, keep old process running during
+    // npm install + build, then swap via pm2 delete/start (near-zero downtime ~1-2s).
+    // Prisma projects must kill first due to Windows DLL file lock.
     let killedOldProcess = false;
     let portPid = null;
-    if (project.port) {
+    if (hasPrisma && project.port) {
       try {
         log(`檢查 port ${project.port} 是否被佔用...`);
         const netstat = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
@@ -581,6 +586,10 @@ async function deploy(projectId, options = {}) {
           }
         }
       }
+    }
+
+    if (!hasPrisma && project.port) {
+      log(`Build-first 模式（近零停機部署）`);
     }
 
     // 自動安裝依賴（如果有 package.json）
@@ -924,6 +933,10 @@ async function deploy(projectId, options = {}) {
       }
       try {
         execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+        if (!killedOldProcess) {
+          // Build-first: wait briefly for port release after pm2 delete
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
       } catch (delErr) {
         // 忽略刪除錯誤
       }
@@ -1347,19 +1360,13 @@ async function checkProjectForUpdates(project) {
 
   if (!remoteCommit) return null;
 
-  // 取得本地 commit
-  const projectDir = resolveProjectDir(project);
-  let localCommit = null;
-  try {
-    if (fs.existsSync(projectDir)) {
-      localCommit = execSync('git rev-parse --short HEAD', { cwd: projectDir, encoding: 'utf8', windowsHide: true }).trim();
-    }
-  } catch (e) {}
+  // 比較 remote 與上次成功部署的 commit（而非 local HEAD）
+  // 這樣本地有未 push 的 commit 不會被誤判為「需要部署」再被 reset 掉
+  const deployedCommit = project.runningCommit || null;
 
-  // 比較
-  if (remoteCommit !== localCommit) {
-    console.log(`[poll] 偵測到新 commit: ${project.id} (local: ${localCommit}, remote: ${remoteCommit})`);
-    return { project, localCommit, remoteCommit };
+  if (remoteCommit !== deployedCommit) {
+    console.log(`[poll] Remote 有新 commit: ${project.id} (deployed: ${deployedCommit || 'none'}, remote: ${remoteCommit})`);
+    return { project, localCommit: deployedCommit, remoteCommit };
   }
 
   return null;
