@@ -142,8 +142,8 @@ class McpDiscovery {
       description: `[${manifest.name || project.name}] ${ep.description}`,
       method: (ep.method || 'GET').toUpperCase(),
       path: ep.path,
-      baseUrl: `http://localhost:${project.port}`,
-      auth: ep.auth || 'none',
+      baseUrl: ep.baseUrl || manifest.baseUrl || `http://localhost:${project.port}`,
+      auth: ep.auth || manifest.auth || 'none',
       parameters: ep.parameters || null,
       response: ep.response || null,
     }))

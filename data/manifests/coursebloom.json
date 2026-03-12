@@ -1,7 +1,7 @@
 {
   "name": "CourseBloom Space",
-  "version": "1.0.0",
-  "description": "Multi-tenant online course platform - Course, Payment, Affiliate, AI Content, Booking & Analytics APIs",
+  "version": "2.0.0",
+  "description": "Multi-tenant course platform — manage tenants, courses, products, enrollments. Local API + Supabase REST",
   "endpoints": [
     {
       "name": "check_tenant",
@@ -36,6 +36,204 @@
       "description": "Get current affiliate tracking status from cookies",
       "method": "GET",
       "path": "/api/affiliate/track"
+    },
+    {
+      "name": "list_tenants",
+      "description": "List all tenants (schools/creators) with id, slug, name",
+      "method": "GET",
+      "path": "/rest/v1/tenants?select=id,slug,name&order=created_at.desc",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase"
+    },
+    {
+      "name": "list_courses",
+      "description": "List courses with id, title, instructor, category, price. Filter via query params: tenant_id=eq.UUID, title=like.*keyword*",
+      "method": "GET",
+      "path": "/rest/v1/courses?select=id,title,description,instructor,category,price,tenant_id,short_id,is_published&order=created_at.desc&limit=20",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenant_id": { "type": "string", "description": "Filter: eq.UUID" },
+          "title": { "type": "string", "description": "Filter: eq.xxx or like.*xxx*" }
+        }
+      }
+    },
+    {
+      "name": "get_course",
+      "description": "Get a single course by ID with all fields",
+      "method": "GET",
+      "path": "/rest/v1/courses?id=eq.{id}&select=*",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Course UUID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "create_course",
+      "description": "Create a new course. Required: title, instructor, category. Optional: description, price, tenant_id, is_published. Use Prefer: return=representation header to get created record",
+      "method": "POST",
+      "path": "/rest/v1/courses",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "Course title" },
+          "description": { "type": "string", "description": "Course description" },
+          "instructor": { "type": "string", "description": "Instructor name" },
+          "category": { "type": "string", "description": "Course category" },
+          "price": { "type": "number", "description": "Price in TWD" },
+          "tenant_id": { "type": "string", "description": "Tenant UUID (optional)" },
+          "is_published": { "type": "boolean", "description": "Published status" }
+        },
+        "required": ["title", "instructor", "category"]
+      }
+    },
+    {
+      "name": "update_course",
+      "description": "Update a course by ID. Pass fields to update (title, description, price, is_published)",
+      "method": "PATCH",
+      "path": "/rest/v1/courses?id=eq.{id}",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Course UUID" },
+          "title": { "type": "string", "description": "Course title" },
+          "description": { "type": "string", "description": "Description" },
+          "price": { "type": "number", "description": "Price in TWD" },
+          "is_published": { "type": "boolean", "description": "Published status" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "list_products",
+      "description": "List products with id, title, price, course_id. Filter: tenant_id=eq.UUID",
+      "method": "GET",
+      "path": "/rest/v1/products?select=id,tenant_id,title,original_price,sale_price,course_id,product_type,short_id,is_published,description&order=created_at.desc&limit=20",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenant_id": { "type": "string", "description": "Filter: eq.UUID" }
+        }
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Get a single product by ID with all fields",
+      "method": "GET",
+      "path": "/rest/v1/products?id=eq.{id}&select=*",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Product UUID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "create_product",
+      "description": "Create a product. Link to course via course_id for purchase verification. product_type: 'single' or 'bundle'. Checkout URL: classroo.tw/{tenant_slug}/checkout/product/{product_id}",
+      "method": "POST",
+      "path": "/rest/v1/products",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenant_id": { "type": "string", "description": "Tenant UUID" },
+          "title": { "type": "string", "description": "Product title" },
+          "description": { "type": "string", "description": "Product description" },
+          "author": { "type": "string", "description": "Author/brand name" },
+          "original_price": { "type": "number", "description": "Price in TWD" },
+          "sale_price": { "type": "number", "description": "Sale price (optional)" },
+          "product_type": { "type": "string", "description": "single or bundle" },
+          "course_id": { "type": "string", "description": "Linked course UUID for purchase verification" },
+          "is_published": { "type": "boolean", "description": "Published status" }
+        },
+        "required": ["tenant_id", "title"]
+      }
+    },
+    {
+      "name": "update_product",
+      "description": "Update a product by ID",
+      "method": "PATCH",
+      "path": "/rest/v1/products?id=eq.{id}",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Product UUID" },
+          "title": { "type": "string", "description": "Product title" },
+          "description": { "type": "string", "description": "Description" },
+          "original_price": { "type": "number", "description": "Price" },
+          "sale_price": { "type": "number", "description": "Sale price" },
+          "is_published": { "type": "boolean", "description": "Published status" },
+          "course_id": { "type": "string", "description": "Linked course UUID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "list_enrollments",
+      "description": "List enrollments (who has access to what course). Filter: course_id=eq.UUID, user_id=eq.UUID",
+      "method": "GET",
+      "path": "/rest/v1/enrollments?select=id,user_id,course_id,enrolled_at,status&order=enrolled_at.desc&limit=50",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "course_id": { "type": "string", "description": "Filter: eq.UUID" },
+          "user_id": { "type": "string", "description": "Filter: eq.UUID" }
+        }
+      }
+    },
+    {
+      "name": "create_enrollment",
+      "description": "Manually enroll a user in a course (e.g. manual PRO activation). Status defaults to 'active'",
+      "method": "POST",
+      "path": "/rest/v1/enrollments",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string", "description": "Supabase auth user UUID" },
+          "course_id": { "type": "string", "description": "Course UUID" },
+          "status": { "type": "string", "description": "Enrollment status (default: active)" }
+        },
+        "required": ["user_id", "course_id"]
+      }
+    },
+    {
+      "name": "list_product_purchases",
+      "description": "List product purchases. Filter: product_id=eq.UUID, user_id=eq.UUID",
+      "method": "GET",
+      "path": "/rest/v1/product_purchases?select=id,user_id,product_id,purchased_at,status&order=purchased_at.desc&limit=50",
+      "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
+      "auth": "supabase",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_id": { "type": "string", "description": "Filter: eq.UUID" },
+          "user_id": { "type": "string", "description": "Filter: eq.UUID" }
+        }
+      }
     }
   ]
 }

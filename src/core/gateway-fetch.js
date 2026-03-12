@@ -43,10 +43,13 @@ function resolvePath(pathTemplate, params) {
 function buildFetchOptions(tool, params, authConfig) {
   const headers = { 'content-type': 'application/json' }
 
-  if (tool.auth === 'bearer') {
+  if (tool.auth === 'bearer' || tool.auth === 'supabase') {
     const token = getAuthToken(tool.project, authConfig)
     if (token) {
       headers['authorization'] = `Bearer ${token}`
+      if (tool.auth === 'supabase') {
+        headers['apikey'] = token
+      }
     }
   }
 
