@@ -20,6 +20,19 @@ let routeCache = new Map();
 let routeCacheTime = 0;
 const ROUTE_CACHE_TTL = 30000;
 
+// ── Blue-Green deployment: temporary port overrides ──
+// During deploy, traffic is routed to a temp port while the canonical
+// process restarts. This gives true zero-downtime deployments.
+const portOverrides = new Map(); // projectId → tempPort
+
+function setPortOverride(projectId, tempPort) {
+  portOverrides.set(projectId, tempPort);
+}
+
+function clearPortOverride(projectId) {
+  portOverrides.delete(projectId);
+}
+
 /** Force cache rebuild on next request (call after project port changes) */
 function invalidateRouteCache() {
   routeCacheTime = 0;
@@ -43,6 +56,12 @@ function resolveHostnameToPort(hostname, domain) {
   if (Date.now() - routeCacheTime > ROUTE_CACHE_TTL) {
     routeCache = buildRouteCache(domain);
     routeCacheTime = Date.now();
+  }
+
+  // Blue-Green override: projectId is the subdomain part
+  const sub = hostname.endsWith('.' + domain) ? hostname.slice(0, -(domain.length + 1)) : null;
+  if (sub && portOverrides.has(sub)) {
+    return portOverrides.get(sub);
   }
 
   // Exact match
@@ -320,4 +339,6 @@ const createRouter = function(config) {
 };
 
 createRouter.invalidateRouteCache = invalidateRouteCache;
+createRouter.setPortOverride = setPortOverride;
+createRouter.clearPortOverride = clearPortOverride;
 module.exports = createRouter;

@@ -923,25 +923,7 @@ async function deploy(projectId, options = {}) {
         pm2Env.TELEGRAM_PROXY = fullConfig.telegramProxy;
       }
 
-      // 先刪除舊的（如果有）
-      if (project.companions && Array.isArray(project.companions)) {
-        for (const companion of project.companions) {
-          try {
-            execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true });
-          } catch {}
-        }
-      }
-      try {
-        execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-        if (!killedOldProcess) {
-          // Build-first: wait briefly for port release after pm2 delete
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-      } catch (delErr) {
-        // 忽略刪除錯誤
-      }
-
-      // Build PM2 ecosystem config to ensure env vars reach the app
+      // Build PM2 ecosystem config (needed by both Blue-Green and normal paths)
       let pm2Script, pm2Args;
       if (startCommand) {
         pm2Script = startCommand.script;
@@ -958,6 +940,7 @@ async function deploy(projectId, options = {}) {
       }
 
       const effectiveCwd = project.startCwd ? path.join(projectDir, project.startCwd) : projectDir;
+      const healthEndpoint = project.healthEndpoint || (startCommand ? '/' : '/health');
       const pm2EcoConfig = {
         apps: [{
           name: project.pm2Name,
@@ -970,44 +953,152 @@ async function deploy(projectId, options = {}) {
           ...(useInterpreterNone ? { interpreter: 'none' } : {})
         }]
       };
-
       const ecoPath = path.join(projectDir, '.pm2-ecosystem.json');
-      fs.writeFileSync(ecoPath, JSON.stringify(pm2EcoConfig, null, 2));
 
-      execSync(`pm2 start "${ecoPath}"`, {
-        stdio: 'pipe',
-        cwd: projectDir,
-        windowsHide: true
-      });
+      // ========== Blue-Green Deployment (zero-downtime) ==========
+      // Strategy: start new version on temp port → health check → router swap →
+      // restart on canonical port → clear override → cleanup temp.
+      // Old process serves traffic until router swap — zero dropped requests.
+      let blueGreenCompleted = false;
 
-      log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
+      if (!killedOldProcess && project.port) {
+        const tempPort = project.port + 10000;
+        const tempName = `${project.pm2Name}-bg`;
 
-      // Health Check：確認服務啟動
-      if (project.port) {
-        log(`執行 Health Check (port: ${project.port})...`);
-        const healthEndpoint = project.healthEndpoint || (startCommand ? '/' : '/health');
-        const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log);
-        if (!healthCheckPassed) {
-          // Auto-rollback on health check failure
-          if (backup) {
-            log(`⚠ Health Check 失敗，自動回滾到 ${backup.commit}...`);
-            try {
-              execSync(`git reset --hard ${backup.commit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
-              for (const [envName, content] of Object.entries(envBackups)) {
-                fs.writeFileSync(path.join(projectDir, envName), content);
-              }
-              if (buildCmd) {
-                execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
-              }
-              execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-              log(`✓ 自動回滾完成，舊版本已恢復`);
-            } catch (rollbackErr) {
-              log(`⚠ 自動回滾失敗: ${rollbackErr.message}`);
+        // Validate temp port is available
+        const tempPortFree = await isPortAvailable(tempPort);
+        if (!tempPortFree) {
+          log(`⚠ 臨時 port ${tempPort} 已被佔用，退回標準部署`);
+        } else {
+
+        log(`Blue-Green: 啟動新版在臨時 port ${tempPort}...`);
+
+        // Start temp process
+        const tempEcoConfig = {
+          apps: [{
+            name: tempName,
+            script: pm2Script,
+            cwd: effectiveCwd,
+            env: { ...pm2Env, PORT: String(tempPort) },
+            autorestart: false,
+            ...(pm2Args ? { args: pm2Args } : {}),
+            ...(useInterpreterNone ? { interpreter: 'none' } : {})
+          }]
+        };
+        const tempEcoPath = path.join(projectDir, '.pm2-bg-ecosystem.json');
+        fs.writeFileSync(tempEcoPath, JSON.stringify(tempEcoConfig, null, 2));
+
+        let tempStarted = false;
+        try {
+          execSync(`pm2 start "${tempEcoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
+          tempStarted = true;
+        } catch (bgStartErr) {
+          log(`⚠ Blue-Green 啟動失敗，退回標準部署: ${bgStartErr.message}`);
+        }
+
+        // Health check temp port (skip if temp didn't start)
+        const tempHealthOk = tempStarted && await performHealthCheck(tempPort, healthEndpoint, log, 3, 2000);
+
+        if (tempHealthOk) {
+          // Router swap — traffic instantly goes to temp port (zero downtime)
+          const router = require('./router');
+          router.setPortOverride(project.id, tempPort);
+          log(`✓ Router 切換到 port ${tempPort}（零停機）`);
+
+          // Delete old process + companions (port freed, but traffic goes to temp)
+          if (project.companions && Array.isArray(project.companions)) {
+            for (const companion of project.companions) {
+              try { execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
             }
           }
-          throw new Error(`Health Check 失敗：服務未能在 port ${project.port} 啟動`);
+          try { execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Start canonical process on original port — wrapped in try/finally
+          // to ensure port override is ALWAYS cleared even if pm2 start throws
+          try {
+            fs.writeFileSync(ecoPath, JSON.stringify(pm2EcoConfig, null, 2));
+            execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
+            log(`PM2 啟動完成 (port: ${project.port})`);
+
+            // Health check canonical port
+            const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log);
+
+            if (canonicalOk) {
+              log(`✓ Blue-Green 完成：流量回到 port ${project.port}`);
+            } else {
+              log(`⚠ 原始 port health check 失敗，但程序已啟動`);
+            }
+          } catch (canonicalErr) {
+            log(`⚠ 原始 port 啟動失敗: ${canonicalErr.message}`);
+          } finally {
+            // ALWAYS clear override and clean up temp — even on failure
+            router.clearPortOverride(project.id);
+            try { execSync(`pm2 delete ${tempName}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+            try { fs.unlinkSync(tempEcoPath); } catch {}
+          }
+
+          blueGreenCompleted = true;
+        } else {
+          // Clean up failed temp process, fall through to normal deploy
+          try { execSync(`pm2 delete ${tempName}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+          try { fs.unlinkSync(tempEcoPath); } catch {}
+          log(`⚠ Blue-Green health check 失敗，退回標準部署`);
         }
-        log(`Health Check 通過`);
+
+        } // end tempPortFree
+      } else if (hasPrisma && project.port) {
+        log(`Prisma 專案：跳過 Blue-Green（Windows DLL 鎖定需先關閉舊程序）`);
+      }
+
+      // ========== Normal Deploy Path (Prisma projects or Blue-Green fallback) ==========
+      if (!blueGreenCompleted) {
+        // 先刪除舊的（如果有）
+        if (project.companions && Array.isArray(project.companions)) {
+          for (const companion of project.companions) {
+            try {
+              execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true });
+            } catch {}
+          }
+        }
+        try {
+          execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+          if (!killedOldProcess) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        } catch (delErr) {
+          // 忽略刪除錯誤
+        }
+
+        fs.writeFileSync(ecoPath, JSON.stringify(pm2EcoConfig, null, 2));
+        execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
+        log(`PM2 啟動完成 (port: ${project.port || 'default'})`);
+
+        // Health Check
+        if (project.port) {
+          log(`執行 Health Check (port: ${project.port})...`);
+          const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log);
+          if (!healthCheckPassed) {
+            if (backup) {
+              log(`⚠ Health Check 失敗，自動回滾到 ${backup.commit}...`);
+              try {
+                execSync(`git reset --hard ${backup.commit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+                for (const [envName, content] of Object.entries(envBackups)) {
+                  fs.writeFileSync(path.join(projectDir, envName), content);
+                }
+                if (buildCmd) {
+                  execSync(buildCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+                }
+                execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
+                log(`✓ 自動回滾完成，舊版本已恢復`);
+              } catch (rollbackErr) {
+                log(`⚠ 自動回滾失敗: ${rollbackErr.message}`);
+              }
+            }
+            throw new Error(`Health Check 失敗：服務未能在 port ${project.port} 啟動`);
+          }
+          log(`Health Check 通過`);
+        }
       }
 
       // Spawn companion processes (bots, workers, etc.)
