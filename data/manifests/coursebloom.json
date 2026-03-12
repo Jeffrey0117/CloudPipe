@@ -98,7 +98,7 @@
     },
     {
       "name": "update_course",
-      "description": "Update a course by ID. Pass fields to update (title, description, price, is_published)",
+      "description": "Update a course by ID. Pass only the fields you want to change",
       "method": "PATCH",
       "path": "/rest/v1/courses?id=eq.{id}",
       "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
@@ -109,8 +109,20 @@
           "id": { "type": "string", "description": "Course UUID" },
           "title": { "type": "string", "description": "Course title" },
           "description": { "type": "string", "description": "Description" },
+          "summary": { "type": "string", "description": "Short summary for previews" },
+          "instructor": { "type": "string", "description": "Instructor name" },
+          "category": { "type": "string", "description": "Course category" },
           "price": { "type": "number", "description": "Price in TWD" },
-          "is_published": { "type": "boolean", "description": "Published status" }
+          "thumbnail_url": { "type": "string", "description": "Thumbnail image URL" },
+          "thumbnail_focus": { "type": "string", "description": "Thumbnail focus: center, top, bottom, left, right" },
+          "video_url": { "type": "string", "description": "Preview video URL" },
+          "marketing_images": { "type": "array", "description": "Array of marketing image URLs", "items": { "type": "string" } },
+          "learning_outcomes": { "type": "array", "description": "Array of learning outcome strings", "items": { "type": "string" } },
+          "meta_title": { "type": "string", "description": "SEO meta title" },
+          "meta_description": { "type": "string", "description": "SEO meta description" },
+          "og_image": { "type": "string", "description": "Open Graph image URL" },
+          "is_published": { "type": "boolean", "description": "Published status" },
+          "is_featured": { "type": "boolean", "description": "Featured on homepage" }
         },
         "required": ["id"]
       }
@@ -169,7 +181,7 @@
     },
     {
       "name": "update_product",
-      "description": "Update a product by ID",
+      "description": "Update a product by ID. Pass only the fields you want to change",
       "method": "PATCH",
       "path": "/rest/v1/products?id=eq.{id}",
       "baseUrl": "https://atighahaffsncaxggkdk.supabase.co",
@@ -180,8 +192,15 @@
           "id": { "type": "string", "description": "Product UUID" },
           "title": { "type": "string", "description": "Product title" },
           "description": { "type": "string", "description": "Description" },
+          "summary": { "type": "string", "description": "Short summary for previews" },
+          "author": { "type": "string", "description": "Author/brand name" },
+          "category": { "type": "string", "description": "Product category" },
           "original_price": { "type": "number", "description": "Price" },
           "sale_price": { "type": "number", "description": "Sale price" },
+          "thumbnail_url": { "type": "string", "description": "Thumbnail image URL" },
+          "thumbnail_focus": { "type": "string", "description": "Thumbnail focus: center, top, bottom, left, right" },
+          "marketing_images": { "type": "array", "description": "Array of marketing image URLs", "items": { "type": "string" } },
+          "features": { "type": "array", "description": "Array of feature highlight strings", "items": { "type": "string" } },
           "is_published": { "type": "boolean", "description": "Published status" },
           "course_id": { "type": "string", "description": "Linked course UUID" }
         },
