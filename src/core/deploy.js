@@ -45,6 +45,33 @@ function getConfig() {
   }
 }
 
+// 解析系統上可用的 Python 指令（Windows 上 python 不在 PATH，需用 py launcher）
+function resolvePythonCommand() {
+  // Windows py launcher (C:\Windows\py.exe) — most reliable on Windows
+  try {
+    const pyPath = execSync('where py', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim().split('\n')[0].trim();
+    if (pyPath) return { python: pyPath, pip: `"${pyPath}" -m pip` };
+  } catch {}
+  // python3 (Linux/Mac)
+  try {
+    execSync('python3 --version', { stdio: 'pipe', windowsHide: true });
+    return { python: 'python3', pip: 'pip3' };
+  } catch {}
+  // python (fallback)
+  try {
+    execSync('python --version', { stdio: 'pipe', windowsHide: true });
+    return { python: 'python', pip: 'pip' };
+  } catch {}
+  return { python: 'python', pip: 'pip' };
+}
+
+// Cached Python command resolution
+let _pythonCmd = null;
+function getPythonCmd() {
+  if (!_pythonCmd) _pythonCmd = resolvePythonCommand();
+  return _pythonCmd;
+}
+
 // 檢查端口是否可用
 function isPortAvailable(port) {
   const net = require('net');
@@ -420,12 +447,16 @@ async function deploy(projectId, options = {}) {
       }
     }
 
+    // Rollback state — declared at function scope so health check rollback can access them
+    let backup = null;
+    let envBackups = {};
+
     // Git 部署
     if (project.deployMethod === 'github' || project.deployMethod === 'git-url') {
       // Backup env files before git reset (they're not in git and would survive reset,
       // but git clean or other operations could remove them)
       const ENV_PATTERNS = ['.env', '.env.local', '.env.production', '.env.production.local'];
-      const envBackups = {};
+      envBackups = {};
       for (const envName of ENV_PATTERNS) {
         const envPath = path.join(projectDir, envName);
         if (fs.existsSync(envPath)) {
@@ -435,7 +466,7 @@ async function deploy(projectId, options = {}) {
       }
 
       // Tag current commit for rollback backup
-      const backup = tagCurrentDeploy(projectDir, projectId);
+      backup = tagCurrentDeploy(projectDir, projectId);
       if (backup) {
         log(`Backup tag: ${backup.tagName} (commit: ${backup.commit})`);
       }
@@ -464,11 +495,12 @@ async function deploy(projectId, options = {}) {
     // Python 依賴安裝（runner: python）
     const isPython = project.runner === 'python';
     if (isPython) {
+      const pyCmd = getPythonCmd();
       const reqPath = path.join(projectDir, 'requirements.txt');
       if (fs.existsSync(reqPath)) {
         log('安裝 Python 依賴...');
         try {
-          execSync(`pip install -r "${reqPath}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+          execSync(`${pyCmd.pip} install -r "${reqPath}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
           log('Python 依賴安裝完成');
         } catch (e) {
           log(`⚠ Python 依賴安裝失敗: ${e.message}`);
@@ -656,6 +688,7 @@ async function deploy(projectId, options = {}) {
     }
 
     // 執行 build（buildSteps 優先，fallback 到 buildCommand）
+    let buildCmd = null;  // hoisted for health check rollback access
     if (project.buildSteps?.length) {
       try {
         runBuildSteps(project.buildSteps, projectDir, log);
@@ -701,7 +734,7 @@ async function deploy(projectId, options = {}) {
       }
       log(`Build 完成`);
     } else {
-    let buildCmd = project.buildCommand;
+    buildCmd = project.buildCommand;
     if (!buildCmd && fs.existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
@@ -774,8 +807,9 @@ async function deploy(projectId, options = {}) {
 
     // Python runner: skip Node.js detection, use uvicorn
     if (isPython) {
+      const pyCmd = getPythonCmd();
       startCommand = {
-        script: 'python',
+        script: pyCmd.python,
         args: `-m uvicorn ${entryFile} --host 0.0.0.0 --port ${project.port || 8000}`
       };
       useInterpreterNone = true;
@@ -1110,16 +1144,17 @@ async function deploy(projectId, options = {}) {
             : projectDir;
 
           // Auto-install Python dependencies if requirements.txt exists
-          if (companion.command === 'python' || companion.command === 'python3') {
+          const isCompPython = companion.command === 'python' || companion.command === 'python3';
+          if (isCompPython) {
+            const pyCmd = getPythonCmd();
             const reqFile = path.join(compCwd, 'requirements.txt');
             if (!fs.existsSync(reqFile)) {
               // Also check parent project dir
               const parentReq = path.join(projectDir, 'requirements.txt');
               if (fs.existsSync(parentReq)) {
                 try {
-                  const pip = companion.command === 'python3' ? 'pip3' : 'pip';
                   log(`安裝 Python 依賴 (${parentReq})...`);
-                  execSync(`${pip} install -r "${parentReq}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+                  execSync(`${pyCmd.pip} install -r "${parentReq}"`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
                   log('Python 依賴安裝完成');
                 } catch (e) {
                   log(`Python 依賴安裝失敗: ${e.message}`);
@@ -1127,9 +1162,8 @@ async function deploy(projectId, options = {}) {
               }
             } else {
               try {
-                const pip = companion.command === 'python3' ? 'pip3' : 'pip';
                 log(`安裝 Python 依賴 (${reqFile})...`);
-                execSync(`${pip} install -r "${reqFile}"`, { cwd: compCwd, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+                execSync(`${pyCmd.pip} install -r "${reqFile}"`, { cwd: compCwd, stdio: 'pipe', windowsHide: true, timeout: 300000 });
                 log('Python 依賴安裝完成');
               } catch (e) {
                 log(`Python 依賴安裝失敗: ${e.message}`);
@@ -1145,12 +1179,14 @@ async function deploy(projectId, options = {}) {
           const compArgs = companion.args ? companion.args.join(' ') : '';
           log(`啟動 companion: ${compName} (${companion.command} ${compArgs})`);
 
+          // Resolve actual command (python → full path on Windows)
+          const compScript = isCompPython ? getPythonCmd().python : companion.command;
           const compEcoConfig = {
             apps: [{
               name: compName,
-              script: companion.command,
+              script: compScript,
               cwd: compCwd,
-              interpreter: companion.command === 'python' || companion.command === 'python3' ? 'none' : undefined,
+              interpreter: isCompPython ? 'none' : undefined,
               env: pm2Env,
               autorestart: true,
               max_restarts: 5,
@@ -1451,12 +1487,15 @@ async function checkProjectForUpdates(project) {
 
   if (!remoteCommit) return null;
 
-  // 比較 remote 與上次成功部署的 commit（而非 local HEAD）
-  // 這樣本地有未 push 的 commit 不會被誤判為「需要部署」再被 reset 掉
+  // 比較 remote 與已知 commit（runningCommit 或 lastDeployCommit）
+  // runningCommit = 上次成功部署的 commit
+  // lastDeployCommit = 上次嘗試部署的 commit（成功或失敗皆記錄）
+  // 兩者都比較，避免失敗的部署被無限重試
   const deployedCommit = project.runningCommit || null;
+  const lastAttempted = project.lastDeployCommit || null;
 
-  if (remoteCommit !== deployedCommit) {
-    console.log(`[poll] Remote 有新 commit: ${project.id} (deployed: ${deployedCommit || 'none'}, remote: ${remoteCommit})`);
+  if (remoteCommit !== deployedCommit && remoteCommit !== lastAttempted) {
+    console.log(`[poll] Remote 有新 commit: ${project.id} (running: ${deployedCommit || 'none'}, lastAttempt: ${lastAttempted || 'none'}, remote: ${remoteCommit})`);
     return { project, localCommit: deployedCommit, remoteCommit };
   }
 
