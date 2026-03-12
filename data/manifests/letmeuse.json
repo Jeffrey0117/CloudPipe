@@ -41,6 +41,27 @@
       }
     },
     {
+      "name": "update_app",
+      "description": "Update an app configuration (name, domains, webhookUrl, oauthProviders, requireEmailVerification, purchaseVerify). Use purchaseVerify to configure external purchase verification (e.g. classroo.tw).",
+      "method": "PATCH",
+      "path": "/api/admin/apps/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "App ID" },
+          "name": { "type": "string", "description": "App name" },
+          "domains": { "type": "array", "description": "Allowed domains" },
+          "webhookUrl": { "type": "string", "description": "Webhook URL" },
+          "purchaseVerify": {
+            "type": "object",
+            "description": "Purchase verification config: { enabled, providerUrl, providerSecret, purchasePageUrl, courseId? }"
+          }
+        },
+        "required": ["id"]
+      }
+    },
+    {
       "name": "list_users",
       "description": "List users with filters (appId, search, pagination)",
       "method": "GET",
