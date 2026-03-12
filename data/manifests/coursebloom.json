@@ -253,6 +253,49 @@
           "user_id": { "type": "string", "description": "Filter: eq.UUID" }
         }
       }
+    },
+    {
+      "name": "list_webhook_subscriptions",
+      "description": "List outgoing webhook subscriptions. Filter by tenant_id query param",
+      "method": "GET",
+      "path": "/api/webhooks/subscriptions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenant_id": { "type": "string", "description": "Filter by tenant UUID" }
+        }
+      }
+    },
+    {
+      "name": "create_webhook_subscription",
+      "description": "Create a new outgoing webhook subscription. Events: purchase.completed. Payloads are signed with HMAC-SHA256 via X-Webhook-Signature header",
+      "method": "POST",
+      "path": "/api/webhooks/subscriptions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenant_id": { "type": "string", "description": "Tenant UUID" },
+          "url": { "type": "string", "description": "Webhook URL to POST to" },
+          "secret": { "type": "string", "description": "HMAC-SHA256 signing secret" },
+          "events": { "type": "array", "items": { "type": "string" }, "description": "Event types to subscribe to, e.g. ['purchase.completed']" },
+          "filter_product_ids": { "type": "array", "items": { "type": "string" }, "description": "Optional: only trigger for these product UUIDs" },
+          "description": { "type": "string", "description": "Human-readable description" }
+        },
+        "required": ["tenant_id", "url", "secret", "events"]
+      }
+    },
+    {
+      "name": "delete_webhook_subscription",
+      "description": "Delete a webhook subscription by ID",
+      "method": "DELETE",
+      "path": "/api/webhooks/subscriptions/{id}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Subscription UUID to delete" }
+        },
+        "required": ["id"]
+      }
     }
   ]
 }
