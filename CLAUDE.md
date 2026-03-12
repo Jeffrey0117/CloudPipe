@@ -131,6 +131,9 @@ Deploying (`git fetch + reset --hard`) preserves untracked files — existing `.
 | 4015 | RawTxt |
 | 4016 | Quickky |
 | 4017 | LurlHub |
+| 4018 | Mailer |
+| 4019 | PayGate |
+| 4020 | LaunchKit |
 
 ## Code Style
 
@@ -380,6 +383,9 @@ See **"Ecosystem Services Quick Reference"** section below for complete details 
 | AI flashcards | `gw.call('autocard_generate_content', ...)` | `autocard_generate_content` |
 | Video learning | `gw.call('reelscript_process_video', ...)` | `reelscript_process_video` |
 | NotebookLM | `gw.call('notebody_ask', ...)` | `notebody_ask` |
+| Email sending | `gw.call('mailer_send_template', ...)` | `mailer_send_template` |
+| Payment status | `gw.call('paygate_check', ...)` | `paygate_check` |
+| Landing pages | `gw.call('launchkit_create_page', ...)` | `launchkit_create_page` |
 
 ## Ecosystem Services Quick Reference (IMPORTANT — READ THIS FIRST)
 
@@ -633,6 +639,79 @@ const { shortUrl } = await res.json() // https://duk.tw/abc123.png
 **What**: Personal card platform — create rich cards (text + images), share via QR/short link.
 
 **No MCP tools** — standalone consumer app. Uses LetMeUse for auth, Upimg for images.
+
+---
+
+### Mailer — Email Service (port 4018)
+
+**What**: Shared email sending service. Any sub-project sends emails (welcome, payment confirmation, notifications) with a single Gateway call — no per-project SMTP setup.
+
+**When to use**: Any project that needs to send transactional emails.
+
+**Key MCP tools**:
+- `mailer_send({ to, subject, html })` — Send raw HTML email
+- `mailer_send_template({ to, template, locale, data })` — Send template-based email (en/zh)
+
+**Available templates**: `welcome` (name, appName, actionUrl), `purchase_success` (name, productName, amount, actionUrl), `notification` (heading, message, ctaText, actionUrl)
+
+**Integration** (from any sub-project):
+```javascript
+const gw = require('../../sdk/gateway');
+await gw.call('mailer_send_template', {
+  to: 'user@example.com',
+  template: 'welcome',
+  locale: 'zh',
+  data: { name: 'Jeffrey', appName: 'MyApp', actionUrl: 'https://...' },
+});
+```
+
+**Auth**: bearer (`MAILER_TOKEN` env var), open when unset (dev mode)
+
+---
+
+### PayGate — Payment Gateway (port 4019)
+
+**What**: Unified payment webhook receiver + purchase status database. All products share one purchase DB — no per-product payment integration needed.
+
+**When to use**: Any product that needs to charge money or check if a user has paid.
+
+**Key MCP tools**:
+- `paygate_webhook({ email, product_id, order_id, plan, amount, source })` — Receive payment webhook (idempotent)
+- `paygate_check({ email, product })` — Check if user has active purchase (public, no auth)
+- `paygate_list_purchases({ email })` — List all purchases for an email
+- `paygate_activate({ email, product_id, plan?, expires_at? })` — Manual activation (admin)
+
+**Integration** (paywall in any sub-project):
+```javascript
+const gw = require('../../sdk/gateway');
+const { active } = await gw.call('paygate_check', { email, product: 'my-product' });
+if (!active) return res.status(402).json({ error: 'Please purchase first' });
+```
+
+**Auth**: bearer (`PAYGATE_TOKEN` for admin, `PAYGATE_WEBHOOK_SECRET` for webhook), `/api/purchases/check` is public
+
+---
+
+### LaunchKit — Landing Page Generator (port 4020)
+
+**What**: JSON config in, professional landing page out. Zero JS payload, pure SSR. Create sales pages for any product without writing HTML.
+
+**When to use**: New product launch, sales page, feature showcase.
+
+**Key MCP tools**:
+- `launchkit_create_page({ slug, title, config })` — Create/update landing page (upsert)
+- `launchkit_list_pages()` — List all pages
+- `launchkit_delete_page({ slug })` — Delete a page
+
+**Page config sections**: `hero` (headline, CTA, image), `features` (icon grid), `pricing` (price card), `og` (social meta), `theme` (colors), `footer` (links)
+
+**Integration** (full sales flow with PayGate + Mailer):
+```
+LaunchKit (sales page) → User clicks CTA → Payment provider
+→ PayGate (webhook) → Mailer (confirmation) → Product (check purchase)
+```
+
+**Auth**: bearer (`LAUNCHKIT_TOKEN` env var), open when unset. `GET /:slug` is always public.
 
 ---
 
