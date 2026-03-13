@@ -72,6 +72,18 @@ function getPythonCmd() {
   return _pythonCmd;
 }
 
+// robocopy wrapper: handles non-standard exit codes (< 8 = success, >= 8 = error)
+function robocopySync(src, dst, extraFlags = '') {
+  try {
+    execSync(`robocopy "${src}" "${dst}" /MIR ${extraFlags}`.trim(), {
+      windowsHide: true, stdio: 'pipe'
+    });
+  } catch (err) {
+    // robocopy exit codes: 0-7 = various success states, >= 8 = actual error
+    if (err.status >= 8) throw err;
+  }
+}
+
 // 檢查端口是否可用
 function isPortAvailable(port) {
   const net = require('net');
@@ -368,6 +380,282 @@ function runBuildSteps(steps, projectDir, log) {
   }
 }
 
+/**
+ * Shadow Directory Build for Prisma projects (zero-downtime on Windows).
+ *
+ * Strategy: build in a shadow copy (no DLL lock), start temp process,
+ * swap traffic via router, kill old, sync artifacts back, start canonical.
+ *
+ * Returns true on success, false on failure (after cleanup).
+ */
+async function deployShadowBuild(project, projectDir, pm, log) {
+  const shadowDir = projectDir + '.shadow';
+  const tempPort = project.port + 10000;
+  const tempName = `${project.pm2Name}-shadow`;
+  let routerSwapped = false;
+
+  try {
+    // ── Phase 1: Create shadow directory ──
+    log(`Shadow Build: 建立影子目錄...`);
+    if (fs.existsSync(shadowDir)) {
+      fs.rmSync(shadowDir, { recursive: true, force: true });
+    }
+    robocopySync(projectDir, shadowDir, '/XD .git node_modules .next /XF .pkg-hash');
+
+    // Copy .env files to shadow (robocopy /XF won't exclude them since they're not in exclusion)
+    // They're already copied by robocopy above (not excluded), so no extra step needed.
+
+    // ── Phase 2: npm install in shadow ──
+    log(`Shadow Build: npm install...`);
+    const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+    execSync(installCmd, {
+      cwd: shadowDir, stdio: 'pipe', windowsHide: true,
+      env: { ...process.env, NODE_ENV: 'development' }
+    });
+
+    // ── Phase 3: Build in shadow ──
+    if (project.buildSteps?.length) {
+      log(`Shadow Build: 執行 buildSteps...`);
+      runBuildSteps(project.buildSteps, shadowDir, log);
+    } else {
+      let buildCmd = project.buildCommand;
+      if (!buildCmd) {
+        const shadowPkgPath = path.join(shadowDir, 'package.json');
+        if (fs.existsSync(shadowPkgPath)) {
+          const shadowPkg = JSON.parse(fs.readFileSync(shadowPkgPath, 'utf8'));
+          if (shadowPkg.scripts?.build) {
+            const pmRun = pm === 'pnpm' ? 'pnpm run' : pm === 'yarn' ? 'yarn' : 'npm run';
+            buildCmd = `${pmRun} build`;
+          }
+        }
+      }
+      if (buildCmd) {
+        log(`Shadow Build: ${buildCmd}`);
+        execSync(buildCmd, { cwd: shadowDir, stdio: 'pipe', windowsHide: true, timeout: 300000 });
+      }
+    }
+    log(`Shadow Build: build 完成`);
+
+    // ── Phase 4: Detect framework + start command from shadow ──
+    let shadowStartCommand = null;
+    let shadowUseInterpreterNone = false;
+    const shadowPkgPath = path.join(shadowDir, 'package.json');
+
+    if (fs.existsSync(shadowPkgPath)) {
+      const shadowPkg = JSON.parse(fs.readFileSync(shadowPkgPath, 'utf8'));
+      const isNextjs = !!(shadowPkg.dependencies?.next || shadowPkg.devDependencies?.next);
+      if (isNextjs) {
+        const nextBin = path.join(shadowDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+        shadowStartCommand = { script: nextBin, args: 'start' };
+      } else if (shadowPkg.scripts?.start) {
+        const wrapperPath = path.join(shadowDir, '.pm2-start.cjs');
+        fs.writeFileSync(wrapperPath, [
+          `const { spawn } = require('child_process');`,
+          `const child = spawn(${JSON.stringify(pm)}, ['start'], { stdio: 'inherit', cwd: __dirname, shell: true });`,
+          `child.on('exit', (code) => process.exit(code || 0));`,
+        ].join('\n'));
+        shadowStartCommand = { script: wrapperPath, args: '' };
+      }
+    }
+
+    // ── Phase 5: Load env vars from ORIGINAL dir ──
+    const shadowPm2Env = {
+      NODE_ENV: 'production',
+      PORT: String(project.port)
+    };
+    for (const envFileName of ['.env', '.env.local']) {
+      const envFilePath = path.join(projectDir, envFileName);
+      if (fs.existsSync(envFilePath)) {
+        const envContent = fs.readFileSync(envFilePath, 'utf8');
+        envContent.split('\n').forEach(line => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) return;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx > 0) {
+            const key = trimmed.slice(0, eqIdx);
+            const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '');
+            shadowPm2Env[key] = val;
+          }
+        });
+      }
+    }
+    const fullConfig = getConfig();
+    if (fullConfig.telegramProxy && !shadowPm2Env.TELEGRAM_PROXY) {
+      shadowPm2Env.TELEGRAM_PROXY = fullConfig.telegramProxy;
+    }
+
+    // ── Phase 6: Build PM2 configs ──
+    let shadowPm2Script, shadowPm2Args;
+    if (shadowStartCommand) {
+      shadowPm2Script = shadowStartCommand.script;
+      shadowPm2Args = shadowStartCommand.args || undefined;
+    } else {
+      shadowPm2Script = path.join(shadowDir, project.entryFile || 'index.js');
+      shadowPm2Args = undefined;
+    }
+
+    const tempEcoConfig = {
+      apps: [{
+        name: tempName,
+        script: shadowPm2Script,
+        cwd: shadowDir,
+        env: { ...shadowPm2Env, PORT: String(tempPort) },
+        autorestart: false,
+        ...(shadowPm2Args ? { args: shadowPm2Args } : {}),
+        ...(shadowUseInterpreterNone ? { interpreter: 'none' } : {})
+      }]
+    };
+    const tempEcoPath = path.join(shadowDir, '.pm2-shadow-ecosystem.json');
+    fs.writeFileSync(tempEcoPath, JSON.stringify(tempEcoConfig, null, 2));
+
+    // ── Phase 7: Start temp PM2 ──
+    const tempPortFree = await isPortAvailable(tempPort);
+    if (!tempPortFree) throw new Error(`臨時 port ${tempPort} 被佔用`);
+
+    log(`Shadow Build: 啟動臨時服務 (port ${tempPort})...`);
+    execSync(`pm2 start "${tempEcoPath}"`, { stdio: 'pipe', cwd: shadowDir, windowsHide: true });
+
+    // ── Phase 8: Health check temp ──
+    const healthEndpoint = project.healthEndpoint || '/';
+    const tempHealthOk = await performHealthCheck(tempPort, healthEndpoint, log, 3, 3000);
+    if (!tempHealthOk) throw new Error('Shadow 臨時服務 health check 失敗');
+    log(`✓ Shadow 臨時服務啟動成功`);
+
+    // ── Phase 9: Router swap ──
+    const router = require('./router');
+    router.setPortOverride(project.id, tempPort);
+    routerSwapped = true;
+    log(`✓ Router 切換到 shadow port ${tempPort}（零停機）`);
+
+    // ── Phase 10: Kill old PM2 ──
+    if (project.companions && Array.isArray(project.companions)) {
+      for (const companion of project.companions) {
+        try { execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+      }
+    }
+    try { execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+    log(`等待 DLL 鎖定釋放...`);
+    await new Promise(r => setTimeout(r, 3000));
+
+    // ── Phase 11: Sync artifacts from shadow → original ──
+    log(`Shadow Build: 同步產物到原始目錄...`);
+
+    // Clean old .prisma (now safe — old process is dead)
+    const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
+    if (fs.existsSync(prismaPath)) {
+      try { fs.rmSync(prismaPath, { recursive: true, force: true }); } catch {}
+    }
+    // Sync .prisma from shadow
+    robocopySync(
+      path.join(shadowDir, 'node_modules', '.prisma'),
+      prismaPath
+    );
+    // Sync .next from shadow (only for Next.js projects)
+    const shadowNextDir = path.join(shadowDir, '.next');
+    if (fs.existsSync(shadowNextDir)) {
+      robocopySync(shadowNextDir, path.join(projectDir, '.next'));
+    }
+
+    // If package deps changed, sync full node_modules
+    const shadowHashFile = path.join(shadowDir, '.pkg-hash');
+    const origHashFile = path.join(projectDir, '.pkg-hash');
+    // Compute shadow hash (npm install in shadow didn't write .pkg-hash since we excluded it)
+    const shadowPkgContent = fs.readFileSync(path.join(shadowDir, 'package.json'), 'utf8');
+    const shadowLockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'];
+    const shadowLockPath = shadowLockFiles.map(f => path.join(shadowDir, f)).find(f => fs.existsSync(f));
+    const shadowLockContent = shadowLockPath ? fs.readFileSync(shadowLockPath, 'utf8') : '';
+    const shadowHash = crypto.createHash('md5').update(shadowPkgContent + shadowLockContent).digest('hex');
+
+    const origHash = fs.existsSync(origHashFile) ? fs.readFileSync(origHashFile, 'utf8').trim() : '';
+    if (shadowHash !== origHash) {
+      log(`Shadow Build: 依賴變更，同步完整 node_modules...`);
+      robocopySync(
+        path.join(shadowDir, 'node_modules'),
+        path.join(projectDir, 'node_modules')
+      );
+      fs.writeFileSync(origHashFile, shadowHash);
+    }
+
+    log(`✓ 產物同步完成`);
+
+    // ── Phase 12: Start canonical PM2 ──
+    // Compute canonical script path (original dir)
+    let canonicalPm2Script, canonicalPm2Args;
+    if (shadowStartCommand) {
+      canonicalPm2Script = shadowPm2Script.replace(shadowDir, projectDir);
+      canonicalPm2Args = shadowPm2Args;
+    } else {
+      canonicalPm2Script = path.join(projectDir, project.entryFile || 'index.js');
+      canonicalPm2Args = undefined;
+    }
+
+    const effectiveCwd = project.startCwd ? path.join(projectDir, project.startCwd) : projectDir;
+    const canonicalEcoConfig = {
+      apps: [{
+        name: project.pm2Name,
+        script: canonicalPm2Script,
+        cwd: effectiveCwd,
+        env: shadowPm2Env,
+        autorestart: true,
+        max_restarts: 5,
+        ...(canonicalPm2Args ? { args: canonicalPm2Args } : {}),
+        ...(shadowUseInterpreterNone ? { interpreter: 'none' } : {})
+      }]
+    };
+    const ecoPath = path.join(projectDir, '.pm2-ecosystem.json');
+    fs.writeFileSync(ecoPath, JSON.stringify(canonicalEcoConfig, null, 2));
+
+    let canonicalStarted = false;
+    try {
+      execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
+      log(`PM2 啟動完成 (port: ${project.port})`);
+
+      const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log);
+      if (canonicalOk) {
+        log(`✓ Shadow Build 完成：流量回到 port ${project.port}`);
+        canonicalStarted = true;
+      } else {
+        log(`⚠ Canonical health check 失敗，但程序已啟動`);
+        canonicalStarted = true; // process exists even if health check failed
+      }
+    } catch (canonicalErr) {
+      log(`⚠ Canonical 啟動失敗: ${canonicalErr.message}`);
+    }
+
+    if (canonicalStarted) {
+      // Success: clear router override, clean up temp + shadow
+      router.clearPortOverride(project.id);
+      routerSwapped = false;
+      try { execSync(`pm2 delete ${tempName}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+      try { fs.rmSync(shadowDir, { recursive: true, force: true }); } catch {}
+    } else {
+      // Canonical failed: keep temp shadow process running as fallback
+      log(`⚠ Canonical 啟動失敗，保留 shadow 臨時服務 (port ${tempPort}) 作為備用`);
+      log(`⚠ 請手動排查後重新部署。Shadow 目錄: ${shadowDir}`);
+      // Do NOT clear router override or kill temp — traffic still flows through temp
+    }
+
+    // Warn about companions (shadow build kills them but doesn't respawn)
+    if (project.companions && Array.isArray(project.companions) && project.companions.length > 0) {
+      log(`⚠ Shadow Build 不自動重啟 companion 進程，請手動重啟或觸發標準部署`);
+    }
+
+    return true;
+  } catch (shadowErr) {
+    log(`⚠ Shadow Build 失敗: ${shadowErr.message}`);
+    log(`退回 kill-first 標準部署...`);
+
+    // Cleanup
+    try { execSync(`pm2 delete ${tempName}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+    if (routerSwapped) {
+      try { require('./router').clearPortOverride(project.id); } catch {}
+    }
+    try { fs.rmSync(shadowDir, { recursive: true, force: true }); } catch {}
+
+    return false;
+  }
+}
+
 async function deploy(projectId, options = {}) {
   const project = getProject(projectId);
   if (!project) {
@@ -517,12 +805,23 @@ async function deploy(projectId, options = {}) {
     // === Detect Prisma (Windows DLL file lock requires killing process first) ===
     const hasPrisma = fs.existsSync(path.join(projectDir, 'node_modules', '.prisma'));
 
+    // === Shadow Build: zero-downtime deploy for Prisma projects ===
+    // Build in a shadow directory (no DLL lock), serve from temp port, swap artifacts.
+    let shadowBuildCompleted = false;
+    if (hasPrisma && project.port && project.pm2Name) {
+      shadowBuildCompleted = await deployShadowBuild(project, projectDir, pm, log);
+      if (shadowBuildCompleted) {
+        log(`Shadow Build 成功，跳過標準 Prisma 部署流程`);
+      }
+    }
+
     // Build-first strategy: for non-Prisma projects, keep old process running during
     // npm install + build, then swap via pm2 delete/start (near-zero downtime ~1-2s).
     // Prisma projects must kill first due to Windows DLL file lock.
+    // (Skipped if Shadow Build succeeded)
     let killedOldProcess = false;
     let portPid = null;
-    if (hasPrisma && project.port) {
+    if (!shadowBuildCompleted && hasPrisma && project.port) {
       try {
         log(`檢查 port ${project.port} 是否被佔用...`);
         const netstat = execSync(`netstat -ano | findstr :${project.port}`, { windowsHide: true }).toString();
@@ -551,8 +850,9 @@ async function deploy(projectId, options = {}) {
 
     // 清理 Prisma cache（在 npm install 之前，避免 EPERM 錯誤）
     // 4 層重試策略：kill port PID → 3s 等待 → pm2 stop → 5s 等待 → force kill port PID
+    // (Skipped if Shadow Build succeeded)
     const prismaPath = path.join(projectDir, 'node_modules', '.prisma');
-    if (fs.existsSync(prismaPath)) {
+    if (!shadowBuildCompleted && fs.existsSync(prismaPath)) {
       log(`清理 Prisma cache...`);
 
       // 檢查 .dll.node 檔案鎖定
@@ -625,7 +925,8 @@ async function deploy(projectId, options = {}) {
     }
 
     // 自動安裝依賴（如果有 package.json）
-    if (!isPython && fs.existsSync(pkgPath)) {
+    // (Skipped if Shadow Build succeeded — shadow already installed deps)
+    if (!shadowBuildCompleted && !isPython && fs.existsSync(pkgPath)) {
       const nodeModulesPath = path.join(projectDir, 'node_modules');
       const lockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'];
       const lockPath = lockFiles.map(f => path.join(projectDir, f)).find(f => fs.existsSync(f));
@@ -688,8 +989,9 @@ async function deploy(projectId, options = {}) {
     }
 
     // 執行 build（buildSteps 優先，fallback 到 buildCommand）
+    // (Skipped if Shadow Build succeeded — shadow already built)
     let buildCmd = null;  // hoisted for health check rollback access
-    if (project.buildSteps?.length) {
+    if (!shadowBuildCompleted && project.buildSteps?.length) {
       try {
         runBuildSteps(project.buildSteps, projectDir, log);
       } catch (buildErr) {
@@ -733,7 +1035,7 @@ async function deploy(projectId, options = {}) {
         throw buildErr;
       }
       log(`Build 完成`);
-    } else {
+    } else if (!shadowBuildCompleted) {
     buildCmd = project.buildCommand;
     if (!buildCmd && fs.existsSync(pkgPath)) {
       try {
@@ -800,7 +1102,7 @@ async function deploy(projectId, options = {}) {
     }
     }
 
-    // 自動偵測入口檔案或啟動指令
+    // 自動偵測入口檔案或啟動指令 (Skipped if Shadow Build succeeded)
     let entryFile = project.entryFile;
     let startCommand = null;  // 框架專案用啟動指令代替入口檔案
     let useInterpreterNone = false;  // Python projects need interpreter: 'none'
@@ -923,8 +1225,8 @@ async function deploy(projectId, options = {}) {
       project.entryFile = entryFile;
     }
 
-    // PM2 重啟
-    if (project.pm2Name) {
+    // PM2 重啟 (Skipped if Shadow Build succeeded — shadow handles PM2 lifecycle)
+    if (!shadowBuildCompleted && project.pm2Name) {
       // 準備環境變數
       const pm2Env = {
         NODE_ENV: 'production',
@@ -1082,7 +1384,7 @@ async function deploy(projectId, options = {}) {
 
         } // end tempPortFree
       } else if (hasPrisma && project.port) {
-        log(`Prisma 專案：跳過 Blue-Green（Windows DLL 鎖定需先關閉舊程序）`);
+        log(`Prisma 專案：跳過 Blue-Green（Windows DLL 鎖定需先關閉舊程序，已改用 Shadow Build）`);
       }
 
       // ========== Normal Deploy Path (Prisma projects or Blue-Green fallback) ==========
