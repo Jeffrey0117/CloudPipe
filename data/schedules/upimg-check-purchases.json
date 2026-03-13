@@ -1,0 +1,14 @@
+{
+  "id": "upimg-check-purchases",
+  "name": "Upimg Check Purchases",
+  "description": "每週一凌晨 3 點檢查 CourseBloom 購買記錄，補撈漏開通的會員（安全網，webhook 為主力）",
+  "enabled": true,
+  "cron": "0 3 * * 1",
+  "timezone": "Asia/Taipei",
+  "type": "tool",
+  "tool": "upimg_check_purchases",
+  "params": {},
+  "notify": false,
+  "notifyOnFailure": true,
+  "retries": 1
+}
