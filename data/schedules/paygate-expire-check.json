@@ -1,0 +1,14 @@
+{
+  "id": "paygate-expire-check",
+  "name": "PayGate Expire Check",
+  "description": "Check and expire overdue subscriptions (daily 4:00 AM Taipei)",
+  "enabled": true,
+  "cron": "0 4 * * *",
+  "timezone": "Asia/Taipei",
+  "type": "tool",
+  "tool": "paygate_expire_check",
+  "params": {},
+  "notify": false,
+  "notifyOnFailure": true,
+  "retries": 1
+}

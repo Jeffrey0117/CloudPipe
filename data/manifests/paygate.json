@@ -1,0 +1,166 @@
+{
+  "name": "PayGate",
+  "version": "2.0.0",
+  "description": "Payment webhook receiver, purchase status, subscription management, and outgoing webhook service for CloudPipe ecosystem",
+  "endpoints": [
+    {
+      "name": "webhook",
+      "description": "Receive payment webhook from Classroo or other payment sources. Creates a purchase record, auto-creates subscription if matching plan exists, sends confirmation email and Telegram notification.",
+      "method": "POST",
+      "path": "/api/webhook",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "Buyer email address" },
+          "product_id": { "type": "string", "description": "Product identifier" },
+          "order_id": { "type": "string", "description": "Payment order ID (for idempotency)" },
+          "plan": { "type": "string", "description": "Subscription plan name" },
+          "amount": { "type": "number", "description": "Payment amount" },
+          "currency": { "type": "string", "description": "Currency code (default: TWD)" },
+          "source": { "type": "string", "description": "Payment source (e.g. payuni, stripe)" },
+          "expires_at": { "type": "string", "description": "Subscription expiry date (ISO 8601)" }
+        },
+        "required": ["email", "product_id"]
+      }
+    },
+    {
+      "name": "check",
+      "description": "Check if a user has an active purchase for a product. Public endpoint, no auth required.",
+      "method": "GET",
+      "path": "/api/purchases/check",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "User email to check" },
+          "product": { "type": "string", "description": "Product ID to check" }
+        },
+        "required": ["email", "product"]
+      }
+    },
+    {
+      "name": "list_purchases",
+      "description": "List all purchases for a given email address",
+      "method": "GET",
+      "path": "/api/purchases/{email}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "Email address to look up" }
+        },
+        "required": ["email"]
+      }
+    },
+    {
+      "name": "activate",
+      "description": "Manually activate a purchase (admin use). Creates a purchase record without payment webhook.",
+      "method": "POST",
+      "path": "/api/activate",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "User email" },
+          "product_id": { "type": "string", "description": "Product identifier" },
+          "plan": { "type": "string", "description": "Plan name" },
+          "expires_at": { "type": "string", "description": "Expiry date (ISO 8601)" },
+          "source": { "type": "string", "description": "Activation source" }
+        },
+        "required": ["email", "product_id"]
+      }
+    },
+    {
+      "name": "list_plans",
+      "description": "List subscription plans for a product. Public, no auth required.",
+      "method": "GET",
+      "path": "/api/plans",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": { "type": "string", "description": "Filter by product (e.g. 'upimg')" }
+        }
+      }
+    },
+    {
+      "name": "create_plan",
+      "description": "Create or update a subscription plan",
+      "method": "POST",
+      "path": "/api/plans",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Plan ID (format: product:tier:cycle)" },
+          "product": { "type": "string", "description": "Product name" },
+          "tier": { "type": "string", "description": "Tier name (e.g. member, premium)" },
+          "display_name": { "type": "string", "description": "Display name" },
+          "billing_cycle": { "type": "string", "description": "monthly, yearly, or lifetime" },
+          "price": { "type": "number", "description": "Price in TWD" },
+          "quotas": { "type": "object", "description": "JSON quotas (product-specific)" },
+          "checkout_url": { "type": "string", "description": "CourseBloom checkout URL" },
+          "cb_product_id": { "type": "string", "description": "CourseBloom product UUID" }
+        },
+        "required": ["id", "product", "tier", "billing_cycle"]
+      }
+    },
+    {
+      "name": "check_subscription",
+      "description": "Check if a user has an active subscription for a product. Returns tier, quotas, end_date.",
+      "method": "GET",
+      "path": "/api/subscription/check",
+      "auth": "none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "User email" },
+          "product": { "type": "string", "description": "Product name" }
+        },
+        "required": ["email", "product"]
+      }
+    },
+    {
+      "name": "subscribe",
+      "description": "Create or extend a subscription for a user",
+      "method": "POST",
+      "path": "/api/subscribe",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "description": "User email" },
+          "product": { "type": "string", "description": "Product name" },
+          "plan_id": { "type": "string", "description": "Plan ID (e.g. upimg:member:monthly)" }
+        },
+        "required": ["email", "product", "plan_id"]
+      }
+    },
+    {
+      "name": "register_hook",
+      "description": "Register an outgoing webhook URL for subscription events",
+      "method": "POST",
+      "path": "/api/hooks",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": { "type": "string", "description": "Product name" },
+          "url": { "type": "string", "description": "Webhook URL" },
+          "secret": { "type": "string", "description": "HMAC-SHA256 signing secret" },
+          "events": { "type": "array", "description": "Event types", "items": { "type": "string" } }
+        },
+        "required": ["product", "url", "secret"]
+      }
+    },
+    {
+      "name": "expire_check",
+      "description": "Check and expire overdue subscriptions. Dispatches hooks for each expiry.",
+      "method": "POST",
+      "path": "/api/subscriptions/expire-check",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    }
+  ]
+}
