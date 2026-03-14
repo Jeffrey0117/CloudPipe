@@ -10,6 +10,7 @@ const gateway = require('./gateway');
 const telegram = require('./telegram');
 const heartbeat = require('./heartbeat');
 const scheduler = require('./scheduler');
+const tunnelWatchdog = require('./tunnel-watchdog');
 const redis = require('./redis');
 
 // 專案根目錄
@@ -94,6 +95,9 @@ if (xcardConfig?.enabled && xcardConfig?.botPath) {
 // 啟動 Scheduler（排程任務）
 scheduler.start();
 
+// 啟動 Tunnel Watchdog（每 2 分鐘檢查 tunnel 健康）
+tunnelWatchdog.start();
+
 // Graceful shutdown
 const shutdown = async () => {
   console.log('');
@@ -103,6 +107,7 @@ const shutdown = async () => {
     await heartbeat.stopHeartbeat();
     deploy.stopPolling();
     scheduler.stop();
+    tunnelWatchdog.stop();
     telegram.stopBot();
     if (xcardBot) xcardBot.stopBot();
 
