@@ -385,7 +385,44 @@ See **"Ecosystem Services Quick Reference"** section below for complete details 
 | NotebookLM | `gw.call('notebody_ask', ...)` | `notebody_ask` |
 | Email sending | `gw.call('mailer_send_template', ...)` | `mailer_send_template` |
 | Payment status | `gw.call('paygate_check', ...)` | `paygate_check` |
+| Subscription check | `gw.call('paygate_check_subscription', ...)` | `paygate_check_subscription` |
 | Landing pages | `gw.call('launchkit_create_page', ...)` | `launchkit_create_page` |
+
+## Ecosystem Architecture
+
+CloudPipe operates as a 3-layer platform:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  CloudPipe (Orchestrator)                               │
+│  Deploy, Route, Gateway, MCP, Pipeline, Telegram Bot    │
+├─────────────────────────────────────────────────────────┤
+│  Infrastructure Services (shared by all products)       │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐  │
+│  │LetMeUse  │ │ PayGate  │ │ Mailer   │ │ LaunchKit │  │
+│  │Identity  │ │Payments &│ │ Email    │ │ Landing   │  │
+│  │& Auth    │ │Subscript.│ │ Sending  │ │ Pages     │  │
+│  └──────────┘ └──────────┘ └──────────┘ └───────────┘  │
+├─────────────────────────────────────────────────────────┤
+│  Products (consumer-facing apps)                        │
+│  Upimg, MeeTube, ReelScript, NoteBody, AutoCard,        │
+│  Quickky, CourseBloom, CanWeBack, ...                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Layer 1 — CloudPipe**: Deployment engine, domain-based router, API gateway, MCP server, pipeline engine, Telegram bot. Every service runs under CloudPipe's PM2 management.
+
+**Layer 2 — Infrastructure Services**: Horizontal capabilities shared by all products:
+- **LetMeUse** — WHO: Identity, authentication, session management. Products register an app, embed the login widget, get user identity.
+- **PayGate** — WHAT: Payment webhooks, subscription lifecycle, plan management. Products define plans, PayGate tracks purchases and dispatches subscription events via outgoing webhooks.
+- **Mailer** — HOW: Transactional email (welcome, purchase confirmation, notifications). Products call one Gateway endpoint instead of configuring SMTP.
+- **LaunchKit** — WHERE: Landing/sales pages from JSON config. Products create marketing pages without writing HTML.
+
+**Layer 3 — Products**: Consumer-facing apps that compose infrastructure services. Example: Upimg uses LetMeUse for login, PayGate for subscription tiers, Mailer for notifications.
+
+**Key principle**: Products never implement auth, payment, or email themselves. They consume infrastructure services via Gateway SDK or direct HTTP calls.
+
+---
 
 ## Ecosystem Services Quick Reference (IMPORTANT — READ THIS FIRST)
 
@@ -669,26 +706,47 @@ await gw.call('mailer_send_template', {
 
 ---
 
-### PayGate — Payment Gateway (port 4019)
+### PayGate — Payment & Subscription Gateway (port 4019)
 
-**What**: Unified payment webhook receiver + purchase status database. All products share one purchase DB — no per-product payment integration needed.
+**What**: Unified payment webhook receiver + subscription lifecycle manager. Receives purchase webhooks from CourseBloom, auto-creates/extends subscriptions, and dispatches subscription events to products via outgoing webhooks (HMAC-SHA256 signed).
 
-**When to use**: Any product that needs to charge money or check if a user has paid.
+**When to use**: Any product that needs paid tiers, subscription management, or purchase verification.
+
+**Core concepts**:
+- **Plans** — Define tiers with billing cycles and quotas (e.g., `member:monthly`, `premium:yearly`)
+- **Subscriptions** — Auto-created when a purchase matches a plan's `cb_product_id`. State machine: `active → expired → cancelled`
+- **Outgoing Webhooks** — Products register hook URLs. PayGate dispatches `subscription.activated`, `subscription.expired`, `subscription.cancelled` events with HMAC-SHA256 signatures
 
 **Key MCP tools**:
-- `paygate_webhook({ email, product_id, order_id, plan, amount, source })` — Receive payment webhook (idempotent)
-- `paygate_check({ email, product })` — Check if user has active purchase (public, no auth)
+- `paygate_webhook({ email, product_id, order_id, plan, amount, source })` — Receive payment webhook (idempotent, auto-creates subscription)
+- `paygate_check({ email, product })` — Check purchase status (public, no auth)
 - `paygate_list_purchases({ email })` — List all purchases for an email
-- `paygate_activate({ email, product_id, plan?, expires_at? })` — Manual activation (admin)
+- `paygate_list_plans({ product })` — List plans for a product (with quotas, checkout URLs)
+- `paygate_create_plan({ product, tier, ... })` — Create/update a plan
+- `paygate_check_subscription({ email, product })` — Check active subscription + tier + quotas
+- `paygate_subscribe({ email, product, planId })` — Manual subscription activation
+- `paygate_register_hook({ product, url, secret, events? })` — Register outgoing webhook
+- `paygate_expire_check()` — Expire past-due subscriptions (daily cron)
 
-**Integration** (paywall in any sub-project):
+**Integration** (subscription-based paywall):
 ```javascript
+// Check subscription tier
 const gw = require('../../sdk/gateway');
-const { active } = await gw.call('paygate_check', { email, product: 'my-product' });
-if (!active) return res.status(402).json({ error: 'Please purchase first' });
+const sub = await gw.call('paygate_check_subscription', { email, product: 'upimg' });
+if (!sub.active) return res.status(402).json({ error: 'Please subscribe' });
+// sub.tier = 'member' | 'premium', sub.quotas = { maxUploadPerDay: 200, ... }
 ```
 
-**Auth**: bearer (`PAYGATE_TOKEN` for admin, `PAYGATE_WEBHOOK_SECRET` for webhook), `/api/purchases/check` is public
+**Webhook flow**:
+```
+CourseBloom purchase → PayGate /api/webhook
+  → Creates purchase record (idempotent)
+  → Matches plan by cb_product_id → creates/extends subscription
+  → Dispatches subscription.activated webhook to product
+  → Product receives signed webhook → syncs user tier + quotas
+```
+
+**Auth**: bearer (`PAYGATE_TOKEN` for admin), `/api/purchases/check` and `/api/subscription/check` are public, `/api/plans` (GET) is public
 
 ---
 
