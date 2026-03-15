@@ -13,6 +13,61 @@ const gateway = require('./gateway');
 const hotloader = require('./hotloader');
 const deploy = require('./deploy');
 const db = require('./db');
+const logger = require('./logger');
+
+// ── Rate limiting (Redis fixed-window) ──
+
+const RATE_LIMIT_GLOBAL = 200   // req/min per IP
+const RATE_LIMIT_WRITE = 60     // write req/min per IP
+
+async function checkRateLimit(ip, method) {
+  try {
+    const redis = require('./redis').getClient()
+    if (!redis) return null // no Redis → allow
+
+    const minute = Math.floor(Date.now() / 60000)
+
+    // Global limit
+    const globalKey = `rl:${ip}:${minute}`
+    const globalCount = await redis.incr(globalKey)
+    if (globalCount === 1) await redis.expire(globalKey, 120)
+
+    if (globalCount > RATE_LIMIT_GLOBAL) {
+      return { limit: RATE_LIMIT_GLOBAL, remaining: 0, retryAfter: 60 - Math.floor((Date.now() % 60000) / 1000) }
+    }
+
+    // Write limit (POST/PUT/DELETE)
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      const writeKey = `rl:w:${ip}:${minute}`
+      const writeCount = await redis.incr(writeKey)
+      if (writeCount === 1) await redis.expire(writeKey, 120)
+
+      if (writeCount > RATE_LIMIT_WRITE) {
+        return { limit: RATE_LIMIT_WRITE, remaining: 0, retryAfter: 60 - Math.floor((Date.now() % 60000) / 1000) }
+      }
+    }
+
+    return null // allowed
+  } catch (err) {
+    console.error('[rate-limit] Redis error:', err.message)
+    return null // Redis error → allow (graceful fallback)
+  }
+}
+
+// ── CORS origin whitelist ──
+
+function isAllowedOrigin(origin) {
+  if (!origin) return false
+  try {
+    const { hostname } = new URL(origin)
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true
+    if (hostname.endsWith('.isnowfriend.com') || hostname === 'isnowfriend.com') return true
+    if (hostname.endsWith('.duk.tw') || hostname === 'duk.tw') return true
+    return false
+  } catch {
+    return false
+  }
+}
 
 // ── hostname → port resolution (30s TTL cache) ──
 
@@ -109,11 +164,23 @@ const createRouter = function(config) {
   // 載入 services/（使用 hotloader）
   hotloader.loadAllServices(servicesDir);
 
-  return http.createServer((req, res) => {
-    // CORS
-    res.setHeader('access-control-allow-origin', '*');
-    res.setHeader('access-control-allow-methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('access-control-allow-headers', 'content-type, authorization');
+  return http.createServer(async (req, res) => {
+    try {
+
+    // CORS (origin whitelist)
+    const origin = req.headers.origin
+    if (isAllowedOrigin(origin)) {
+      res.setHeader('access-control-allow-origin', origin)
+      res.setHeader('access-control-allow-credentials', 'true')
+    }
+    res.setHeader('access-control-allow-methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    res.setHeader('access-control-allow-headers', 'content-type, authorization')
+    res.setHeader('vary', 'Origin')
+
+    // Security headers
+    res.setHeader('x-content-type-options', 'nosniff')
+    res.setHeader('x-frame-options', 'SAMEORIGIN')
+    res.setHeader('referrer-policy', 'strict-origin-when-cross-origin')
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -126,7 +193,35 @@ const createRouter = function(config) {
     const subdomain = hostname.split('.')[0];
     const domain = config.domain || 'isnowfriend.com';
 
-    console.log(`[${subdomain}] ${req.method} ${req.url}`);
+    // Request logging
+    const startTime = Date.now()
+    const clientIp = logger.getClientIp(req)
+
+    res.on('finish', () => {
+      logger.log({
+        ts: new Date().toISOString(),
+        ip: clientIp,
+        method: req.method,
+        url: req.url,
+        status: res.statusCode,
+        ms: Date.now() - startTime,
+        sub: subdomain,
+        host: hostname
+      })
+    })
+
+    // Rate limiting (skip OPTIONS and health checks)
+    const urlPath0 = req.url.split('?')[0]
+    if (req.method !== 'OPTIONS' && urlPath0 !== '/health' && !urlPath0.endsWith('/api/health')) {
+      const blocked = await checkRateLimit(clientIp, req.method)
+      if (blocked) {
+        res.writeHead(429, {
+          'content-type': 'application/json',
+          'retry-after': String(blocked.retryAfter)
+        })
+        return res.end(JSON.stringify({ error: 'Too many requests', retryAfter: blocked.retryAfter }))
+      }
+    }
 
     // ========== 主域名 (epi.isnowfriend.com) ==========
     if (subdomain === mainSubdomain || hostname === 'localhost') {
@@ -141,6 +236,14 @@ const createRouter = function(config) {
 
     // ========== Fallback: apps/ 目錄靜態檔案 ==========
     return handleAppDomain(req, res, { subdomain, appsDir });
+
+    } catch (err) {
+      console.error('[router] Unhandled error:', err)
+      if (!res.headersSent) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Internal server error' }))
+      }
+    }
   });
 
   // 處理主域名
@@ -315,12 +418,19 @@ const createRouter = function(config) {
 
   // 代理到指定 port
   function proxyToPort(req, res, port) {
+    const ip = logger.getClientIp(req)
+    const existingXff = req.headers['x-forwarded-for']
     const options = {
       hostname: 'localhost',
       port: port,
       path: req.url,
       method: req.method,
-      headers: req.headers
+      headers: {
+        ...req.headers,
+        'x-forwarded-for': existingXff ? `${ip}, ${existingXff}` : ip,
+        'x-real-ip': ip,
+        'x-forwarded-proto': 'https'
+      }
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
