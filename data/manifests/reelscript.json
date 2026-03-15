@@ -35,6 +35,7 @@
       "description": "Translate video transcript segments to Traditional Chinese",
       "method": "POST",
       "path": "/api/videos/{video_id}/translate",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -48,6 +49,7 @@
       "description": "Extract useful English vocabulary (phrasal verbs, idioms, collocations) with Chinese translations",
       "method": "POST",
       "path": "/api/videos/{video_id}/analyze-vocabulary",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -61,6 +63,7 @@
       "description": "Generate content appreciation: theme, key points, and golden quotes (en + zh)",
       "method": "POST",
       "path": "/api/videos/{video_id}/appreciate",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {

@@ -35,6 +35,7 @@
       "description": "Submit a new job (thumbnail/webp/hls/download/proxy/deploy)",
       "method": "POST",
       "path": "/api/jobs",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -52,6 +53,7 @@
       "description": "Cancel a queued job",
       "method": "DELETE",
       "path": "/api/jobs/{id}",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {

@@ -8,6 +8,7 @@
       "description": "Generate a translated card PNG from a tweet URL. Returns base64-encoded PNG image + metadata",
       "method": "POST",
       "path": "/api/generate",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -21,6 +22,7 @@
       "description": "Fetch tweet data (text, author, metrics, images) without generating a card",
       "method": "POST",
       "path": "/api/fetch",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -34,6 +36,7 @@
       "description": "Generate an AI social media post (Traditional Chinese) from a tweet URL",
       "method": "POST",
       "path": "/api/social",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
