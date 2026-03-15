@@ -284,8 +284,39 @@ module.exports = {
   }
 };
 
+// Login rate limit — 5 attempts per IP per 15 minutes
+const _loginAttempts = new Map();
+const LOGIN_MAX = 5;
+const LOGIN_WINDOW = 15 * 60 * 1000;
+
+function checkLoginRateLimit(req) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const attempts = (_loginAttempts.get(ip) || []).filter(t => now - t < LOGIN_WINDOW);
+  if (attempts.length >= LOGIN_MAX) return false;
+  attempts.push(now);
+  _loginAttempts.set(ip, attempts);
+  return true;
+}
+
+// Clean up stale entries every 30 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, attempts] of _loginAttempts) {
+    const valid = attempts.filter(t => now - t < LOGIN_WINDOW);
+    if (valid.length === 0) _loginAttempts.delete(ip);
+    else _loginAttempts.set(ip, valid);
+  }
+}, 30 * 60 * 1000).unref();
+
 // 登入處理 (使用 JWT)
 function handleLogin(req, res) {
+  if (!checkLoginRateLimit(req)) {
+    res.writeHead(429, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ error: '登入嘗試過多，請 15 分鐘後再試' }));
+  }
+
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {

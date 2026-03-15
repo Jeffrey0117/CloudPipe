@@ -18,9 +18,13 @@ function getConfig() {
   }
 }
 
-// JWT Secret
+// JWT Secret — no fallback; missing config = auth disabled
 function getJwtSecret() {
-  return getConfig().jwtSecret || 'default_jwt_secret_change_me';
+  const secret = getConfig().jwtSecret
+  if (!secret) {
+    throw new Error('jwtSecret not configured in config.json — admin auth is disabled until set')
+  }
+  return secret
 }
 
 // 密碼

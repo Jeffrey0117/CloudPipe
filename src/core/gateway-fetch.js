@@ -9,6 +9,42 @@ const { readFileSync } = require('fs')
 const { join } = require('path')
 
 const AUTH_CONFIG_PATH = join(__dirname, '..', '..', 'data', 'manifests', 'auth.json')
+const ROOT_DIR = join(__dirname, '..', '..')
+const PROJECTS_DIR = join(ROOT_DIR, 'projects')
+
+// --- .env loader (reads sub-project .env files for token resolution) ---
+
+const _envCache = new Map()
+
+function loadProjectEnv(projectId, envDir) {
+  const cacheKey = envDir || projectId
+  if (_envCache.has(cacheKey)) return _envCache.get(cacheKey)
+
+  let dir
+  if (envDir) {
+    dir = require('path').isAbsolute(envDir) ? envDir : join(ROOT_DIR, envDir)
+  } else {
+    dir = join(PROJECTS_DIR, projectId)
+  }
+  const envPath = join(dir, '.env')
+
+  const env = {}
+  try {
+    const content = readFileSync(envPath, 'utf-8')
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIdx = trimmed.indexOf('=')
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx)
+        const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, '')
+        env[key] = val
+      }
+    }
+  } catch {}
+  _envCache.set(cacheKey, env)
+  return env
+}
 
 // --- Auth config ---
 
@@ -24,8 +60,15 @@ function loadAuthConfig() {
 function getAuthToken(projectId, authConfig) {
   const config = authConfig[projectId]
   if (!config || config.type === 'none') return null
+  if (config.env) {
+    // 1. Check process env first (for vars set in ecosystem/system)
+    if (process.env[config.env]) return process.env[config.env]
+    // 2. Load from sub-project's .env file
+    const projectEnv = loadProjectEnv(projectId, config.envDir)
+    if (projectEnv[config.env]) return projectEnv[config.env]
+  }
+  // 3. Fallback to hardcoded token (legacy, should be migrated)
   if (config.token) return config.token
-  if (config.env) return process.env[config.env] || null
   return null
 }
 
