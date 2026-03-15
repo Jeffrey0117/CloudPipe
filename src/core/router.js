@@ -210,9 +210,9 @@ const createRouter = function(config) {
       })
     })
 
-    // Rate limiting (skip OPTIONS and health checks)
+    // Rate limiting (skip OPTIONS, health checks, and LurlHub capture)
     const urlPath0 = req.url.split('?')[0]
-    if (req.method !== 'OPTIONS' && urlPath0 !== '/health' && !urlPath0.endsWith('/api/health')) {
+    if (req.method !== 'OPTIONS' && urlPath0 !== '/health' && !urlPath0.endsWith('/api/health') && !urlPath0.startsWith('/lurl/')) {
       const blocked = await checkRateLimit(clientIp, req.method)
       if (blocked) {
         res.writeHead(429, {
