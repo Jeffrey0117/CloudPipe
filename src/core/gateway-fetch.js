@@ -63,9 +63,7 @@ function buildFetchOptions(tool, params, authConfig) {
         bodyParams[key] = val
       }
     }
-    if (Object.keys(bodyParams).length > 0) {
-      opts.body = JSON.stringify(bodyParams)
-    }
+    opts.body = JSON.stringify(bodyParams)
   }
 
   return opts

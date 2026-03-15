@@ -163,14 +163,15 @@ const gateway = {
 
       try {
         const body = await parseJsonBody(req)
-        const { tool: toolName, params } = body
+        const { tool: toolName, params, args } = body
+        const toolParams = params || args
 
         if (!toolName) {
           res.writeHead(400, { 'content-type': 'application/json' })
           return res.end(JSON.stringify({ error: 'Missing "tool" field' }))
         }
 
-        const result = await callToolByName(toolName, params || {})
+        const result = await callToolByName(toolName, toolParams || {})
 
         res.writeHead(result.ok ? 200 : result.status || 502, { 'content-type': 'application/json' })
         return res.end(JSON.stringify(result))
