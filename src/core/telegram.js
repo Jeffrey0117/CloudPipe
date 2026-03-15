@@ -161,6 +161,7 @@ async function registerCommands() {
       { command: 'upload', description: '開關上傳模式（傳圖自動上傳到 duk.tw）' },
       { command: 'schedules', description: '列出排程任務' },
       { command: 'schedule', description: '排程操作 run|toggle <id>' },
+      { command: 'initrepo', description: '初始化 Git repo 並推上 GitHub' },
       { command: 'envtoken', description: '生成 .env 下載 token（給新機器用）' },
       { command: 'help', description: '指令說明' },
     ],
@@ -185,6 +186,7 @@ async function handleStart(chatId) {
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/upload — 開關上傳模式（傳圖自動上傳 duk.tw）',
+    '/initrepo &lt;id&gt; — 初始化 Git repo 推上 GitHub',
     '/schedules — 列出排程任務',
     '/schedule run|toggle &lt;id&gt; — 執行或開關排程',
     '/envtoken — 生成 .env token（新機器用）',
@@ -399,6 +401,65 @@ async function handleDeploy(chatId, projectId) {
       ]],
     },
   });
+}
+
+async function handleInitRepo(chatId, projectId) {
+  if (!projectId) {
+    const projects = deploy.getAllProjects();
+    const ids = projects.map((p) => `<code>${p.id}</code>`).join(', ');
+    return sendMessage(chatId, `請指定專案 ID：\n/initrepo &lt;id&gt;\n\n可用: ${ids}`);
+  }
+
+  const project = deploy.getProject(projectId);
+  if (!project) {
+    return sendMessage(chatId, `找不到專案 <code>${projectId}</code>`);
+  }
+
+  await sendMessage(chatId, `📦 正在初始化 <b>${project.name || projectId}</b> 的 Git repo...`);
+
+  try {
+    const http = require('http');
+    const config = getFullConfig();
+    const port = config.port || 8787;
+    const auth = require('./auth');
+    const token = auth.generateAdminToken();
+
+    const result = await new Promise((resolve, reject) => {
+      const payload = JSON.stringify({});
+      const req = http.request({
+        hostname: 'localhost',
+        port,
+        path: `/api/_admin/deploy/projects/${encodeURIComponent(projectId)}/init-repo`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); } catch { resolve({ error: data }); }
+        });
+      });
+      req.on('error', (err) => reject(err));
+      req.setTimeout(60000, () => { req.destroy(); reject(new Error('timeout')); });
+      req.write(payload);
+      req.end();
+    });
+
+    if (result.success) {
+      const steps = (result.steps || []).map(s => `  • ${s}`).join('\n');
+      const repoLine = result.repoUrl ? `\n🔗 ${result.repoUrl}` : '';
+      await sendMessage(chatId, `✅ <b>${project.name || projectId}</b> repo 初始化完成\n\n${steps}${repoLine}`);
+    } else {
+      const steps = (result.steps || []).map(s => `  • ${s}`).join('\n');
+      await sendMessage(chatId, `⚠️ <b>${project.name || projectId}</b> 部分完成\n\n${steps}\n\n錯誤: ${result.error || '未知'}`);
+    }
+  } catch (err) {
+    await sendMessage(chatId, `❌ initrepo 失敗: ${err.message}`);
+  }
 }
 
 async function handleEnvToken(chatId) {
@@ -659,6 +720,7 @@ async function handleHelp(chatId) {
     '/call &lt;tool&gt; key=value — 呼叫工具',
     '/pipe &lt;pipeline&gt; key=value — 執行 pipeline',
     '/upload — 圖片 caption 加 /upload → 上傳到 duk.tw',
+    '/initrepo &lt;id&gt; — 初始化 Git repo 並推上 GitHub',
     '/schedules — 列出排程任務',
     '/schedule run|toggle &lt;id&gt; — 執行或開關排程',
     '/envtoken — 生成 .env token（給新機器）',
@@ -947,6 +1009,8 @@ async function handleUpdate(update) {
       }
       return sendMessage(chatId, '📸 上傳模式已關閉')
     }
+    case '/initrepo':
+      return handleInitRepo(chatId, args[0]);
     case '/envtoken':
       return handleEnvToken(chatId);
     case '/help':

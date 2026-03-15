@@ -1,0 +1,41 @@
+{
+  "name": "Mailer",
+  "version": "1.0.0",
+  "description": "Shared email sending service — direct HTML or template-based emails with bilingual support",
+  "endpoints": [
+    {
+      "name": "send",
+      "description": "Send a raw HTML email to a recipient",
+      "method": "POST",
+      "path": "/api/send",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "description": "Recipient email address" },
+          "subject": { "type": "string", "description": "Email subject line" },
+          "html": { "type": "string", "description": "Email body as HTML" }
+        },
+        "required": ["to", "subject", "html"]
+      }
+    },
+    {
+      "name": "send_template",
+      "description": "Send a template-based email (welcome, purchase_success, notification) with locale support (en/zh)",
+      "method": "POST",
+      "path": "/api/send-template",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "description": "Recipient email address" },
+          "template": { "type": "string", "description": "Template name: welcome, purchase_success, notification" },
+          "locale": { "type": "string", "description": "Language locale: en or zh (default: en)" },
+          "data": { "type": "object", "description": "Template data (name, appName, actionUrl, etc.)" },
+          "subject": { "type": "string", "description": "Override subject line (optional)" }
+        },
+        "required": ["to", "template"]
+      }
+    }
+  ]
+}

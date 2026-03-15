@@ -1,0 +1,47 @@
+{
+  "name": "LaunchKit",
+  "version": "1.0.0",
+  "description": "JSON to Landing Page generator — create beautiful product pages from config",
+  "endpoints": [
+    {
+      "name": "create_page",
+      "description": "Create or update a landing page from JSON config (upsert by slug)",
+      "method": "POST",
+      "path": "/api/pages",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "description": "URL slug (lowercase, alphanumeric + hyphens, 2-50 chars)" },
+          "title": { "type": "string", "description": "Page title" },
+          "config": {
+            "type": "object",
+            "description": "Page configuration with sections: hero, features, pricing, og, theme, footer"
+          }
+        },
+        "required": ["slug", "title", "config"]
+      }
+    },
+    {
+      "name": "list_pages",
+      "description": "List all landing pages (metadata only, no config blob)",
+      "method": "GET",
+      "path": "/api/pages",
+      "auth": "bearer"
+    },
+    {
+      "name": "delete_page",
+      "description": "Delete a landing page by slug",
+      "method": "DELETE",
+      "path": "/api/pages/{slug}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "description": "Page slug to delete" }
+        },
+        "required": ["slug"]
+      }
+    }
+  ]
+}

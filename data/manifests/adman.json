@@ -14,6 +14,7 @@
       "description": "Create a new ad project",
       "method": "POST",
       "path": "/api/projects",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -42,6 +43,7 @@
       "description": "Update an ad project",
       "method": "PUT",
       "path": "/api/projects/{projectId}",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
@@ -58,12 +60,37 @@
       "description": "Delete an ad project (fails if ads exist)",
       "method": "DELETE",
       "path": "/api/projects/{projectId}",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
           "projectId": { "type": "string", "description": "Project ID" }
         },
         "required": ["projectId"]
+      }
+    },
+    {
+      "name": "create_ad",
+      "description": "Create a new ad",
+      "method": "POST",
+      "path": "/api/ads",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "description": "Project ID" },
+          "name": { "type": "string", "description": "Ad name" },
+          "type": { "type": "string", "description": "Ad type (bottom-banner, top-notification, in-article-banner, modal-popup, sidebar-card)" },
+          "status": { "type": "string", "description": "Ad status (draft/enabled/disabled)" },
+          "position": { "type": "string", "description": "Ad position (fixed-bottom, fixed-top, inline, fixed, sidebar-left, sidebar-right)" },
+          "headline": { "type": "string", "description": "Ad headline text" },
+          "bodyText": { "type": "string", "description": "Ad body text" },
+          "ctaText": { "type": "string", "description": "CTA button text (empty to hide)" },
+          "ctaUrl": { "type": "string", "description": "CTA button URL" },
+          "imageUrl": { "type": "string", "description": "Image URL" },
+          "style": { "type": "object", "description": "Styling: backgroundColor, textColor, ctaBackgroundColor, ctaTextColor, borderRadius, padding, maxWidth, zIndex, customCSS, fontFamily" }
+        },
+        "required": ["projectId", "name", "type", "position"]
       }
     },
     {
@@ -81,16 +108,23 @@
     },
     {
       "name": "update_ad",
-      "description": "Update an ad (content, status, position)",
+      "description": "Update an ad (all fields: content, style, status)",
       "method": "PUT",
       "path": "/api/ads/{adId}",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {
           "adId": { "type": "string", "description": "Ad ID" },
           "name": { "type": "string", "description": "Ad name" },
-          "status": { "type": "string", "description": "Ad status (enabled/disabled)" },
-          "position": { "type": "string", "description": "Ad position" }
+          "status": { "type": "string", "description": "Ad status (draft/enabled/disabled)" },
+          "position": { "type": "string", "description": "Ad position" },
+          "headline": { "type": "string", "description": "Ad headline text" },
+          "bodyText": { "type": "string", "description": "Ad body text" },
+          "ctaText": { "type": "string", "description": "CTA button text (empty to hide)" },
+          "ctaUrl": { "type": "string", "description": "CTA button URL" },
+          "imageUrl": { "type": "string", "description": "Image URL" },
+          "style": { "type": "object", "description": "Styling: backgroundColor, textColor, ctaBackgroundColor, ctaTextColor, borderRadius, padding, maxWidth, zIndex, customCSS, fontFamily" }
         },
         "required": ["adId"]
       }
@@ -100,6 +134,7 @@
       "description": "Delete an ad",
       "method": "DELETE",
       "path": "/api/ads/{adId}",
+      "auth": "bearer",
       "parameters": {
         "type": "object",
         "properties": {

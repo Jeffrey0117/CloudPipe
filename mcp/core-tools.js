@@ -4,6 +4,9 @@
  */
 
 const { z } = require('zod')
+const { execSync } = require('child_process')
+const { existsSync } = require('fs')
+const { join, resolve } = require('path')
 
 function registerCoreTools(server, client) {
   server.tool(
@@ -215,6 +218,75 @@ function registerCoreTools(server, client) {
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
       } catch (err) {
         return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  server.tool(
+    'init_repo',
+    'Initialize a Git repo for a project, generate README + .gitignore, create GitHub repo, and push. Use this to put a new project on GitHub.',
+    {
+      id: z.string().describe('Project ID'),
+      owner: z.string().optional().describe('GitHub owner (default: Jeffrey0117)'),
+    },
+    async ({ id, owner }) => {
+      try {
+        const body = owner ? { owner } : undefined
+        const result = await client.initRepo(id, body)
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }
+      }
+    }
+  )
+
+  // --- ver2 cache-busting tool ---
+
+  server.tool(
+    'cache_bust',
+    'Run ver2 cache-busting on a project\'s static HTML files. Scans HTML, hashes static assets (JS/CSS/images), and adds/updates ?v={hash} query params for cache invalidation.',
+    {
+      projectId: z.string().describe('Project ID (e.g. pokkit, rawtxt) — resolves to projects/{id}/public'),
+      path: z.string().optional().describe('Custom path relative to project root (default: ./public)'),
+      dryRun: z.boolean().optional().describe('Preview changes without writing (default: false)'),
+      strip: z.string().optional().describe('Strip URL prefix before resolving (e.g. /static/)'),
+    },
+    async ({ projectId, path, dryRun, strip }) => {
+      try {
+        const projectDir = resolve(join(__dirname, '..', 'projects', projectId))
+        if (!existsSync(projectDir)) {
+          return { content: [{ type: 'text', text: `Error: Project directory not found: projects/${projectId}` }], isError: true }
+        }
+
+        const targetPath = path || './public'
+        const fullTarget = resolve(join(projectDir, targetPath))
+        if (!existsSync(fullTarget)) {
+          return { content: [{ type: 'text', text: `Error: Target path not found: ${targetPath} (resolved: ${fullTarget})` }], isError: true }
+        }
+
+        const args = [fullTarget]
+        if (dryRun) args.push('--dry-run')
+        if (strip) args.push('--strip', strip)
+
+        const cmd = `npx ver2-cli ${args.map(a => `"${a}"`).join(' ')}`
+        const output = execSync(cmd, {
+          cwd: projectDir,
+          encoding: 'utf-8',
+          timeout: 30000,
+        })
+
+        const summary = dryRun
+          ? `[DRY RUN] ver2 preview for ${projectId}:\n${output}`
+          : `ver2 cache-bust complete for ${projectId}:\n${output}`
+
+        return { content: [{ type: 'text', text: summary }] }
+      } catch (err) {
+        const stderr = err.stderr || ''
+        const stdout = err.stdout || ''
+        return {
+          content: [{ type: 'text', text: `Error running ver2: ${err.message}\n${stderr}\n${stdout}` }],
+          isError: true,
+        }
       }
     }
   )

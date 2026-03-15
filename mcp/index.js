@@ -212,7 +212,7 @@ async function main() {
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error(`CloudPipe MCP server started (7 core + ${discoveredCount} discovered + ${pipelineCount} pipeline tools)`)
+  console.error(`CloudPipe MCP server started (8 core + ${discoveredCount} discovered + ${pipelineCount} pipeline tools)`)
 }
 
 main().catch((err) => {

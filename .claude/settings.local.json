@@ -6,5 +6,9 @@
       "WebSearch",
       "WebFetch(domain:www.npmjs.com)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "cloudpipe"
+  ],
+  "enableAllProjectMcpServers": true
 }

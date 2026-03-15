@@ -145,6 +145,20 @@
       "method": "GET",
       "path": "/api/admin/export",
       "auth": "bearer"
+    },
+    {
+      "name": "check_purchases",
+      "description": "Check CourseBloom purchases and activate memberships (cron)",
+      "method": "GET",
+      "path": "/api/cron/check-purchases",
+      "auth": "bearer"
+    },
+    {
+      "name": "check_expirations",
+      "description": "Check and expire overdue memberships (cron)",
+      "method": "GET",
+      "path": "/api/cron/check-expirations",
+      "auth": "bearer"
     }
   ]
 }

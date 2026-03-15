@@ -41,6 +41,10 @@ class CloudPipe {
     return this._post(`/api/_admin/deploy/projects/${enc(id)}/rollback`, body)
   }
 
+  initRepo(id, options) {
+    return this._post(`/api/_admin/deploy/projects/${enc(id)}/init-repo`, options)
+  }
+
   status() {
     return this._get('/api/_admin/deploy/projects').then(r => r.projects)
   }

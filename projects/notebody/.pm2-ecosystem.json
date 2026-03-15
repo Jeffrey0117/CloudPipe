@@ -1,0 +1,17 @@
+{
+  "apps": [
+    {
+      "name": "notebody",
+      "script": "C:\\Users\\jeffb\\Desktop\\code\\workhub\\notebody\\server.js",
+      "cwd": "C:\\Users\\jeffb\\Desktop\\code\\workhub\\notebody",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "4010",
+        "NOTEBODY_TOKEN": "8fe8540c0041add2e114e31ab71533e68a83e3932d43a979eee4148d845a971e",
+        "TELEGRAM_PROXY": "https://tg-proxy.jeffby8.workers.dev"
+      },
+      "autorestart": true,
+      "max_restarts": 5
+    }
+  ]
+}

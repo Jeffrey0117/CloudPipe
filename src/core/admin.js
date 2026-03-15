@@ -151,6 +151,12 @@ module.exports = {
       return handleRollback(req, res, id);
     }
 
+    // POST /api/_admin/deploy/projects/:id/init-repo - 初始化 Git repo 並推上 GitHub
+    if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/init-repo$/)) {
+      const id = pathname.split('/')[5];
+      return handleInitRepoRoute(req, res, id);
+    }
+
     // POST /api/_admin/deploy/projects/:id/webhook - 設定 GitHub Webhook
     if (req.method === 'POST' && pathname.match(/^\/api\/_admin\/deploy\/projects\/[^/]+\/webhook$/)) {
       const id = pathname.split('/')[5];
@@ -733,6 +739,169 @@ async function handleRollback(req, res, id) {
     res.writeHead(400, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }
+}
+
+// Init repo — generate README, .gitignore, create GitHub repo, push
+async function handleInitRepoRoute(req, res, id) {
+  try {
+    const project = deploy.getProject(id);
+    if (!project) {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: '專案不存在' }));
+    }
+
+    let options = {};
+    try { options = await parseJsonBody(req); } catch {}
+
+    const projectDir = path.resolve(ROOT, project.directory);
+    if (!fs.existsSync(projectDir)) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: `專案目錄不存在: ${project.directory}` }));
+    }
+
+    const hasGit = fs.existsSync(path.join(projectDir, '.git'));
+    let hasRemote = false;
+    if (hasGit) {
+      try {
+        const remotes = execSync('git remote -v', { cwd: projectDir, encoding: 'utf8', windowsHide: true });
+        hasRemote = remotes.includes('origin');
+      } catch {}
+    }
+
+    const result = { project: id, steps: [] };
+
+    // 1. Generate .gitignore if missing
+    if (!fs.existsSync(path.join(projectDir, '.gitignore'))) {
+      fs.writeFileSync(path.join(projectDir, '.gitignore'), generateGitignore(project));
+      result.steps.push('Generated .gitignore');
+    }
+
+    // 2. Generate README.md
+    fs.writeFileSync(path.join(projectDir, 'README.md'), generateReadme(project, id));
+    result.steps.push('Generated README.md');
+
+    // 3. Git init if needed
+    if (!hasGit) {
+      execSync('git init', { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+      execSync('git branch -M master', { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+      result.steps.push('Initialized git repository');
+    }
+
+    // 4. Git add + commit
+    const commitMsg = hasGit
+      ? 'chore: update README via initrepo'
+      : 'Initial commit via CloudPipe initrepo';
+    execSync('git add -A', { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    try {
+      execSync(`git commit -m "${commitMsg}"`, {
+        cwd: projectDir, stdio: 'pipe', windowsHide: true,
+      });
+      result.steps.push('Created commit');
+    } catch {
+      result.steps.push('No new changes to commit');
+    }
+
+    // 5. Create GitHub repo or push to existing remote
+    if (!hasRemote) {
+      const repoName = project.name || id;
+      const ghOwner = options.owner || 'Jeffrey0117';
+      const desc = (project.description || '').replace(/"/g, '\\"');
+      const descFlag = desc ? ` --description "${desc}"` : '';
+      try {
+        execSync(
+          `gh repo create ${ghOwner}/${repoName} --public --source=. --push${descFlag}`,
+          { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 30000 },
+        );
+        const repoUrl = `https://github.com/${ghOwner}/${repoName}`;
+        result.repoUrl = repoUrl;
+        result.steps.push(`Created GitHub repo: ${repoUrl}`);
+        deploy.updateProject(id, { repoUrl });
+        result.steps.push('Updated project repoUrl');
+      } catch (err) {
+        const stderr = err.stderr ? err.stderr.toString().trim() : err.message;
+        result.steps.push(`GitHub repo creation failed: ${stderr}`);
+        result.error = stderr;
+      }
+    } else {
+      try {
+        execSync('git push', { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 30000 });
+        result.steps.push('Pushed to existing remote');
+        const remoteUrl = execSync('git remote get-url origin', {
+          cwd: projectDir, encoding: 'utf8', windowsHide: true,
+        }).trim();
+        result.repoUrl = remoteUrl;
+      } catch (err) {
+        const stderr = err.stderr ? err.stderr.toString().trim() : err.message;
+        result.steps.push(`Push failed: ${stderr}`);
+      }
+    }
+
+    const statusCode = result.error ? 500 : 200;
+    res.writeHead(statusCode, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ success: !result.error, ...result }));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+function generateGitignore(project) {
+  const lines = [
+    'node_modules/',
+    '.env',
+    '.env.local',
+    '.env.production',
+    '*.db',
+    '*.sqlite',
+    '*.sqlite3',
+    'data/',
+    'uploads/',
+    'storage/',
+    'db/',
+    '.pm2-start.cjs',
+    '*.log',
+    '.DS_Store',
+    'Thumbs.db',
+  ];
+  if (project.runner === 'next') {
+    lines.push('.next/', 'out/');
+  }
+  return lines.join('\n') + '\n';
+}
+
+function generateReadme(project, id) {
+  const name = project.name || id;
+  const desc = project.description || '';
+  const port = project.port || '?';
+
+  const manifestPath = path.join(ROOT, 'data', 'manifests', `${id}.json`);
+  let manifest = null;
+  try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')); } catch {}
+
+  const lines = [`# ${name}`, ''];
+  if (desc) lines.push(desc, '');
+  lines.push('Part of the [CloudPipe](https://github.com/Jeffrey0117/CloudPipe) ecosystem.', '');
+
+  lines.push('## Quick Start', '', '```bash', 'npm install');
+  if (project.buildCommand) lines.push(project.buildCommand);
+  lines.push(`PORT=${port} node ${project.entryFile || 'server.js'}`, '```', '');
+
+  lines.push('## Environment', '', '| Variable | Description |', '|----------|-------------|');
+  lines.push(`| \`PORT\` | Server port (default: ${port}) |`, '');
+
+  if (manifest && manifest.endpoints && manifest.endpoints.length > 0) {
+    lines.push('## API', '', '| Method | Path | Description |', '|--------|------|-------------|');
+    if (project.healthEndpoint) {
+      lines.push(`| GET | \`${project.healthEndpoint}\` | Health check |`);
+    }
+    for (const ep of manifest.endpoints) {
+      lines.push(`| ${ep.method} | \`${ep.path}\` | ${ep.description || ep.name} |`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## License', '', 'MIT', '');
+  return lines.join('\n');
 }
 
 // 設定 GitHub Webhook
