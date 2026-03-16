@@ -399,6 +399,22 @@
       "webhookId": 599290127,
       "lastDeployCommit": "fa657c0",
       "runningCommit": "fa657c0"
+    },
+    {
+      "id": "dropkit",
+      "name": "DropKit",
+      "description": "Config-driven submission portal",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/dropkit.git",
+      "branch": "master",
+      "directory": "../workhub/dropkit",
+      "entryFile": "server.js",
+      "port": 4021,
+      "pm2Name": "dropkit",
+      "envFile": "",
+      "buildCommand": "npm install",
+      "healthEndpoint": "/api/health",
+      "createdAt": "2026-03-16T00:00:00.000Z"
     }
   ]
 }
