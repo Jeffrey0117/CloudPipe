@@ -937,6 +937,28 @@ async function handlePhoto(chatId, message) {
   }
 }
 
+// ==================== Deploy Token ====================
+
+async function handleNewToken(chatId, args) {
+  if (!args[0]) {
+    return sendMessage(chatId, '用法: <code>/newtoken 名稱 [email]</code>\n\n例: <code>/newtoken Jeffrey jeff@example.com</code>');
+  }
+  const name = args[0];
+  const email = args[1] || null;
+
+  const db = require('./db');
+  const record = db.createDeployToken({ name, email });
+
+  return sendMessage(chatId,
+    `✅ <b>Deploy Token Created</b>\n\n` +
+    `Name: ${record.name}\n` +
+    `Email: ${record.email || '(none)'}\n` +
+    `Max sites: ${record.max_sites}\n\n` +
+    `<code>${record.token}</code>\n\n` +
+    `⚠️ 請立即複製，不會再顯示`
+  );
+}
+
 // ==================== Update Handler ====================
 
 async function handleUpdate(update) {
@@ -1013,6 +1035,8 @@ async function handleUpdate(update) {
       return handleInitRepo(chatId, args[0]);
     case '/envtoken':
       return handleEnvToken(chatId);
+    case '/newtoken':
+      return handleNewToken(chatId, args);
     case '/help':
       return handleHelp(chatId);
     default:
