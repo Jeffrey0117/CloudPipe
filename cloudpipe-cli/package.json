@@ -1,0 +1,25 @@
+{
+  "name": "cloudpipe-cli",
+  "version": "1.0.0",
+  "description": "Deploy static sites to CloudPipe with one command",
+  "type": "module",
+  "bin": {
+    "cloudpipe": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "deploy",
+    "static",
+    "hosting",
+    "cli",
+    "cloudpipe"
+  ],
+  "author": "Jeffrey0117",
+  "license": "MIT"
+}
