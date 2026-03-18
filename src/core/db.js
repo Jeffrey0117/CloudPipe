@@ -78,6 +78,23 @@ function initSchema(db) {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       migrated INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS deploy_tokens (
+      token TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      max_sites INTEGER NOT NULL DEFAULT 3,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS static_sites (
+      slug TEXT PRIMARY KEY,
+      token TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (token) REFERENCES deploy_tokens(token)
+    );
   `);
 }
 
@@ -322,6 +339,78 @@ function saveAutofixState(projectId, state) {
   ).run(projectId, JSON.stringify(state));
 }
 
+// ── Deploy Tokens API ─────────────────────────
+
+function getDeployToken(token) {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM deploy_tokens WHERE token = ?').get(token);
+  return row || null;
+}
+
+function createDeployToken({ name, email, max_sites }) {
+  const crypto = require('crypto');
+  const db = getDb();
+  const token = crypto.randomBytes(32).toString('hex');
+  const now = new Date().toISOString();
+  db.prepare(
+    'INSERT INTO deploy_tokens (token, name, email, max_sites, created_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(token, name, email || null, max_sites || 3, now);
+  return { token, name, email: email || null, max_sites: max_sites || 3, created_at: now };
+}
+
+function listDeployTokens() {
+  const db = getDb();
+  return db.prepare('SELECT * FROM deploy_tokens').all();
+}
+
+function deleteDeployToken(token) {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM deploy_tokens WHERE token = ?').run(token);
+  return result.changes > 0;
+}
+
+// ── Static Sites API ──────────────────────────
+
+function getStaticSite(slug) {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM static_sites WHERE slug = ?').get(slug);
+  return row || null;
+}
+
+function listStaticSites(token) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM static_sites WHERE token = ?').all(token);
+}
+
+function createStaticSite({ slug, token, size }) {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    'INSERT INTO static_sites (slug, token, size, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(slug, token, size || 0, now, now);
+  return { slug, token, size: size || 0, created_at: now, updated_at: now };
+}
+
+function updateStaticSite(slug, { size }) {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    'UPDATE static_sites SET size = ?, updated_at = ? WHERE slug = ?'
+  ).run(size, now, slug);
+}
+
+function deleteStaticSite(slug) {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM static_sites WHERE slug = ?').run(slug);
+  return result.changes > 0;
+}
+
+function countSitesByToken(token) {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(*) AS count FROM static_sites WHERE token = ?').get(token);
+  return row.count;
+}
+
 // ── Lifecycle ───────────────────────────────
 
 function close() {
@@ -346,6 +435,18 @@ module.exports = {
 
   getAutofixState,
   saveAutofixState,
+
+  getDeployToken,
+  createDeployToken,
+  listDeployTokens,
+  deleteDeployToken,
+
+  getStaticSite,
+  listStaticSites,
+  createStaticSite,
+  updateStaticSite,
+  deleteStaticSite,
+  countSitesByToken,
 
   close,
 
