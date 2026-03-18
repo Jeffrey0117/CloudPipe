@@ -63,6 +63,7 @@ function isAllowedOrigin(origin) {
     if (hostname === 'localhost' || hostname === '127.0.0.1') return true
     if (hostname.endsWith('.isnowfriend.com') || hostname === 'isnowfriend.com') return true
     if (hostname.endsWith('.duk.tw') || hostname === 'duk.tw') return true
+    if (hostname.endsWith('.cloudpipe.app') || hostname === 'cloudpipe.app') return true
     return false
   } catch {
     return false
@@ -221,6 +222,19 @@ const createRouter = function(config) {
         })
         return res.end(JSON.stringify({ error: 'Too many requests', retryAfter: blocked.retryAfter }))
       }
+    }
+
+    // ========== Static Hosting (cloudpipe.app) ==========
+    const staticDomain = config.staticDomain
+    if (staticDomain && (hostname === staticDomain || hostname.endsWith('.' + staticDomain))) {
+      const staticHost = require('./static')
+
+      if (hostname === staticDomain) {
+        return staticHost.handleAPI(req, res)
+      }
+
+      const slug = hostname.split('.')[0]
+      return staticHost.handleSite(req, res, slug)
     }
 
     // ========== 主域名 (epi.isnowfriend.com) ==========
