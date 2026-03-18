@@ -58,10 +58,10 @@ async function cmdLogin() {
     process.exit(1);
   }
 
-  const server = await prompt('Server URL (https://cloudpipe.app): ');
+  const server = await prompt('Server URL (http://localhost:8787): ');
   saveConfig({
     token,
-    server: server || 'https://cloudpipe.app',
+    server: server || 'http://localhost:8787',
   });
   console.log(`Saved to ${CONFIG_PATH_DISPLAY}`);
 }

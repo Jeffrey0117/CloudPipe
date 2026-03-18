@@ -281,6 +281,18 @@ function swapDirectory(slug, tempDir) {
   }
 }
 
+// ── URL helpers ──
+
+function getSiteUrl(req, slug, domain) {
+  const host = req.headers.host || '';
+  const hostname = host.split(':')[0];
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+  if (isLocal) {
+    return `http://${host}/_sites/${slug}/`;
+  }
+  return `https://${slug}.${domain}`;
+}
+
 // ── JSON response helpers ──
 
 function jsonOk(res, data, status = 200) {
@@ -433,11 +445,12 @@ async function handleDeploy(req, res, url) {
   }
 
   const domain = getStaticDomain();
+  const siteUrl = getSiteUrl(req, slug, domain);
 
   console.error(`[static] Deployed ${slug} (${(extractedSize / 1024).toFixed(1)} KB) by token ${token.slice(0, 8)}...`);
 
   return jsonOk(res, {
-    url: `https://${slug}.${domain}`,
+    url: siteUrl,
     slug,
     size: extractedSize,
   });
@@ -456,7 +469,7 @@ function handleListSites(req, res) {
 
   const sites = db.listStaticSites(token).map(s => ({
     slug: s.slug,
-    url: `https://${s.slug}.${domain}`,
+    url: getSiteUrl(req, s.slug, domain),
     size: s.size,
     created_at: s.created_at,
     updated_at: s.updated_at,

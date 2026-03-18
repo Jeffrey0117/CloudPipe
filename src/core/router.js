@@ -265,6 +265,26 @@ const createRouter = function(config) {
     const routes = hotloader.getRoutes();
     const urlPath = req.url.split('?')[0];
 
+    // /_sites/:slug/* → static hosting (localhost path-based access)
+    if (urlPath.startsWith('/_sites/')) {
+      const staticHost = require('./static')
+      const rest = urlPath.slice('/_sites/'.length)
+      const slashIdx = rest.indexOf('/')
+      const slug = slashIdx === -1 ? rest : rest.slice(0, slashIdx)
+      if (slug) {
+        const filePath = slashIdx === -1 ? '/' : rest.slice(slashIdx)
+        const qs = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?') : ''
+        req.url = filePath + qs
+        return staticHost.handleSite(req, res, slug)
+      }
+    }
+
+    // Static hosting API on main domain (localhost access)
+    if (urlPath === '/api/deploy/static' || urlPath.startsWith('/api/sites') || urlPath === '/api/auth/token') {
+      const staticHost = require('./static')
+      return staticHost.handleAPI(req, res)
+    }
+
     // /_admin → admin.html
     if (urlPath === '/_admin' || urlPath === '/_admin/') {
       const adminFile = path.join(publicDir, 'admin.html');
