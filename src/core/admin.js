@@ -87,6 +87,13 @@ module.exports = {
       return res.end(JSON.stringify({ error: 'Unauthorized' }));
     }
 
+    // ===== 系統狀態 API =====
+
+    // GET /api/_admin/status - 平台健康狀態概覽
+    if (req.method === 'GET' && pathname === '/api/_admin/status') {
+      return handleStatus(res);
+    }
+
     // ===== 部署 API =====
 
     // GET /api/_admin/deploy/projects - 列出所有專案
@@ -310,6 +317,55 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000).unref();
 
+// 系統狀態概覽
+function handleStatus(res) {
+  const os = require('os');
+  const projects = deploy.getAllProjects();
+
+  // PM2 process list (best-effort)
+  let pm2Processes = [];
+  try {
+    const raw = execSync('pm2 jlist', { windowsHide: true, timeout: 5000 }).toString();
+    pm2Processes = JSON.parse(raw).map(p => ({
+      name: p.name,
+      status: p.pm2_env?.status || 'unknown',
+      cpu: p.monit?.cpu || 0,
+      memory: p.monit?.memory || 0,
+      uptime: p.pm2_env?.pm_uptime || 0,
+      restarts: p.pm2_env?.restart_time || 0,
+    }));
+  } catch {}
+
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+
+  const status = {
+    platform: {
+      hostname: os.hostname(),
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+      uptime: Math.round(os.uptime()),
+      processUptime: Math.round(process.uptime()),
+    },
+    memory: {
+      total: Math.round(totalMem / 1048576),
+      free: Math.round(freeMem / 1048576),
+      usedPercent: Math.round((1 - freeMem / totalMem) * 100),
+    },
+    cpuLoad: os.loadavg(),
+    projects: {
+      total: projects.length,
+      deployed: projects.filter(p => p.lastDeployStatus === 'success').length,
+      failed: projects.filter(p => p.lastDeployStatus === 'failed').length,
+    },
+    pm2: pm2Processes,
+  };
+
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(status));
+}
+
 // 登入處理 (使用 JWT)
 function handleLogin(req, res) {
   if (!checkLoginRateLimit(req)) {
@@ -332,8 +388,9 @@ function handleLogin(req, res) {
         res.end(JSON.stringify({ success: false, error: '密碼錯誤' }));
       }
     } catch (err) {
-      res.writeHead(400, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid request' }));
+      const status = err.message.includes('not configured') ? 503 : 400;
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
     }
   });
 }

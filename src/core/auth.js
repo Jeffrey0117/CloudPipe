@@ -29,7 +29,11 @@ function getJwtSecret() {
 
 // 密碼
 function getPassword() {
-  return getConfig().adminPassword || '';
+  const pw = getConfig().adminPassword
+  if (!pw) {
+    throw new Error('adminPassword not configured in config.json — admin login is disabled until set')
+  }
+  return pw
 }
 
 /**

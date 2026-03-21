@@ -30,6 +30,19 @@ let toolCache = new Map()   // name → tool definition
 let authConfig = {}
 let initialized = false
 
+// --- Call statistics ---
+const callStats = new Map()  // toolName → { calls, errors, totalMs }
+const statsStartedAt = Date.now()
+
+function recordCallStat(toolName, durationMs, ok) {
+  const stat = callStats.get(toolName) || { calls: 0, errors: 0, totalMs: 0 }
+  callStats.set(toolName, {
+    calls: stat.calls + 1,
+    errors: ok ? stat.errors : stat.errors + 1,
+    totalMs: stat.totalMs + durationMs,
+  })
+}
+
 // --- Init / Refresh ---
 
 async function refreshTools() {
@@ -85,7 +98,10 @@ async function callToolByName(name, params) {
     return { ok: false, status: 404, data: { error: `Tool not found: ${name}` } }
   }
 
-  return callTool(tool, params || {}, authConfig)
+  const start = Date.now()
+  const result = await callTool(tool, params || {}, authConfig)
+  recordCallStat(name, Date.now() - start, result.ok)
+  return result
 }
 
 function getTools() {
@@ -230,6 +246,32 @@ const gateway = {
         res.writeHead(500, { 'content-type': 'application/json' })
         return res.end(JSON.stringify({ error: err.message }))
       }
+    }
+
+    // --- GET /api/gateway/stats ---
+    if (req.method === 'GET' && pathname === '/api/gateway/stats') {
+      if (!isAuthorized(req)) {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        return res.end(JSON.stringify({ error: 'Unauthorized' }))
+      }
+
+      const stats = [...callStats.entries()]
+        .map(([name, s]) => ({
+          tool: name,
+          calls: s.calls,
+          errors: s.errors,
+          avgMs: s.calls > 0 ? Math.round(s.totalMs / s.calls) : 0,
+        }))
+        .sort((a, b) => b.calls - a.calls)
+
+      res.writeHead(200, { 'content-type': 'application/json' })
+      return res.end(JSON.stringify({
+        since: new Date(statsStartedAt).toISOString(),
+        uptimeMinutes: Math.round((Date.now() - statsStartedAt) / 60000),
+        totalCalls: stats.reduce((sum, s) => sum + s.calls, 0),
+        totalErrors: stats.reduce((sum, s) => sum + s.errors, 0),
+        tools: stats,
+      }))
     }
 
     // --- POST /api/gateway/refresh ---

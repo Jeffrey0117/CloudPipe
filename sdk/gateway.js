@@ -40,27 +40,54 @@ function createClient(opts = {}) {
     'authorization': `Bearer ${token}`,
   }
 
-  async function request(method, path, body) {
+  async function request(method, path, body, retries = 1) {
     const url = `${baseUrl}${path}`
     const fetchOpts = { method, headers }
     if (body !== undefined) {
       fetchOpts.body = JSON.stringify(body)
     }
 
-    const res = await fetch(url, fetchOpts)
-    const text = await res.text()
+    let lastErr
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(url, fetchOpts)
+        const text = await res.text()
 
-    let data
-    try { data = JSON.parse(text) } catch { data = text }
+        let data
+        try { data = JSON.parse(text) } catch { data = text }
 
-    if (!res.ok) {
-      const err = new Error((data && data.error) || `HTTP ${res.status}`)
-      err.status = res.status
-      err.data = data
-      throw err
+        if (!res.ok) {
+          // Don't retry client errors (4xx)
+          if (res.status >= 400 && res.status < 500) {
+            const err = new Error((data && data.error) || `HTTP ${res.status}`)
+            err.status = res.status
+            err.data = data
+            throw err
+          }
+          // Server errors (5xx) — retry
+          lastErr = new Error((data && data.error) || `HTTP ${res.status}`)
+          lastErr.status = res.status
+          lastErr.data = data
+          if (attempt < retries) {
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+            continue
+          }
+          throw lastErr
+        }
+
+        return data
+      } catch (err) {
+        // Don't retry client errors
+        if (err.status && err.status >= 400 && err.status < 500) throw err
+        lastErr = err
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          continue
+        }
+      }
     }
 
-    return data
+    throw lastErr
   }
 
   return {

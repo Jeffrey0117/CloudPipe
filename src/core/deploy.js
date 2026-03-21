@@ -772,7 +772,7 @@ async function deploy(projectId, options = {}) {
       }
 
       log(`執行 git fetch...`);
-      execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+      execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 60000 });
 
       log(`執行 git reset --hard...`);
       execSync(`git reset --hard origin/${project.branch}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
@@ -2029,7 +2029,7 @@ async function rollback(projectId, targetCommit, options = {}) {
     }
 
     // Reset to target commit
-    execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
+    execSync(`git fetch origin`, { cwd: projectDir, stdio: 'pipe', windowsHide: true, timeout: 60000 });
     execSync(`git reset --hard ${targetCommit}`, { cwd: projectDir, stdio: 'pipe', windowsHide: true });
     log(`Git reset to ${targetCommit}`);
 
