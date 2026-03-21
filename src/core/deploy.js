@@ -185,7 +185,9 @@ function invalidateRouterCache() {
   try {
     const router = require('./router');
     if (router.invalidateRouteCache) router.invalidateRouteCache();
-  } catch {}
+  } catch (e) {
+    console.error(`[deploy] Router cache invalidation failed: ${e.message}`);
+  }
 }
 
 function updateProject(id, data) {
@@ -320,9 +322,13 @@ async function performHealthCheck(port, endpoint = '/health', log, retries = 5, 
     try {
       const result = await new Promise((resolve, reject) => {
         const req = http.get(url, { timeout: 5000 }, (res) => {
-          // 任何 HTTP 回應都代表服務已啟動（404、401 等只是沒有該路由，不代表沒跑）
           res.resume();
-          resolve(true);
+          // 5xx = 服務掛了；2xx/3xx/4xx = 服務活著（404/401 只是沒那個路由）
+          if (res.statusCode >= 500) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          } else {
+            resolve(true);
+          }
         });
         req.on('error', reject);
         req.on('timeout', () => {
@@ -663,11 +669,17 @@ async function deploy(projectId, options = {}) {
   }
 
   // ===== Deploy Lock: prevent concurrent deploys for same project =====
-  if (deployLocks.get(projectId)) {
-    console.log(`[deploy:${projectId}] 已有部署正在進行，跳過`);
-    return { id: null, status: 'skipped', error: 'Deploy already in progress' };
+  const existingLock = deployLocks.get(projectId);
+  if (existingLock) {
+    // 超過 30 分鐘的 lock 視為 stale，自動清除
+    const lockAge = Date.now() - existingLock;
+    if (lockAge < 30 * 60 * 1000) {
+      console.log(`[deploy:${projectId}] 已有部署正在進行（${Math.round(lockAge / 1000)}s ago），跳過`);
+      return { id: null, status: 'skipped', error: 'Deploy already in progress' };
+    }
+    console.log(`[deploy:${projectId}] 偵測到 stale lock（${Math.round(lockAge / 60000)}min），強制清除`);
   }
-  deployLocks.set(projectId, true);
+  deployLocks.set(projectId, Date.now());
 
   // ===== Clean up stale "building" records (older than 10 min) =====
   const STALE_THRESHOLD = 10 * 60 * 1000;
@@ -889,7 +901,7 @@ async function deploy(projectId, options = {}) {
             log(`停止 PM2 進程 ${project.pm2Name}...`);
             try {
               execSync(`pm2 stop ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-            } catch {}
+            } catch (e) { log(`⚠ pm2 stop 失敗: ${e.message}`); }
             log(`等待 5 秒後重試清理...`);
             await new Promise(resolve => setTimeout(resolve, 5000));
             try {
@@ -1012,14 +1024,14 @@ async function deploy(projectId, options = {}) {
               try {
                 execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
                 log(`✓ 舊版本已重啟 (pm2 restart ${project.pm2Name})`);
-              } catch {}
+              } catch (e) { log(`❌ 回滾後 pm2 restart 失敗: ${e.message}`); }
             }
           } catch (rollbackErr) {
             log(`⚠ 自動回滾也失敗: ${rollbackErr.message}`);
             if (project.pm2Name) {
               try {
                 execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-              } catch {}
+              } catch (e) { log(`❌ 最後手段 pm2 restart 也失敗: ${e.message}`); }
             }
           }
         } else if (killedOldProcess && project.pm2Name) {
@@ -1075,7 +1087,7 @@ async function deploy(projectId, options = {}) {
               try {
                 execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
                 log(`✓ 舊版本已重啟 (pm2 restart ${project.pm2Name})`);
-              } catch {}
+              } catch (e) { log(`❌ 回滾後 pm2 restart 失敗: ${e.message}`); }
             }
           } catch (rollbackErr) {
             log(`⚠ 自動回滾也失敗: ${rollbackErr.message}`);
@@ -1083,7 +1095,7 @@ async function deploy(projectId, options = {}) {
             if (project.pm2Name) {
               try {
                 execSync(`pm2 restart ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true });
-              } catch {}
+              } catch (e) { log(`❌ 最後手段 pm2 restart 也失敗: ${e.message}`); }
             }
           }
         } else if (killedOldProcess && project.pm2Name) {
@@ -1341,18 +1353,18 @@ async function deploy(projectId, options = {}) {
           router.setPortOverride(project.id, tempPort);
           log(`✓ Router 切換到 port ${tempPort}（零停機）`);
 
-          // Delete old process + companions (port freed, but traffic goes to temp)
-          if (project.companions && Array.isArray(project.companions)) {
-            for (const companion of project.companions) {
-              try { execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
-            }
-          }
-          try { execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Start canonical process on original port — wrapped in try/finally
-          // to ensure port override is ALWAYS cleared even if pm2 start throws
+          // 整段包在 try/finally 裡，確保 override 一定被清除
           try {
+            // Delete old process + companions (port freed, but traffic goes to temp)
+            if (project.companions && Array.isArray(project.companions)) {
+              for (const companion of project.companions) {
+                try { execSync(`pm2 delete ${project.pm2Name}-${companion.name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+              }
+            }
+            try { execSync(`pm2 delete ${project.pm2Name}`, { stdio: 'pipe', windowsHide: true }); } catch {}
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Start canonical process on original port
             fs.writeFileSync(ecoPath, JSON.stringify(pm2EcoConfig, null, 2));
             execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
             log(`PM2 啟動完成 (port: ${project.port})`);
@@ -1366,7 +1378,7 @@ async function deploy(projectId, options = {}) {
               log(`⚠ 原始 port health check 失敗，但程序已啟動`);
             }
           } catch (canonicalErr) {
-            log(`⚠ 原始 port 啟動失敗: ${canonicalErr.message}`);
+            log(`⚠ Blue-Green 原始 port 階段失敗: ${canonicalErr.message}`);
           } finally {
             // ALWAYS clear override and clean up temp — even on failure
             router.clearPortOverride(project.id);

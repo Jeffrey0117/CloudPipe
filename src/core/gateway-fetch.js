@@ -15,10 +15,12 @@ const PROJECTS_DIR = join(ROOT_DIR, 'projects')
 // --- .env loader (reads sub-project .env files for token resolution) ---
 
 const _envCache = new Map()
+const ENV_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 function loadProjectEnv(projectId, envDir) {
   const cacheKey = envDir || projectId
-  if (_envCache.has(cacheKey)) return _envCache.get(cacheKey)
+  const cached = _envCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < ENV_CACHE_TTL) return cached.env
 
   let dir
   if (envDir) {
@@ -42,7 +44,7 @@ function loadProjectEnv(projectId, envDir) {
       }
     }
   } catch {}
-  _envCache.set(cacheKey, env)
+  _envCache.set(cacheKey, { env, ts: Date.now() })
   return env
 }
 
@@ -130,7 +132,14 @@ async function callTool(tool, params, authConfig) {
     }
   }
 
-  const res = await fetch(fetchUrl, opts)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  let res
+  try {
+    res = await fetch(fetchUrl, { ...opts, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
   const text = await res.text()
 
   let data

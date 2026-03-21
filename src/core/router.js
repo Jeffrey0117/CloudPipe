@@ -321,13 +321,20 @@ const createRouter = function(config) {
 
     // 靜態檔案 (public/)
     let staticFile = urlPath === '/' ? '/index.html' : urlPath;
-    let filePath = path.join(publicDir, staticFile);
+    let filePath = path.resolve(publicDir, '.' + staticFile);
     let ext = path.extname(filePath);
+
+    // Path traversal 防護：確保解析後的路徑在 publicDir 內
+    const resolvedPublicDir = path.resolve(publicDir);
+    if (!filePath.startsWith(resolvedPublicDir + path.sep) && filePath !== resolvedPublicDir) {
+      res.writeHead(403, { 'content-type': 'text/plain' });
+      return res.end('Forbidden');
+    }
 
     // 目錄請求：嘗試 index.html
     if (!ext && fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
       staticFile = path.join(staticFile, 'index.html');
-      filePath = path.join(publicDir, staticFile);
+      filePath = path.resolve(publicDir, '.' + staticFile);
       ext = '.html';
     }
 
@@ -359,6 +366,12 @@ const createRouter = function(config) {
     // LurlHub path proxy (獨立專案，port 4017)
     if (urlPath.startsWith('/lurl/') || urlPath === '/lurl') {
       return proxyToPort(req, res, 4017);
+    }
+
+    // PayGate path proxy (port 4019)
+    if (urlPath.startsWith('/paygate/')) {
+      req.url = req.url.replace('/paygate', '');
+      return proxyToPort(req, res, 4019);
     }
 
     // Services 路由
@@ -429,8 +442,15 @@ const createRouter = function(config) {
         : appDir;
 
     const staticFile = urlPath === '/' ? '/index.html' : urlPath;
-    const filePath = path.join(appPublicDir, staticFile);
+    const filePath = path.resolve(appPublicDir, '.' + staticFile);
     const ext = path.extname(filePath);
+
+    // Path traversal 防護
+    const resolvedAppDir = path.resolve(appPublicDir);
+    if (!filePath.startsWith(resolvedAppDir + path.sep) && filePath !== resolvedAppDir) {
+      res.writeHead(403, { 'content-type': 'text/plain' });
+      return res.end('Forbidden');
+    }
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const contentType = MIME[ext] || 'application/octet-stream';
@@ -467,17 +487,23 @@ const createRouter = function(config) {
       }
     };
 
+    let responded = false;
     const proxyReq = http.request(options, (proxyRes) => {
+      responded = true;
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
       proxyRes.pipe(res);
+      proxyRes.on('error', () => { res.end(); });
     });
 
     proxyReq.on('error', (err) => {
+      if (responded) return;
       console.error(`[proxy] Error proxying to port ${port}:`, err.message);
       res.writeHead(502, { 'content-type': 'text/html; charset=utf-8' });
       res.end(`<h1>Service unavailable</h1><p>無法連接到後端服務 (port ${port})</p>`);
     });
 
+    req.on('error', () => { proxyReq.destroy(); });
+    res.on('close', () => { proxyReq.destroy(); });
     req.pipe(proxyReq);
   }
 };

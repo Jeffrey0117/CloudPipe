@@ -113,9 +113,30 @@ function getPipeline(id) {
 
 // --- Execution ---
 
+const MAX_PIPELINE_DEPTH = 5
+const _executionStack = new Set()
+
 async function execute(pipelineDef, input) {
   const gateway = require('./gateway')
 
+  // 循環偵測：防止 pipeline A → pipeline B → pipeline A 無限遞迴
+  const pipelineId = pipelineDef.id || 'anonymous'
+  if (_executionStack.has(pipelineId)) {
+    return { success: false, error: `Circular pipeline detected: ${pipelineId}`, steps: {} }
+  }
+  if (_executionStack.size >= MAX_PIPELINE_DEPTH) {
+    return { success: false, error: `Pipeline depth exceeded (max ${MAX_PIPELINE_DEPTH})`, steps: {} }
+  }
+  _executionStack.add(pipelineId)
+
+  try {
+    return await _executeInner(pipelineDef, input, gateway)
+  } finally {
+    _executionStack.delete(pipelineId)
+  }
+}
+
+async function _executeInner(pipelineDef, input, gateway) {
   // Validate required inputs
   if (pipelineDef.input) {
     for (const [key, spec] of Object.entries(pipelineDef.input)) {
