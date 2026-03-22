@@ -142,16 +142,20 @@ async function main() {
   const candidates = [
     'C:\\Program Files\\cloudflared\\cloudflared.exe',
     'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Links', 'cloudflared.exe'),
     path.join(process.env.USERPROFILE || '', 'cloudflared.exe'),
     path.join(process.env.USERPROFILE || '', '.cloudflared', 'cloudflared.exe'),
   ];
 
   function findCloudflared() {
+    // Check known paths first (works even when PATH hasn't refreshed after winget install)
+    const fromCandidates = candidates.find(p => fs.existsSync(p));
+    if (fromCandidates) return fromCandidates;
     try {
       const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
       return execCmd(cmd, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim().split('\n')[0].trim();
     } catch {
-      return candidates.find(p => fs.existsSync(p)) || null;
+      return null;
     }
   }
 
