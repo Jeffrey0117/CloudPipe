@@ -19,7 +19,7 @@ const deploy = require('../src/core/deploy');
 const args = process.argv.slice(2);
 const sequential = args.includes('--seq');
 const concurrencyFlag = args.find(a => a.startsWith('--concurrency='));
-const CONCURRENCY = sequential ? 1 : (concurrencyFlag ? parseInt(concurrencyFlag.split('=')[1], 10) : 3);
+const CONCURRENCY = sequential ? 1 : (concurrencyFlag ? parseInt(concurrencyFlag.split('=')[1], 10) : 5);
 
 function getPm2OnlineNames() {
   try {
@@ -89,6 +89,15 @@ async function main() {
 
   console.log(`[deploy-all] Deploying ${toDeploy.length} projects, skipping ${skipped}...`);
   console.log();
+
+  // Warm npm cache before parallel deploys — makes individual installs much faster
+  try {
+    const { main: warmCache } = require('./warm-npm-cache');
+    warmCache();
+    console.log();
+  } catch (e) {
+    console.log(`[deploy-all] Cache warm skipped: ${e.message}`);
+  }
 
   let deployed = 0;
   let failed = 0;
