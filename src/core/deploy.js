@@ -117,6 +117,24 @@ async function getNextAvailablePort() {
   throw new Error(`在 ${startPort}-${startPort + 100} 範圍內找不到可用端口`);
 }
 
+// ==================== Install Helper ====================
+
+/**
+ * Get the fastest install command for a package manager.
+ * Uses `ci` (clean install from lockfile) when lockfile exists — significantly faster.
+ * Falls back to `install` when no lockfile is present.
+ */
+function getFastInstallCmd(pm, dir) {
+  if (pm === 'pnpm') {
+    return fs.existsSync(path.join(dir, 'pnpm-lock.yaml')) ? 'pnpm install --frozen-lockfile' : 'pnpm install';
+  }
+  if (pm === 'yarn') {
+    return fs.existsSync(path.join(dir, 'yarn.lock')) ? 'yarn install --frozen-lockfile' : 'yarn install';
+  }
+  // npm: use ci when package-lock.json exists
+  return fs.existsSync(path.join(dir, 'package-lock.json')) ? 'npm ci' : 'npm install';
+}
+
 // ==================== 專案管理 ====================
 
 function getProject(id) {
@@ -412,8 +430,8 @@ async function deployShadowBuild(project, projectDir, pm, log) {
     // They're already copied by robocopy above (not excluded), so no extra step needed.
 
     // ── Phase 2: npm install in shadow ──
-    log(`Shadow Build: npm install...`);
-    const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+    const installCmd = getFastInstallCmd(pm, shadowDir);
+    log(`Shadow Build: ${installCmd}...`);
     execSync(installCmd, {
       cwd: shadowDir, stdio: 'pipe', windowsHide: true,
       env: { ...process.env, NODE_ENV: 'development' }
@@ -964,7 +982,7 @@ async function deploy(projectId, options = {}) {
         } else if (!fs.existsSync(nodeModulesPath)) {
           log(`node_modules 不存在，執行安裝...`);
         }
-        const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+        const installCmd = getFastInstallCmd(pm, projectDir);
         log(`執行 ${installCmd}...`);
         // NODE_ENV=development 確保 devDependencies 也會安裝（build 工具通常在 devDeps）
         const installEnv = { ...process.env, NODE_ENV: 'development' };
@@ -988,7 +1006,7 @@ async function deploy(projectId, options = {}) {
             const subHasPnpmLock = fs.existsSync(path.join(subDirPath, 'pnpm-lock.yaml'));
             const subHasYarnLock = fs.existsSync(path.join(subDirPath, 'yarn.lock'));
             const subPm = subHasPnpmLock ? 'pnpm' : subHasYarnLock ? 'yarn' : 'npm';
-            const subInstallCmd = subPm === 'pnpm' ? 'pnpm install' : subPm === 'yarn' ? 'yarn install' : 'npm install';
+            const subInstallCmd = getFastInstallCmd(subPm, subDirPath);
             log(`偵測到 monorepo 子目錄: ${subDir}/, 執行 ${subInstallCmd}...`);
             const subInstallEnv = { ...process.env, NODE_ENV: 'development' };
             execSync(subInstallCmd, { cwd: subDirPath, stdio: 'pipe', windowsHide: true, env: subInstallEnv });
@@ -2074,7 +2092,7 @@ async function rollback(projectId, targetCommit, options = {}) {
 
     // npm install
     if (fs.existsSync(pkgPath)) {
-      const installCmd = pm === 'pnpm' ? 'pnpm install' : pm === 'yarn' ? 'yarn install' : 'npm install';
+      const installCmd = getFastInstallCmd(pm, projectDir);
       log(`Running ${installCmd}...`);
       const installEnv = { ...process.env, NODE_ENV: 'development' };
       execSync(installCmd, { cwd: projectDir, stdio: 'pipe', windowsHide: true, env: installEnv });
