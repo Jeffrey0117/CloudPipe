@@ -62,7 +62,7 @@ function resolveRunner(project) {
       };
     case 'python':
       return {
-        script: 'python',
+        script: 'C:\\Users\\jeffb\\AppData\\Local\\Programs\\Python\\Python313\\python.exe',
         args: `-m uvicorn ${project.entryFile} --host 0.0.0.0 --port ${project.port}`,
         interpreter: 'none',
       };
@@ -115,6 +115,10 @@ try {
     if (!fs.existsSync(projectDir)) continue;
 
     const { script, args, interpreter } = resolveRunner(project);
+
+    // Skip if entry script doesn't exist (clone incomplete or deploy failed)
+    const scriptPath = path.resolve(projectDir, project.startCwd || '', script);
+    if (!fs.existsSync(scriptPath)) continue;
     const minUptime = ['reelscript', 'upimg'].includes(project.id) ? '10s' : '5s';
     const effectiveCwd = project.startCwd ? path.join(projectDir, project.startCwd) : projectDir;
 
