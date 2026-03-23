@@ -1,0 +1,177 @@
+{
+  "name": "SelfBase",
+  "version": "1.0.0",
+  "description": "Self-hosted infrastructure manager: PostgreSQL backup scheduling, monitoring, and Redis lifecycle management",
+  "endpoints": [
+    {
+      "name": "health",
+      "description": "Get overall system health: PostgreSQL connection status, Redis status, and last backup time",
+      "method": "GET",
+      "path": "/api/health",
+      "auth": "none",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "list_databases",
+      "description": "List all registered PostgreSQL databases",
+      "method": "GET",
+      "path": "/api/databases",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "register_database",
+      "description": "Register a new PostgreSQL database for backup and monitoring",
+      "method": "POST",
+      "path": "/api/databases",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Slug identifier (e.g. 'upimg')" },
+          "name": { "type": "string", "description": "Display name" },
+          "db_name": { "type": "string", "description": "Actual PostgreSQL database name" },
+          "host": { "type": "string", "description": "Host (default: localhost)" },
+          "port": { "type": "number", "description": "Port (default: 5432)" },
+          "username": { "type": "string", "description": "PG username (default: postgres)" }
+        },
+        "required": ["id", "db_name"]
+      }
+    },
+    {
+      "name": "deactivate_database",
+      "description": "Soft-delete (deactivate) a registered database",
+      "method": "DELETE",
+      "path": "/api/databases/{id}",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Database slug ID" }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "backup",
+      "description": "Trigger a pg_dump backup for a specific database. Returns backup ID, filename, size, and duration.",
+      "method": "POST",
+      "path": "/api/backup",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database_id": { "type": "string", "description": "Database slug to backup" }
+        },
+        "required": ["database_id"]
+      }
+    },
+    {
+      "name": "backup_all",
+      "description": "Trigger backup for ALL active databases. Used by daily schedule.",
+      "method": "POST",
+      "path": "/api/backup/all",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "list_backups",
+      "description": "List backup history with optional database filter",
+      "method": "GET",
+      "path": "/api/backups",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database_id": { "type": "string", "description": "Filter by database slug" },
+          "limit": { "type": "string", "description": "Max results (default: 50, max: 200)" }
+        }
+      }
+    },
+    {
+      "name": "restore",
+      "description": "Restore a database from a completed backup",
+      "method": "POST",
+      "path": "/api/restore",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "backup_id": { "type": "string", "description": "Backup ID to restore from" },
+          "target_database_id": { "type": "string", "description": "Target database (default: original)" }
+        },
+        "required": ["backup_id"]
+      }
+    },
+    {
+      "name": "cleanup",
+      "description": "Manually trigger backup cleanup based on retention settings",
+      "method": "POST",
+      "path": "/api/cleanup",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "pg_stats",
+      "description": "Get PostgreSQL database statistics: size, connections, table sizes and row counts",
+      "method": "GET",
+      "path": "/api/pg/stats",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database_id": { "type": "string", "description": "Database slug to query" }
+        },
+        "required": ["database_id"]
+      }
+    },
+    {
+      "name": "redis_health",
+      "description": "Get Redis health: version, memory usage, connected clients, keyspace stats",
+      "method": "GET",
+      "path": "/api/redis/health",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "redis_start",
+      "description": "Start Redis server via WSL",
+      "method": "POST",
+      "path": "/api/redis/start",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "redis_stop",
+      "description": "Stop Redis server via SHUTDOWN command",
+      "method": "POST",
+      "path": "/api/redis/stop",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "get_settings",
+      "description": "Get SelfBase configuration: retention policy, backup format, PG bin path",
+      "method": "GET",
+      "path": "/api/settings",
+      "auth": "bearer",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "update_settings",
+      "description": "Update SelfBase configuration",
+      "method": "PUT",
+      "path": "/api/settings",
+      "auth": "bearer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "retention_count": { "type": "string", "description": "Keep last N backups per DB (default: 10)" },
+          "retention_days": { "type": "string", "description": "Delete backups older than N days (default: 30)" },
+          "backup_format": { "type": "string", "description": "pg_dump format: 'custom' (-Fc) or 'plain' (.sql)" },
+          "pg_bin_path": { "type": "string", "description": "Path to PostgreSQL bin directory" }
+        }
+      }
+    }
+  ]
+}

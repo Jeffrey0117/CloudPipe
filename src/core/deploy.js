@@ -541,7 +541,9 @@ async function deployShadowBuild(project, projectDir, pm, log) {
 
     // ── Phase 8: Health check temp ──
     const healthEndpoint = project.healthEndpoint || '/';
-    const tempHealthOk = await performHealthCheck(tempPort, healthEndpoint, log, 3, 3000);
+    const shadowHcRetries = project.healthCheckRetries || 5;
+    const shadowHcDelay = project.healthCheckDelay || 3000;
+    const tempHealthOk = await performHealthCheck(tempPort, healthEndpoint, log, shadowHcRetries, shadowHcDelay);
     if (!tempHealthOk) throw new Error('Shadow 臨時服務 health check 失敗');
     log(`✓ Shadow 臨時服務啟動成功`);
 
@@ -634,7 +636,7 @@ async function deployShadowBuild(project, projectDir, pm, log) {
       execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
       log(`PM2 啟動完成 (port: ${project.port})`);
 
-      const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log);
+      const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log, shadowHcRetries, shadowHcDelay);
       if (canonicalOk) {
         log(`✓ Shadow Build 完成：流量回到 port ${project.port}`);
         canonicalStarted = true;
@@ -1327,7 +1329,12 @@ async function deploy(projectId, options = {}) {
       // Old process serves traffic until router swap — zero dropped requests.
       let blueGreenCompleted = false;
 
+      // Per-project health check config (slow-starting services need more time)
+      const hcRetries = project.healthCheckRetries || 5;
+      const hcDelay = project.healthCheckDelay || 3000;
+
       if (!killedOldProcess && project.port) {
+        log(`→ 嘗試 Blue-Green 零停機部署...`);
         const tempPort = project.port + 10000;
         const tempName = `${project.pm2Name}-bg`;
 
@@ -1363,7 +1370,7 @@ async function deploy(projectId, options = {}) {
         }
 
         // Health check temp port (skip if temp didn't start)
-        const tempHealthOk = tempStarted && await performHealthCheck(tempPort, healthEndpoint, log, 3, 2000);
+        const tempHealthOk = tempStarted && await performHealthCheck(tempPort, healthEndpoint, log, hcRetries, hcDelay);
 
         if (tempHealthOk) {
           // Router swap — traffic instantly goes to temp port (zero downtime)
@@ -1387,8 +1394,8 @@ async function deploy(projectId, options = {}) {
             execSync(`pm2 start "${ecoPath}"`, { stdio: 'pipe', cwd: projectDir, windowsHide: true });
             log(`PM2 啟動完成 (port: ${project.port})`);
 
-            // Health check canonical port
-            const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log);
+            // Health check canonical port (use same per-project config as temp check)
+            const canonicalOk = await performHealthCheck(project.port, healthEndpoint, log, hcRetries, hcDelay);
 
             if (canonicalOk) {
               log(`✓ Blue-Green 完成：流量回到 port ${project.port}`);
@@ -1419,6 +1426,7 @@ async function deploy(projectId, options = {}) {
 
       // ========== Normal Deploy Path (Prisma projects or Blue-Green fallback) ==========
       if (!blueGreenCompleted) {
+        log(`→ 使用標準部署（kill-restart）...`);
         // 先刪除舊的（如果有）
         if (project.companions && Array.isArray(project.companions)) {
           for (const companion of project.companions) {
@@ -1443,7 +1451,7 @@ async function deploy(projectId, options = {}) {
         // Health Check
         if (project.port) {
           log(`執行 Health Check (port: ${project.port})...`);
-          const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log);
+          const healthCheckPassed = await performHealthCheck(project.port, healthEndpoint, log, hcRetries, hcDelay);
           if (!healthCheckPassed) {
             if (backup) {
               log(`⚠ Health Check 失敗，自動回滾到 ${backup.commit}...`);

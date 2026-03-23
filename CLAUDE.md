@@ -708,43 +708,44 @@ await gw.call('mailer_send_template', {
 
 ### PayGate — Payment & Subscription Gateway (port 4019)
 
-**What**: Unified payment webhook receiver + subscription lifecycle manager. Receives purchase webhooks from CourseBloom, auto-creates/extends subscriptions, and dispatches subscription events to products via outgoing webhooks (HMAC-SHA256 signed).
+**What**: Unified payment + subscription gateway. Receives payment webhooks (PayUNi/Classroo), auto-creates subscriptions, dispatches events to products via HMAC-SHA256 signed webhooks.
 
 **When to use**: Any product that needs paid tiers, subscription management, or purchase verification.
 
 **Core concepts**:
-- **Plans** — Define tiers with billing cycles and quotas (e.g., `member:monthly`, `premium:yearly`)
-- **Subscriptions** — Auto-created when a purchase matches a plan's `cb_product_id`. State machine: `active → expired → cancelled`
-- **Outgoing Webhooks** — Products register hook URLs. PayGate dispatches `subscription.activated`, `subscription.expired`, `subscription.cancelled` events with HMAC-SHA256 signatures
+- **Plans** — Define tiers with billing cycles and quotas (e.g., `basic:monthly`, `premium:yearly`). Plan ID format: `{product}:{tier}:{cycle}`
+- **Subscriptions** — Auto-created when purchase matches a plan. State machine: `active → expired → cancelled`. One subscription per (email, product).
+- **Pull-based verification** — Products call `check_subscription` to verify users. No webhook receiver needed in the product itself.
 
 **Key MCP tools**:
-- `paygate_webhook({ email, product_id, order_id, plan, amount, source })` — Receive payment webhook (idempotent, auto-creates subscription)
-- `paygate_check({ email, product })` — Check purchase status (public, no auth)
-- `paygate_list_purchases({ email })` — List all purchases for an email
+- `paygate_check_subscription({ email, product })` — **Most important.** Check active subscription + tier + quotas
 - `paygate_list_plans({ product })` — List plans for a product (with quotas, checkout URLs)
-- `paygate_create_plan({ product, tier, ... })` — Create/update a plan
-- `paygate_check_subscription({ email, product })` — Check active subscription + tier + quotas
+- `paygate_check({ email, product })` — Check one-time purchase status (public)
+- `paygate_webhook({ email, product_id, order_id, plan, amount, source })` — Receive payment webhook
 - `paygate_subscribe({ email, product, planId })` — Manual subscription activation
+- `paygate_create_plan({ product, tier, ... })` — Create/update a plan
 - `paygate_register_hook({ product, url, secret, events? })` — Register outgoing webhook
 - `paygate_expire_check()` — Expire past-due subscriptions (daily cron)
 
-**Integration** (subscription-based paywall):
+**Integration** (proven pattern from LurlHub, 30K+ users):
 ```javascript
-// Check subscription tier
 const gw = require('../../sdk/gateway');
-const sub = await gw.call('paygate_check_subscription', { email, product: 'upimg' });
-if (!sub.active) return res.status(402).json({ error: 'Please subscribe' });
-// sub.tier = 'member' | 'premium', sub.quotas = { maxUploadPerDay: 200, ... }
+
+// 1. Check subscription
+const sub = await gw.call('paygate_check_subscription', { email, product: 'myapp' });
+// → { active: true, tier: 'basic', quotas: { monthlyQuota: 20 }, end_date: '...' }
+
+// 2. List plans (for pricing UI)
+const { plans } = await gw.call('paygate_list_plans', { product: 'myapp' });
+// → [{ id, tier, price, quotas, checkout_url }] — render pricing cards with checkout_url
+
+// 3. User pays via checkout_url → PayUNi webhook → PayGate auto-creates subscription
+// 4. User enters payment email → product calls check_subscription → unlocked
 ```
 
-**Webhook flow**:
-```
-CourseBloom purchase → PayGate /api/webhook
-  → Creates purchase record (idempotent)
-  → Matches plan by cb_product_id → creates/extends subscription
-  → Dispatches subscription.activated webhook to product
-  → Product receives signed webhook → syncs user tier + quotas
-```
+**Full integration guide**: See `projects/paygate/README.md` → "Adding Subscriptions to a New Product"
+
+**5-step summary**: Seed plans → Backend check_subscription helper → Email linking endpoint → Frontend pricing UI → Test flow
 
 **Auth**: bearer (`PAYGATE_TOKEN` for admin), `/api/purchases/check` and `/api/subscription/check` are public, `/api/plans` (GET) is public
 

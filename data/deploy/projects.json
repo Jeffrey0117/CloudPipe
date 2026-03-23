@@ -347,13 +347,11 @@
       "repoUrl": "https://github.com/Jeffrey0117/autoReel.git",
       "branch": "main",
       "directory": "../workhub/autoreel",
-      "entryFile": "main:app",
-      "startCwd": "backend",
+      "entryFile": "server.js",
       "port": 8001,
       "pm2Name": "autoreel",
-      "runner": "python",
-      "buildCommand": "",
-      "healthEndpoint": "/docs",
+      "buildCommand": "npm install",
+      "healthEndpoint": "/api/health",
       "createdAt": "2026-03-06T00:00:00.000Z",
       "lastDeployAt": "2026-03-06T00:16:44.446Z",
       "lastDeployStatus": "failed",
@@ -415,6 +413,22 @@
       "buildCommand": "npm install",
       "healthEndpoint": "/api/health",
       "createdAt": "2026-03-16T00:00:00.000Z"
+    },
+    {
+      "id": "paygate",
+      "name": "PayGate",
+      "description": "Unified payment + subscription gateway for CloudPipe ecosystem",
+      "deployMethod": "github",
+      "repoUrl": "https://github.com/Jeffrey0117/PayGate.git",
+      "branch": "master",
+      "directory": "projects/paygate",
+      "entryFile": "server.js",
+      "port": 4019,
+      "pm2Name": "paygate",
+      "envFile": "",
+      "buildCommand": "npm install",
+      "healthEndpoint": "/api/health",
+      "createdAt": "2026-03-19T00:00:00.000Z"
     }
   ]
 }

@@ -79,10 +79,11 @@ const ROUTE_CACHE_TTL = 30000;
 // ── Blue-Green deployment: temporary port overrides ──
 // During deploy, traffic is routed to a temp port while the canonical
 // process restarts. This gives true zero-downtime deployments.
-const portOverrides = new Map(); // projectId → tempPort
+const portOverrides = new Map(); // projectId → { port, ts }
+const PORT_OVERRIDE_TTL = 5 * 60 * 1000; // 5 minutes — auto-expire if deploy crashes
 
 function setPortOverride(projectId, tempPort) {
-  portOverrides.set(projectId, tempPort);
+  portOverrides.set(projectId, { port: tempPort, ts: Date.now() });
 }
 
 function clearPortOverride(projectId) {
@@ -117,7 +118,14 @@ function resolveHostnameToPort(hostname, domain) {
   // Blue-Green override: projectId is the subdomain part
   const sub = hostname.endsWith('.' + domain) ? hostname.slice(0, -(domain.length + 1)) : null;
   if (sub && portOverrides.has(sub)) {
-    return portOverrides.get(sub);
+    const override = portOverrides.get(sub);
+    if (Date.now() - override.ts > PORT_OVERRIDE_TTL) {
+      // Stale override — deploy likely crashed mid-swap, auto-clear
+      portOverrides.delete(sub);
+      console.error(`[router] Auto-expired stale port override for ${sub} (age: ${Math.round((Date.now() - override.ts) / 1000)}s)`);
+    } else {
+      return override.port;
+    }
   }
 
   // Exact match
