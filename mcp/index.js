@@ -110,7 +110,7 @@ async function registerDiscoveredTools() {
           }
         }
 
-        const res = await fetch(fetchUrl, opts)
+        const res = await fetch(fetchUrl, { ...opts, signal: AbortSignal.timeout(15000) })
         const text = await res.text()
 
         let formatted

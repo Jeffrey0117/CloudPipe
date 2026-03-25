@@ -45,6 +45,21 @@ function projectDefaults(name, opts = {}) {
   };
 }
 
+// ── Resolve Python path (cross-platform) ──
+function resolvePython() {
+  const { execSync } = require('child_process');
+  try {
+    return execSync('where py', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim().split('\n')[0].trim();
+  } catch {}
+  try {
+    execSync('python3 --version', { stdio: 'pipe', windowsHide: true });
+    return 'python3';
+  } catch {}
+  return 'python';
+}
+
+let _pythonPath = null;
+
 // ── Resolve runner to PM2 script/args ──
 function resolveRunner(project) {
   const runner = project.runner || 'node';
@@ -60,12 +75,14 @@ function resolveRunner(project) {
         script: 'node_modules/tsx/dist/cli.mjs',
         args: project.entryFile,
       };
-    case 'python':
+    case 'python': {
+      if (!_pythonPath) _pythonPath = resolvePython();
       return {
-        script: 'C:\\Users\\jeffb\\AppData\\Local\\Programs\\Python\\Python313\\python.exe',
+        script: _pythonPath,
         args: `-m uvicorn ${project.entryFile} --host 0.0.0.0 --port ${project.port}`,
         interpreter: 'none',
       };
+    }
     case 'node':
     default:
       return {
