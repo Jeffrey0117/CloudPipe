@@ -55,22 +55,26 @@ function restartTunnel(reason) {
   consecutiveFailures = 0;
 
   console.log(`[tunnel-watchdog] 重啟 tunnel: ${reason}`);
+  let success = false;
   try {
     execSync('pm2 restart tunnel', { stdio: 'pipe', windowsHide: true });
     console.log('[tunnel-watchdog] ✓ tunnel 已重啟');
+    success = true;
   } catch (err) {
     console.error('[tunnel-watchdog] ✗ 重啟失敗:', err.message);
   }
 
-  // Telegram 通知（非同步，不等待）
-  const chatId = getChatId();
-  if (chatId) {
-    try {
-      const telegram = require('./telegram');
-      telegram.sendMessage(chatId, `⚠️ <b>Tunnel Watchdog</b>\n${reason}\n已自動重啟 cloudflared`, {
-        parse_mode: 'HTML',
-      }).catch(() => {});
-    } catch {}
+  // 只在重啟失敗時才通知（成功就靜默處理）
+  if (!success) {
+    const chatId = getChatId();
+    if (chatId) {
+      try {
+        const telegram = require('./telegram');
+        telegram.sendMessage(chatId, `🚨 <b>Tunnel Watchdog</b>\n${reason}\n自動重啟失敗，需要人工處理`, {
+          parse_mode: 'HTML',
+        }).catch(() => {});
+      } catch {}
+    }
   }
 }
 
