@@ -5,8 +5,8 @@
  *   1. 快速檢查：connector count（本地，無網路）
  *   2. 深度檢查：外部 HTTP 探測（抓 stream 斷裂等問題）
  *   3. 連續 2 次失敗才重啟（避免誤殺）
- *   4. 重啟後 5 分鐘冷卻期
- *   5. Telegram 通知
+ *   4. 最多重啟 3 次，之後放棄（避免洗頻）
+ *   5. 只在放棄時通知一次
  */
 
 const { execSync } = require('child_process');
@@ -15,8 +15,11 @@ const { getTunnelInfo } = require('./tunnel-info');
 const CHECK_INTERVAL = 2 * 60 * 1000;   // 2 分鐘
 const COOLDOWN = 5 * 60 * 1000;          // 重啟後冷卻 5 分鐘
 const PROBE_TIMEOUT = 10000;             // 外部探測 10 秒 timeout
+const MAX_RESTARTS = 3;                  // 最多重啟 3 次就放棄
 
 let consecutiveFailures = 0;
+let restartCount = 0;
+let gaveUp = false;
 let lastRestartAt = 0;
 let timer = null;
 
@@ -44,38 +47,52 @@ function getChatId() {
   return '';
 }
 
+function notify(message) {
+  const chatId = getChatId();
+  if (!chatId) return;
+  try {
+    const telegram = require('./telegram');
+    telegram.sendMessage(chatId, message, { parse_mode: 'HTML' }).catch(() => {});
+  } catch {}
+}
+
 function restartTunnel(reason) {
+  if (gaveUp) return;
+
   const now = Date.now();
   if (now - lastRestartAt < COOLDOWN) {
-    console.log(`[tunnel-watchdog] 冷卻中，跳過重啟 (${reason})`);
+    return; // 冷卻中，靜默跳過
+  }
+
+  if (restartCount >= MAX_RESTARTS) {
+    gaveUp = true;
+    console.log(`[tunnel-watchdog] 已重啟 ${MAX_RESTARTS} 次仍未恢復，放棄自動修復`);
+    notify(`🚨 <b>Tunnel Watchdog</b>\ncloudflared 重啟 ${MAX_RESTARTS} 次仍無法恢復\n需要人工檢查`);
     return;
   }
 
   lastRestartAt = now;
+  restartCount++;
   consecutiveFailures = 0;
 
-  console.log(`[tunnel-watchdog] 重啟 tunnel: ${reason}`);
-  let success = false;
+  console.log(`[tunnel-watchdog] 重啟 tunnel (${restartCount}/${MAX_RESTARTS}): ${reason}`);
   try {
     execSync('pm2 restart tunnel', { stdio: 'pipe', windowsHide: true });
     console.log('[tunnel-watchdog] ✓ tunnel 已重啟');
-    success = true;
   } catch (err) {
     console.error('[tunnel-watchdog] ✗ 重啟失敗:', err.message);
+    gaveUp = true;
+    notify(`🚨 <b>Tunnel Watchdog</b>\n${reason}\npm2 restart 失敗，需要人工處理`);
   }
+}
 
-  // 只在重啟失敗時才通知（成功就靜默處理）
-  if (!success) {
-    const chatId = getChatId();
-    if (chatId) {
-      try {
-        const telegram = require('./telegram');
-        telegram.sendMessage(chatId, `🚨 <b>Tunnel Watchdog</b>\n${reason}\n自動重啟失敗，需要人工處理`, {
-          parse_mode: 'HTML',
-        }).catch(() => {});
-      } catch {}
-    }
+function markRecovered() {
+  if (restartCount > 0 || gaveUp) {
+    console.log('[tunnel-watchdog] ✓ tunnel 已恢復正常');
   }
+  consecutiveFailures = 0;
+  restartCount = 0;
+  gaveUp = false;
 }
 
 async function check() {
@@ -83,14 +100,20 @@ async function check() {
   try {
     const info = getTunnelInfo();
     if (info.connectorCount === 0) {
-      restartTunnel('Connector count = 0');
+      consecutiveFailures++;
+      if (consecutiveFailures >= 2) {
+        restartTunnel('Connector count = 0');
+      }
       return;
     }
   } catch {}
 
   // Phase 2: 外部 HTTP 探測（抓 stream 斷裂）
   const probeUrl = getProbeUrl();
-  if (!probeUrl) return; // 沒設定 domain，跳過深度檢查
+  if (!probeUrl) {
+    markRecovered();
+    return;
+  }
 
   try {
     const res = await fetch(probeUrl, {
@@ -108,12 +131,8 @@ async function check() {
     }
 
     // 正常
-    if (consecutiveFailures > 0) {
-      console.log('[tunnel-watchdog] 探測恢復正常');
-    }
-    consecutiveFailures = 0;
+    markRecovered();
   } catch (err) {
-    // timeout 或網路錯誤
     consecutiveFailures++;
     console.log(`[tunnel-watchdog] 探測異常: ${err.message}，連續 ${consecutiveFailures} 次`);
     if (consecutiveFailures >= 2) {
@@ -126,7 +145,6 @@ function start() {
   if (timer) return;
   console.log('[tunnel-watchdog] 啟動（每 2 分鐘檢查）');
   timer = setInterval(check, CHECK_INTERVAL);
-  // 啟動後 30 秒做第一次檢查（給 tunnel 時間連線）
   setTimeout(check, 30000);
 }
 
