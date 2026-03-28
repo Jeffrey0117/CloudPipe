@@ -173,7 +173,7 @@ const createRouter = function(config) {
   // 載入 services/（使用 hotloader）
   hotloader.loadAllServices(servicesDir);
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
 
     // CORS (origin whitelist)
@@ -514,6 +514,66 @@ const createRouter = function(config) {
     res.on('close', () => { proxyReq.destroy(); });
     req.pipe(proxyReq);
   }
+
+  // ── WebSocket upgrade proxy ──
+  server.on('upgrade', (req, socket, head) => {
+    const host = req.headers.host || '';
+    const hostname = host.split(':')[0];
+    const domain = config.domain || 'isnowfriend.com';
+    const port = resolveHostnameToPort(hostname, domain);
+
+    if (!port) {
+      socket.destroy();
+      return;
+    }
+
+    const ip = logger.getClientIp(req);
+    const existingXff = req.headers['x-forwarded-for'];
+    const headers = {
+      ...req.headers,
+      'x-forwarded-for': existingXff ? `${ip}, ${existingXff}` : ip,
+      'x-real-ip': ip,
+      'x-forwarded-proto': 'https',
+    };
+
+    const proxyReq = http.request({
+      hostname: 'localhost',
+      port,
+      path: req.url,
+      method: req.method,
+      headers,
+    });
+
+    proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+      // Build raw HTTP 101 response
+      let rawResponse = `HTTP/1.1 101 Switching Protocols\r\n`;
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        rawResponse += `${key}: ${value}\r\n`;
+      }
+      rawResponse += '\r\n';
+      socket.write(rawResponse);
+
+      if (proxyHead.length > 0) socket.write(proxyHead);
+      if (head.length > 0) proxySocket.write(head);
+
+      proxySocket.pipe(socket);
+      socket.pipe(proxySocket);
+
+      proxySocket.on('error', () => socket.destroy());
+      socket.on('error', () => proxySocket.destroy());
+      proxySocket.on('close', () => socket.destroy());
+      socket.on('close', () => proxySocket.destroy());
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error(`[ws-proxy] Error proxying WS to port ${port}:`, err.message);
+      socket.destroy();
+    });
+
+    proxyReq.end();
+  });
+
+  return server;
 };
 
 createRouter.invalidateRouteCache = invalidateRouteCache;
